@@ -180,7 +180,8 @@ export type WorkspaceRef = { id: string; name: string; role: Role };
 export type AuthConfig = { mode: "local" | "supabase"; supabase_url: string | null; supabase_key: string | null };
 export type Me = { mode: "local" | "supabase"; user: { id: string; email: string }; platform_admin: boolean; workspaces: WorkspaceRef[] };
 export type Member = { workspace_id: string; user_id: string; email: string; role: Role; joined_at: string };
-export type Invite = { id: string; email: string; role: Role; invited_by: string; created_at: string; expires_at: string; token: string };
+export type Invite = { id: string; email: string; role: Role; invited_by: string; created_at: string; expires_at: string };
+export type Delivery = { invite: Invite; link: string; emailed: boolean; email_problem: string | null };
 export type People = { members: Member[]; invites: Invite[] };
 
 export const accountApi = {
@@ -191,7 +192,8 @@ export const accountApi = {
   people: () => request<People>("/api/workspaces/current/members"),
   setRole: (userId: string, role: Role) => request<People>(`/api/workspaces/current/members/${userId}`, json("PUT", { role })),
   removeMember: (userId: string) => request<People>(`/api/workspaces/current/members/${userId}`, { method: "DELETE" }),
-  invite: (email: string, role: Role) => request<People & { invite: Invite }>("/api/workspaces/current/invites", json("POST", { email, role })),
+  invite: (email: string, role: Role) => request<People & Delivery>("/api/workspaces/current/invites", json("POST", { email, role })),
+  resendInvite: (id: string) => request<People & Delivery>(`/api/workspaces/current/invites/${id}/resend`, { method: "POST" }),
   revokeInvite: (id: string) => request<People>(`/api/workspaces/current/invites/${id}`, { method: "DELETE" }),
   showInvite: (token: string) =>
     request<{ workspace: string; email: string; role: Role; invited_by: string }>(`/api/invites/${encodeURIComponent(token)}`),

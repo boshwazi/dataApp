@@ -67,6 +67,18 @@ URL and publishable key to `.env` (see `.env.example`). Then:
   - **Viewers** see published dashboards, ask questions about them and export them.
   - **Creators** also build and publish datasets and dashboards.
   - **Admins** also manage people.
+- **Members** emails invites through your Supabase email setup when `SUPABASE_SECRET_KEY` is set.
+  Each email has a sign-in link that lands on the invite, and the link is also copied to send by hand.
+- With `DATABASE_URL` set, workspaces, members, invites and dataset and dashboard records live in
+  Supabase Postgres (schema `datawazi`, not exposed to the public data API).
+  - Every request runs as the signed-in user, so row-level security in Postgres also keeps
+    companies apart, and viewers can't change anything.
+  - Invite links are stored only as hashes.
+  - Data files stay in `data/workspaces/<id>/`. Each published dataset version is also kept in Supabase
+    Storage (private bucket `datawazi`), so dashboards survive a new server.
+  - On first start, the local records are copied into Postgres. After that, the JSON files are no longer used.
+  - Tests run the sign-in and role tests against both stores. The Postgres runs use a throwaway schema
+    in the project's database, dropped afterwards.
 - Only the emails in `PLATFORM_ADMINS` can change the AI provider in Settings.
   - The first of them to sign in inherits the data built before sign-in was turned on.
 

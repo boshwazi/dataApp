@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Copy, Trash2, UserPlus } from "lucide-react";
-import { accountApi, type People, type Role } from "../api";
+import { Send, Trash2, UserPlus } from "lucide-react";
+import { accountApi, type Delivery, type People, type Role } from "../api";
 import { useAccount } from "../components/account";
 import { Skeleton, useCrumbs, useDialogs, useToast } from "../components/ui";
 
@@ -43,7 +43,7 @@ export function Members() {
       const result = await accountApi.invite(email, role);
       setPeople(result);
       setEmail("");
-      await copy(result.invite.token, `Invite created. The link for ${result.invite.email} is copied; send it to them.`);
+      await delivered(result);
     } catch (e) {
       toast((e as Error).message, "error");
     } finally {
@@ -51,11 +51,34 @@ export function Members() {
     }
   }
 
-  async function copy(token: string, message = "Invite link copied") {
-    const link = `${window.location.origin}/invite/${token}`;
+  async function delivered(result: Delivery) {
+    if (result.emailed) {
+      toast(`Invite emailed to ${result.invite.email}. The link is copied too, in case it lands in spam.`);
+      await copy(result.link, null);
+    } else {
+      await copy(
+        result.link,
+        result.email_problem
+          ? `The email couldn't be sent (${result.email_problem}). The link is copied; send it to ${result.invite.email} yourself.`
+          : `Invite created. The link for ${result.invite.email} is copied; send it to them.`,
+      );
+    }
+  }
+
+  async function resend(id: string) {
+    try {
+      const result = await accountApi.resendInvite(id);
+      setPeople(result);
+      await delivered(result);
+    } catch (e) {
+      toast((e as Error).message, "error");
+    }
+  }
+
+  async function copy(link: string, message: string | null = "Invite link copied") {
     try {
       await navigator.clipboard.writeText(link);
-      toast(message);
+      if (message) toast(message);
     } catch {
       await dialogs.prompt({ title: "Invite link", label: "Copy this link and send it", initial: link, confirmLabel: "Done" });
     }
@@ -97,10 +120,10 @@ export function Members() {
               </select>
             </label>
             <button type="submit" className="align-end" disabled={busy || !email.trim()}>
-              <UserPlus size={16} aria-hidden="true" /> {busy ? "Inviting…" : "Create invite link"}
+              <UserPlus size={16} aria-hidden="true" /> {busy ? "Inviting…" : "Send invite"}
             </button>
           </div>
-          <p className="muted small">{ROLE_HELP[role]}. The link works for 14 days, for that email address only.</p>
+          <p className="muted small">{ROLE_HELP[role]}. We email them a sign-in link that works for 14 days, for that address only.</p>
         </form>
       )}
 
@@ -160,8 +183,8 @@ export function Members() {
                     {new Date(i.expires_at).toLocaleDateString()}
                   </span>
                 </span>
-                <button className="secondary" onClick={() => copy(i.token)}>
-                  <Copy size={15} aria-hidden="true" /> Copy link
+                <button className="secondary" onClick={() => resend(i.id)} title="Sends a new link; the old one stops working">
+                  <Send size={15} aria-hidden="true" /> Send again
                 </button>
                 <button className="icon danger" aria-label={`Withdraw the invite for ${i.email}`} onClick={() => change(() => accountApi.revokeInvite(i.id), "Invite withdrawn")}>
                   <Trash2 size={16} />

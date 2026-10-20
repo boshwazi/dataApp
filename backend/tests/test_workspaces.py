@@ -2,14 +2,23 @@
 
 import re
 import time
+import uuid
+from pathlib import Path
 
 import jwt
+import psycopg
 import pytest
+from dotenv import dotenv_values
 from fastapi.testclient import TestClient
 
 from app.auth import AuthConfig
+from app.db import Database
 from app.main import create_app
 from app.settings import ENV_VARS
+
+# The Postgres runs use the project's real Supabase database (DATABASE_URL in .env), each in a
+# throwaway schema that is dropped afterwards. Without it, only the local file store is tested.
+DATABASE_URL = dotenv_values(Path(__file__).resolve().parents[2] / ".env").get("DATABASE_URL")
 
 URL = "https://demo.supabase.co"
 SECRET = "test-secret-that-is-long-enough-for-hs256"
@@ -21,9 +30,14 @@ def clean_env(monkeypatch):
         monkeypatch.delenv(var, raising=False)
 
 
+def uid(user: str) -> str:
+    """Supabase user ids are UUIDs; each test person gets a stable one."""
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, f"datawazi-test/{user}"))
+
+
 def token(user: str, email: str | None = None, **overrides) -> str:
     key = overrides.pop("key", SECRET)
-    claims = {"sub": user, "email": email or f"{user}@example.com", "aud": "authenticated",
+    claims = {"sub": uid(user), "email": email or f"{user}@example.com", "aud": "authenticated",
               "iss": f"{URL}/auth/v1", "exp": int(time.time()) + 3600, **overrides}
     return jwt.encode(claims, key, algorithm="HS256")
 
@@ -55,11 +69,28 @@ def ok(response):
     return response.json()
 
 
+CONFIG = AuthConfig(supabase_url=URL, anon_key="sb_publishable_test", jwt_secret=SECRET,
+                    platform_admins={"ops@example.com"})
+
+
+@pytest.fixture(params=["files", "postgres"])
+def database(request):
+    if request.param == "files":
+        yield None
+        return
+    if not DATABASE_URL:
+        pytest.skip("No DATABASE_URL in .env")
+    schema = f"dwtest_{uuid.uuid4().hex[:10]}"
+    db = Database(DATABASE_URL, schema=schema, pool_size=3)
+    yield db
+    db.close()
+    with psycopg.connect(DATABASE_URL, autocommit=True) as con:
+        con.execute(f"drop schema if exists {schema} cascade")
+
+
 @pytest.fixture
-def api(tmp_path):
-    config = AuthConfig(supabase_url=URL, anon_key="sb_publishable_test", jwt_secret=SECRET,
-                        platform_admins={"ops@example.com"})
-    return TestClient(create_app(data_dir=tmp_path, client_factory=lambda s: None, auth=config))
+def api(tmp_path, database):
+    return TestClient(create_app(data_dir=tmp_path, client_factory=lambda s: None, auth=CONFIG, database=database))
 
 
 SALES = "order,qty\n1,2\n2,1\n3,4\n"
@@ -166,8 +197,8 @@ def test_one_company_never_reaches_another_companys_data(api):
 def test_files_live_in_separate_workspace_folders(api, tmp_path):
     _, a = company(api, "ana", "Ana Trading")
     _, b = company(api, "ben", "Ben Foods")
-    assert (tmp_path / "workspaces" / a["workspace"] / "datasets" / a["dataset"] / "project.json").exists()
-    assert (tmp_path / "workspaces" / b["workspace"] / "datasets" / b["dataset"] / "project.json").exists()
+    assert (tmp_path / "workspaces" / a["workspace"] / "datasets" / a["dataset"] / "data.duckdb").exists()
+    assert (tmp_path / "workspaces" / b["workspace"] / "datasets" / b["dataset"] / "data.duckdb").exists()
     assert not (tmp_path / "workspaces" / b["workspace"] / "datasets" / a["dataset"]).exists()
 
 
@@ -175,7 +206,9 @@ def test_files_live_in_separate_workspace_folders(api, tmp_path):
 
 
 def invite(admin: Person, email: str, role: str) -> str:
-    return ok(admin.post("/api/workspaces/current/invites", json={"email": email, "role": role}))["invite"]["token"]
+    sent = ok(admin.post("/api/workspaces/current/invites", json={"email": email, "role": role}))
+    assert "token" not in sent["invite"] and "token_hash" not in sent["invite"]  # shown once, as the link
+    return sent["link"].rsplit("/", 1)[1]
 
 
 def test_invites_go_to_the_named_email_only(api):
@@ -231,14 +264,15 @@ def test_creators_build_but_do_not_manage_people(api):
 def test_admins_manage_roles_and_keep_one_admin(api):
     ana, a = company(api, "ana", "Ana Trading")
     Person(api, "cat").post(f"/api/invites/{invite(ana, 'cat@example.com', 'creator')}/accept")
-    assert ana.call("PUT", "/api/workspaces/current/members/ana", json={"role": "viewer"}).status_code == 409
-    assert ana.call("DELETE", "/api/workspaces/current/members/ana").status_code == 409
-    roles = {m["user_id"]: m["role"] for m in ok(ana.call("PUT", "/api/workspaces/current/members/cat", json={"role": "admin"}))["members"]}
-    assert roles == {"ana": "admin", "cat": "admin"}
-    ok(ana.call("PUT", "/api/workspaces/current/members/ana", json={"role": "viewer"}))  # another admin exists now
+    members = "/api/workspaces/current/members"
+    assert ana.call("PUT", f"{members}/{uid('ana')}", json={"role": "viewer"}).status_code == 409
+    assert ana.call("DELETE", f"{members}/{uid('ana')}").status_code == 409
+    roles = {m["email"]: m["role"] for m in ok(ana.call("PUT", f"{members}/{uid('cat')}", json={"role": "admin"}))["members"]}
+    assert roles == {"ana@example.com": "admin", "cat@example.com": "admin"}
+    ok(ana.call("PUT", f"{members}/{uid('ana')}", json={"role": "viewer"}))  # another admin exists now
     cat = Person(api, "cat", a["workspace"])
-    left = ok(cat.call("DELETE", "/api/workspaces/current/members/ana"))
-    assert [m["user_id"] for m in left["members"]] == ["cat"]
+    left = ok(cat.call("DELETE", f"{members}/{uid('ana')}"))
+    assert [m["email"] for m in left["members"]] == ["cat@example.com"]
     assert ok(Person(api, "ana").get("/api/me"))["workspaces"] == []
 
     pending = invite(cat, "dan@example.com", "viewer")
@@ -264,11 +298,10 @@ def test_only_platform_admins_change_the_ai_provider(api):
     assert response.status_code == 401
 
 
-def test_data_from_before_sign_in_goes_to_the_first_platform_admin(tmp_path):
+def test_data_from_before_sign_in_goes_to_the_first_platform_admin(tmp_path, database):
     local = TestClient(create_app(data_dir=tmp_path, client_factory=lambda s: None))
     dataset = ok(local.post("/api/datasets", json={"name": "Built offline"}))
-    config = AuthConfig(supabase_url=URL, jwt_secret=SECRET, platform_admins={"ops@example.com"})
-    api = TestClient(create_app(data_dir=tmp_path, client_factory=lambda s: None, auth=config))
+    api = TestClient(create_app(data_dir=tmp_path, client_factory=lambda s: None, auth=CONFIG, database=database))
     assert ok(Person(api, "ana").get("/api/me"))["workspaces"] == []  # not a platform admin: nothing inherited
     ops = Person(api, "ops")
     assert ok(ops.get("/api/me"))["workspaces"] == [{"id": "local", "name": "Local workspace", "role": "admin"}]

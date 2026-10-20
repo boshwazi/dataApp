@@ -80,10 +80,13 @@ class FolderStore:
     filename = "record.json"
     label = "Record"
 
-    def __init__(self, root: Path | Callable[[], Path], workspace: Callable[[], str] = lambda: LOCAL_WORKSPACE):
+    def __init__(self, root: Path | Callable[[], Path], workspace: Callable[[], str] = lambda: LOCAL_WORKSPACE,
+                 records=None):
         # root may follow the current workspace (see workspaces.folder_for); a fixed path suits tests and tools.
+        # records, when given (db.PgRecords), keeps the JSON in Postgres; data files stay in the folders.
         self._root = root
         self.workspace = workspace
+        self.records = records
         self._lock = threading.RLock()
 
     @property
@@ -91,12 +94,20 @@ class FolderStore:
         return self._root() if callable(self._root) else self._root
 
     def all(self) -> list[dict]:
+        if self.records is not None:
+            return self.records.all(self.workspace())
         if not self.root.exists():
             return []
         records = [json.loads(path.read_text(encoding="utf-8")) for path in self.root.glob(f"*/{self.filename}")]
         return sorted(records, key=lambda r: r["updated_at"], reverse=True)
 
     def get(self, record_id: str) -> dict:
+        if self.records is not None:
+            self._folder(record_id)  # checks the id's shape
+            record = self.records.get(self.workspace(), record_id)
+            if record is None:
+                raise NotFound(f"{self.label} not found.")
+            return record
         path = self._folder(record_id) / self.filename
         if not path.exists():
             raise NotFound(f"{self.label} not found.")
@@ -104,6 +115,11 @@ class FolderStore:
 
     def save(self, record: dict) -> None:
         record["updated_at"] = now()
+        if self.records is not None:
+            self._folder(record["id"]).mkdir(parents=True, exist_ok=True)  # its data files live here
+            with self._lock:
+                self.records.save(self.workspace(), record)
+            return
         folder = self._folder(record["id"])
         folder.mkdir(parents=True, exist_ok=True)
         tmp = folder / f"{self.filename}.tmp"
@@ -126,6 +142,12 @@ class FolderStore:
 
     def delete(self, record_id: str) -> None:
         folder = self._folder(record_id)
+        if self.records is not None:
+            with self._lock:
+                if not self.records.delete(self.workspace(), record_id):
+                    raise NotFound(f"{self.label} not found.")
+                shutil.rmtree(folder, ignore_errors=True)
+            return
         if not folder.exists():
             raise NotFound(f"{self.label} not found.")
         with self._lock:
@@ -140,6 +162,7 @@ class FolderStore:
 class ProjectStore(FolderStore):
     filename = "project.json"
     label = "Dataset"
+    backup = None  # supabase_admin.PublishedBackup when storage is configured
 
     def create(self, name: str) -> dict:
         project = {
@@ -244,21 +267,35 @@ class ProjectStore(FolderStore):
             con.execute("CHECKPOINT")  # everything into the main file before copying it
         name = f"published-v{version}.duckdb"
         shutil.copyfile(folder / "data.duckdb", folder / name)
+        if self.backup is not None:
+            self.backup.save(self.workspace(), project_id, name, (folder / name).read_bytes())
         return name
 
     def remove_old_copies(self, project_id: str, keep: str) -> None:
+        old = []
         for path in self._folder(project_id).glob("published-v*.duckdb"):
             if path.name != keep:
+                old.append(path.name)
                 try:
                     path.unlink()
                 except OSError:
                     pass  # still open by a dashboard request; removed next time
+        if self.backup is not None and old:
+            self.backup.forget(self.workspace(), project_id, old)
 
     @contextmanager
     def connect_published(self, project_id: str, filename: str):
         if not re.fullmatch(r"published-v\d+\.duckdb", filename or ""):
             raise NotFound("This dataset has no published version.")
         path = self._folder(project_id) / filename
+        if not path.exists() and self.backup is not None:
+            # A new or rebuilt server: fetch the published copy from storage.
+            data = self.backup.restore(self.workspace(), project_id, filename)
+            if data:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                tmp = path.with_suffix(".part")
+                tmp.write_bytes(data)
+                tmp.replace(path)
         if not path.exists():
             raise NotFound("The published copy of this dataset is missing; publish it again.")
         con = duckdb.connect(str(path), read_only=True, config={"enable_external_access": False})

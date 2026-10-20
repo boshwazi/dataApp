@@ -84,8 +84,15 @@ def build_router(
 
     def respond(dashboard_id: str, change=None, side: str = "draft", with_data: bool = True,
                 summary: str | None = None, actor: str = "You") -> dict:
-        """Apply `change(project, con)` to the draft (if any) as one locked edit, log it, then return the dashboard."""
+        """Apply `change(project, con)` to the draft (if any) as one locked edit, log it, then return the dashboard.
+
+        Without a change it only reads, so viewers never write: only a creator's first look is recorded."""
         try:
+            if change is None:
+                dash = boards.get(dashboard_id)
+                if dash.get("reviewed_version") is not None or not workspaces.current().at_least("creator"):
+                    with opened(dash) as (dataset, frozen, con):
+                        return view(dash, dataset, frozen, con, side, with_data)
             with boards.edit(dashboard_id) as dash, opened(dash) as (dataset, frozen, con):
                 if dash.get("reviewed_version") is None:
                     activity.dashboard_reviewed(dash, dataset)  # first sight of the data counts as reviewed

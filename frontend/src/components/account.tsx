@@ -78,6 +78,15 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       const code = url.searchParams.get("code");
       const linkError = url.searchParams.get("error_description") ?? new URLSearchParams(url.hash.slice(1)).get("error_description");
       let problem: string | undefined = linkError ?? undefined;
+      // Invite emails sent by the server sign people in with tokens in the address's # part.
+      const hash = new URLSearchParams(url.hash.slice(1));
+      const access_token = hash.get("access_token");
+      const refresh_token = hash.get("refresh_token");
+      if (access_token && refresh_token) {
+        const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+        if (error) problem = error.message;
+        window.history.replaceState(null, "", url.pathname + url.search);
+      }
       if (code || linkError) {
         if (code) {
           const { error } = await supabase.auth.exchangeCodeForSession(code);

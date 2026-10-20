@@ -15,7 +15,11 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import ingest, llm, refresh, workspaces
+import os
+
+from . import db, ingest, llm, refresh, workspaces
+from .db import Database, PgRecords, PgWorkspaceStore
+from .supabase_admin import PublishedBackup, SupabaseAdmin, SupabaseError
 from .auth import AuthConfig, AuthGuard
 from .projects import LOCAL_WORKSPACE, ProjectStore
 from .projects_api import build_router
@@ -68,6 +72,8 @@ def create_app(
     client_factory: Callable[[ProviderSettings], object] = llm.make_client,
     fetch_url: Callable[[str], tuple[bytes, str, str]] = ingest.http_get,
     auth: AuthConfig | None = None,
+    database: "Database | None" = None,
+    admin: SupabaseAdmin | None = None,
 ) -> FastAPI:
     auth = auth or AuthConfig()  # local mode unless sign-in is configured
     store = SettingsStore(data_dir / "settings.json")
@@ -84,9 +90,26 @@ def create_app(
     for workspace_id in members.ids():
         with workspaces.use(workspace_id):
             migrate(root / workspace_id, projects, boards)
+
+    if database is not None:
+        # Hosted: workspaces, members, invites and records live in Postgres with row-level security.
+        # Data files stay in the workspace folders; published versions are also kept in storage.
+        database.migrate()
+        members = PgWorkspaceStore(database)
+        db.import_local(data_dir, database, members)
+        members.ensure(LOCAL_WORKSPACE, "Local workspace")
+        boards = DashboardStore(workspaces.folder_for(root, "dashboards"), current, records=PgRecords(database, "dashboard"))
+        projects = ProjectStore(workspaces.folder_for(root, "datasets"), current, records=PgRecords(database, "dataset"))
+    if admin is not None:
+        try:
+            admin.ensure_bucket()
+            projects.backup = PublishedBackup(admin)
+        except SupabaseError:
+            log.exception("Storage is not available; published data stays on this server only")
+
     app.state.refresh_job = (projects, boards, fetch_url, members)
     app.add_middleware(AuthGuard, config=auth, store=members)
-    app.include_router(build_workspaces_router(members, auth))
+    app.include_router(build_workspaces_router(members, auth, admin))
     app.include_router(build_router(projects, boards, store, client_factory, fetch_url, SAMPLES_DIR))
     app.include_router(build_transform_router(projects, store, client_factory))
     app.include_router(build_model_router(projects, store, client_factory))
@@ -144,4 +167,17 @@ def create_app(
 
 
 load_dotenv(REPO_ROOT / ".env")
-app = create_app(run_scheduler=True, auth=AuthConfig.from_env())
+def hosted_services(auth: AuthConfig) -> dict:
+    """Postgres and Supabase admin services, when sign-in is on and their settings are in .env."""
+    if auth.mode != "supabase":
+        return {}
+    services = {}
+    if os.getenv("DATABASE_URL"):
+        services["database"] = Database(os.environ["DATABASE_URL"])
+    if os.getenv("SUPABASE_SECRET_KEY"):
+        services["admin"] = SupabaseAdmin(auth.supabase_url, os.environ["SUPABASE_SECRET_KEY"])
+    return services
+
+
+_auth = AuthConfig.from_env()
+app = create_app(run_scheduler=True, auth=_auth, **hosted_services(_auth))

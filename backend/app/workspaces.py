@@ -11,6 +11,7 @@ so a missed check fails closed. In the hosted phase the records here move to Pos
 row-level security on workspace_id; the folders move to per-workspace storage.
 """
 
+import hashlib
 import json
 import re
 import secrets
@@ -224,26 +225,40 @@ class WorkspaceStore:
         if not admins:
             raise WorkspaceError("A workspace needs at least one admin. Make someone else an admin first.", 409)
 
-    # Invites
+    # Invites. Only a hash of each token is kept; the link is shown once, when made or renewed.
+
+    @staticmethod
+    def _public(invite: dict) -> dict:
+        return {k: v for k, v in invite.items() if k != "token_hash"}
 
     def invite(self, workspace_id: str, email: str, role: str, by: User) -> dict:
         email = (email or "").strip().lower()
         if not EMAIL.match(email):
             raise WorkspaceError("Enter a valid email address.")
         clean_role(role)
+        token = new_token()
         with self._edit() as data:
             if any(m["workspace_id"] == workspace_id and m["email"] == email for m in data["members"]):
                 raise WorkspaceError(f"{email} is already a member.", 409)
             # A new invite to the same address replaces the old one.
             data["invites"] = [i for i in data["invites"] if not (i["workspace_id"] == workspace_id and i["email"] == email)]
             invite = {"id": new_id(), "workspace_id": workspace_id, "email": email, "role": role,
-                      "token": secrets.token_urlsafe(24), "invited_by": by.email, "created_at": now(),
-                      "expires_at": (datetime.now(timezone.utc) + timedelta(days=INVITE_DAYS)).isoformat(timespec="seconds")}
+                      "token_hash": token_hash(token), "invited_by": by.email, "created_at": now(),
+                      "expires_at": _expiry()}
             data["invites"].append(invite)
-            return invite
+            return {**self._public(invite), "token": token}
 
     def invites(self, workspace_id: str) -> list[dict]:
-        return [i for i in self._load()["invites"] if i["workspace_id"] == workspace_id]
+        return [self._public(i) for i in self._load()["invites"] if i["workspace_id"] == workspace_id]
+
+    def renew(self, workspace_id: str, invite_id: str) -> dict:
+        token = new_token()
+        with self._edit() as data:
+            for invite in data["invites"]:
+                if invite["workspace_id"] == workspace_id and invite["id"] == invite_id:
+                    invite["token_hash"], invite["expires_at"] = token_hash(token), _expiry()
+                    return {**self._public(invite), "token": token}
+        raise WorkspaceError("Invite not found.", 404)
 
     def revoke(self, workspace_id: str, invite_id: str) -> None:
         with self._edit() as data:
@@ -252,24 +267,25 @@ class WorkspaceStore:
             if len(data["invites"]) == before:
                 raise WorkspaceError("Invite not found.", 404)
 
-    def find_invite(self, token: str) -> dict:
-        for invite in self._load()["invites"]:
-            if secrets.compare_digest(invite["token"], token or ""):
+    @staticmethod
+    def _matching(data: dict, token: str) -> dict:
+        wanted = token_hash(token)
+        for invite in data["invites"]:
+            if secrets.compare_digest(invite.get("token_hash", ""), wanted):
                 if datetime.fromisoformat(invite["expires_at"]) < datetime.now(timezone.utc):
                     raise WorkspaceError("This invite has expired. Ask for a new one.", 410)
                 return invite
         raise WorkspaceError("This invite link is not valid. It may have been used or withdrawn.", 404)
 
+    def find_invite(self, token: str) -> dict:
+        data = self._load()
+        invite = self._matching(data, token)
+        name = next((w["name"] for w in data["workspaces"] if w["id"] == invite["workspace_id"]), "?")
+        return {"workspace": name, "email": invite["email"], "role": invite["role"], "invited_by": invite["invited_by"]}
+
     def accept(self, token: str, user: User) -> dict:
         with self._edit() as data:
-            invite = None
-            for candidate in data["invites"]:
-                if secrets.compare_digest(candidate["token"], token or ""):
-                    invite = candidate
-            if invite is None:
-                raise WorkspaceError("This invite link is not valid. It may have been used or withdrawn.", 404)
-            if datetime.fromisoformat(invite["expires_at"]) < datetime.now(timezone.utc):
-                raise WorkspaceError("This invite has expired. Ask for a new one.", 410)
+            invite = self._matching(data, token)
             if invite["email"] != user.email.lower():
                 raise WorkspaceError(f"This invite is for {invite['email']}. Sign in with that address to accept it.", 403)
             if not any(m["workspace_id"] == invite["workspace_id"] and m["user_id"] == user.id for m in data["members"]):
@@ -277,6 +293,17 @@ class WorkspaceStore:
             data["invites"].remove(invite)
             return next(w for w in data["workspaces"] if w["id"] == invite["workspace_id"])
 
+
+def new_token() -> str:
+    return secrets.token_urlsafe(24)
+
+
+def token_hash(token: str) -> str:
+    return hashlib.sha256((token or "").encode()).hexdigest()
+
+
+def _expiry() -> str:
+    return (datetime.now(timezone.utc) + timedelta(days=INVITE_DAYS)).isoformat(timespec="seconds")
 
 def move_to_workspaces(data_dir: Path) -> None:
     """Older versions kept one set of datasets and dashboards; they become the local workspace."""

@@ -1,12 +1,18 @@
 """Who am I, workspaces, members and invites."""
 
-from fastapi import APIRouter, HTTPException
+import logging
+import os
+
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from . import workspaces
 from .auth import AuthConfig
 from .projects import LOCAL_WORKSPACE
+from .supabase_admin import SupabaseAdmin, SupabaseError
 from .workspaces import WorkspaceError, WorkspaceStore
+
+log = logging.getLogger(__name__)
 
 
 class NameBody(BaseModel):
@@ -22,7 +28,7 @@ class InviteBody(BaseModel):
     role: str = "viewer"
 
 
-def build_router(store: WorkspaceStore, config: AuthConfig) -> APIRouter:
+def build_router(store: WorkspaceStore, config: AuthConfig, mailer: SupabaseAdmin | None = None) -> APIRouter:
     router = APIRouter()
 
     def checked(action):
@@ -32,8 +38,22 @@ def build_router(store: WorkspaceStore, config: AuthConfig) -> APIRouter:
             raise HTTPException(exc.status, str(exc)) from exc
 
     def invite_view(invite: dict) -> dict:
-        # The token is shown to admins as a link to pass on; until email sending exists, that is the delivery.
-        return {k: invite[k] for k in ("id", "email", "role", "invited_by", "created_at", "expires_at", "token")}
+        # Only a hash of the token is stored, so a link is shown once: when the invite is made or sent again.
+        return {k: invite[k] for k in ("id", "email", "role", "invited_by", "created_at", "expires_at")}
+
+    def deliver(request: Request, invite: dict) -> dict:
+        """Email the invite when Supabase is set up; the link is returned either way, to copy and send by hand."""
+        site = os.getenv("PUBLIC_URL", "").rstrip("/") or str(request.base_url).rstrip("/")
+        link = f"{site}/invite/{invite['token']}"
+        emailed, problem = False, None
+        if mailer is not None:
+            try:
+                mailer.send_invite(invite["email"], link)
+                emailed = True
+            except SupabaseError as exc:
+                log.warning("Invite email to %s failed: %s", invite["email"], exc)
+                problem = str(exc)
+        return {"invite": invite_view(invite), "link": link, "emailed": emailed, "email_problem": problem}
 
     @router.get("/api/auth/config")
     def auth_config():
@@ -85,12 +105,19 @@ def build_router(store: WorkspaceStore, config: AuthConfig) -> APIRouter:
         return members()
 
     @router.post("/api/workspaces/current/invites")
-    def invite(body: InviteBody):
+    def invite(body: InviteBody, request: Request):
         access = workspaces.current()
         if config.mode == "local":
             raise HTTPException(400, "Inviting people needs sign-in, which the hosted version adds.")
         created = checked(lambda: store.invite(access.workspace_id, body.email, body.role, access.user))
-        return {"invite": invite_view(created), **members()}
+        return {**deliver(request, created), **members()}
+
+    @router.post("/api/workspaces/current/invites/{invite_id}/resend")
+    def resend(invite_id: str, request: Request):
+        """A new link (the old one stops working) and, when email is set up, a new email."""
+        wid = workspaces.current().workspace_id
+        renewed = checked(lambda: store.renew(wid, invite_id))
+        return {**deliver(request, renewed), **members()}
 
     @router.delete("/api/workspaces/current/invites/{invite_id}")
     def revoke(invite_id: str):
@@ -100,10 +127,7 @@ def build_router(store: WorkspaceStore, config: AuthConfig) -> APIRouter:
 
     @router.get("/api/invites/{token}")
     def show_invite(token: str):
-        invite = checked(lambda: store.find_invite(token))
-        workspace = checked(lambda: store.get(invite["workspace_id"]))
-        return {"workspace": workspace["name"], "email": invite["email"], "role": invite["role"],
-                "invited_by": invite["invited_by"]}
+        return checked(lambda: store.find_invite(token))
 
     @router.post("/api/invites/{token}/accept")
     def accept(token: str):
