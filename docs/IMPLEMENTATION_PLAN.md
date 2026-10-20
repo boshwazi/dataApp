@@ -1,8 +1,9 @@
 # Implementation Plan — AI Data Analytics Web App
 
-An AI-powered take on Power BI Desktop: the same Get Data → Transform → Model → Report flow,
-but the AI does every step. There are no manual tools. Users steer each stage in plain English
-through a chat panel whose powers are scoped to that stage (similar to Snowflake Cortex Code).
+An AI-powered take on Power BI: the same Get Data → Transform → Model → Report flow,
+but the AI does every step. There are no manual tools. Users steer each stage in plain
+English through a chat panel whose powers are scoped to that stage (similar to Snowflake
+Cortex Code). It launches as a public, paid SaaS product.
 
 Product requirements: [AI Data Analytics Web App — Product Requirements](https://claude.ai/code/artifact/d1d31ca6-f2a5-4981-8233-16842f397991)
 
@@ -10,10 +11,16 @@ Product requirements: [AI Data Analytics Web App — Product Requirements](https
 
 | Topic | Decision |
 | --- | --- |
-| Login and workspaces | Skipped for local testing; added in the hosted phase |
-| AI provider | `ilmu-glm-5.1` via `https://api.ilmu.ai/v1` (OpenAI-compatible), using the `openai` Python SDK |
-| Provider setup | Base URL, model and key are settings, so other OpenAI-compatible providers plug in |
-| API key | Local `.env` or the Settings page; never committed, never sent to the browser |
+| Market | Public SaaS from day one: any company signs up, gets a workspace and pays a subscription |
+| Structure | **Datasets** (Get Data, Transform, Model) are reusable; **Dashboards** (Report, Ask, Export) are built on a dataset |
+| Roles | Admin, Creator, Viewer per workspace |
+| Platform | Supabase: Postgres with row-level security, Auth, file storage |
+| Payments | CHIP first (cards and FPX, lowest cost), behind a provider interface so Stripe and Bayarcash can be added |
+| AI costs | We run the AI; every plan includes monthly AI credits, with top-ups |
+| Plans | Free, Pro (per creator), Team (viewer seats, admin controls) |
+| Landing and login look | Calm, serious B2B, light, consistent with the dashboard house style |
+| AI provider | `ilmu-glm-5.1` via `https://api.ilmu.ai/v1` (OpenAI-compatible); base URL, model and key are settings |
+| Workflow | Build and test locally, commit to `main`, push. No feature branches or PRs |
 
 ## Core principle: the AI decides, the engine executes
 
@@ -22,110 +29,226 @@ operations from a fixed catalogue. The backend validates the plan, compiles it t
 it on DuckDB.
 
 - **Repeatable:** saved steps replay the same way on refreshed data, without calling the AI again.
-- **Undoable:** each stage's steps are an ordered list, like Power Query's Applied Steps.
-- **Validated:** joins and relationships are checked for row counts, key uniqueness and match rate before they are accepted.
-- **Private:** the AI sees column profiles and a few sample rows, never the full dataset.
+- **Undoable:** every stage keeps a history, so one click reverts the last change.
+- **Validated:** a change is refused if it would break the data. Examples: a join that multiplies
+  rows, a key that repeats, a type change that blanks most of a column, or a breakdown that
+  doesn't add up to the total.
+- **Private:** the AI sees column profiles, a few sample rows and aggregates, never the full dataset.
 - **Traceable:** every step, relationship, measure and visual is marked `AI` or `Approved`, with the AI's reason.
+- **Injection-resistant:** text inside the data cannot make the AI run anything. The AI can only
+  return catalogue operations, and each is checked before it runs.
 
-## Stack
+## Status
 
-| Part | Choice |
-| --- | --- |
-| Backend | Python, FastAPI |
-| Engine | DuckDB (one database file per project, external file access disabled for AI-written SQL) |
-| Ingestion | pandas + openpyxl |
-| Frontend | React + Vite + TypeScript |
-| Charts | ECharts |
-| AI client | `openai` SDK pointed at any OpenAI-compatible base URL |
-
-## App sections
-
-Global pages:
-
-| Section | Power BI equivalent | Purpose |
+| # | Delivers | State |
 | --- | --- | --- |
-| Home | Start screen | List, create and open projects |
-| Settings | Options | AI provider, base URL, model, API key, connection test |
+| M0 | Project setup, Settings page, connection test (including tool-calling support check) | Done |
+| M1 | Get Data: CSV, Excel, Google Sheets; column profiling; AI table descriptions | Done |
+| M2 | Transform: operation catalogue, Applied Steps, undo, AI cleaning, lookup-table splits | Done |
+| M3 | Model: relationships with checks, date table, measures, diagram | Done |
+| M4 | Report: KPI cards, charts, checked insights (house style) | Done (first draft) |
 
-Inside a project, a left rail in pipeline order:
+## Product structure
 
-| Tab | Power BI equivalent | What the AI does | What the user sees |
+The app copies Power BI's best practice of one shared semantic model with many thin reports
+on top. Changes to the model flow to every report, and nobody rebuilds the same data twice.
+
+```
+Workspace (a company)
+├── Members: Admin / Creator / Viewer
+├── Datasets  ── Get Data → Transform → Model     (reusable, versioned: draft / published)
+└── Dashboards ── built on one published dataset ── Report pages · Ask · Export
+```
+
+- **Home** offers **New dashboard → Use existing data** or **Bring new data**. "Bring new data"
+  runs the dataset steps first, then continues into the dashboard. Both paths end with the AI
+  building the report.
+- **Datasets** have a draft and a published version. Dashboards always read the published
+  version, so a creator can rework a dataset without breaking live dashboards. Publishing checks
+  every dependent dashboard and flags visuals that would break (for example, a removed measure).
+- **Dashboards** have a draft and a published version too. Viewers only ever see published dashboards.
+- Today's "project" becomes one dataset plus one dashboard, which makes migration simple.
+
+## Roles
+
+| Can… | Admin | Creator | Viewer |
 | --- | --- | --- | --- |
-| Get Data | Get Data | Profiles every new source | Sources, table previews, column profiles |
-| Transform | Power Query | Builds Applied Steps to clean and merge tables | Steps list with reasons and badges, before/after preview |
-| Model | Model view | Designs relationships, date table and measures | Model diagram, relationships, measures with values |
-| Report | Report view | Picks visuals and layout, writes insights | Report pages with charts and insight sentences |
-| Ask | Q&A | Answers questions from the model (read-only) | Answers, charts, and how each number was calculated |
-| Export | Export to PDF / PowerPoint | Restructures the report into a narrative | PDF (deck later) |
+| See published dashboards and use their Ask chat | ✓ | ✓ | ✓ |
+| Export dashboards to PDF | ✓ | ✓ | ✓ |
+| Build and publish datasets and dashboards, use stage chats | ✓ | ✓ | |
+| Invite people, change roles | ✓ | | |
+| Billing, plan, AI credit top-ups | ✓ | | |
+| Workspace settings, delete workspace, see audit log | ✓ | | |
 
-Shared on every project tab:
+Later: row-level security inside a dataset (for example, viewers in a region see only their
+region), set by admins per role.
 
-- **Stage chat panel** on the right, scoped to the current tab (below).
-- **Run all** button: runs every stage in full-AI mode.
-- **Mode switch:** *Full AI* applies changes immediately; *Review* shows each change for approval first.
-- **Stale markers:** when an upstream change affects a later stage, that tab is flagged "needs re-run".
-- **Activity log** drawer: every AI and human change across stages, with undo.
+## Stage chat agents (every stage)
 
-## Stage-scoped chat agents
-
-Each tab has its own agent. All agents can **read** the context from earlier stages (schemas,
-steps, model) but can only **change** their own stage.
+Each stage has a chat panel on the right. Its agent can **read** everything upstream and can
+only **change** its own stage. It also answers questions about the current state ("why is this
+relationship inactive?").
 
 | Agent | Can change | Example requests |
 | --- | --- | --- |
 | Get Data | Add a Google Sheet by link, rename or remove a source, re-profile | "Rename sales_2024 to Sales" |
-| Transform | Add, edit, remove or reorder steps; preview a step | "Don't merge orders with returns", "Treat blank region as Unknown" |
-| Model | Relationships, measures, date table, hidden columns, formats | "Add a profit margin measure", "Make the date table start in 2022" |
-| Report | Pages, visuals, layout, titles, insights | "Swap the pie for a bar chart", "Add a page on customer churn" |
-| Ask | Nothing (read-only) | "Why did Q3 sales drop?" |
+| Transform | Add, edit, remove or reorder steps; split lookup tables | "Don't merge orders with returns", "Treat blank region as Unknown" |
+| Model | Relationships, measures, date table, hidden columns, formats | "Connect orders to products by SKU", "Add a profit margin measure" |
+| Report | Pages, visuals, titles, insights | "Swap the donut for a bar chart", "Add a page on customer churn" |
+| Ask (viewers too) | Nothing (read-only) | "Why did Q3 sales drop?" |
 | Export | Narrative, section order, which visuals to include | "Make the summary shorter" |
 
 How a chat request works:
 
-1. The agent receives the request, the current stage state and upstream context.
-2. It returns a change set using only its stage's operations (tool calls, or a JSON action list if the provider lacks tool calling; checked in M0).
-3. The backend validates the change set and reports its impact, for example "removes column `region`, used by 2 measures".
-4. In Full AI mode the change applies immediately; in Review mode the user approves it. Either way it is logged and undoable.
-5. Affected later stages are marked stale, and their own agent can repair them.
+1. The agent receives the request, the stage's state and upstream context.
+2. It replies with an answer, a change set made only of its stage's operations, or both.
+3. The backend validates the change set and states its impact, for example "removes column
+   `region`, used by 2 measures".
+4. In **Full AI** mode the change applies at once. In **Review** mode the user approves it first.
+   Either way it is logged and can be undone.
+5. Later stages and dashboards affected by the change are marked "needs re-run", and their
+   own agent can repair them.
 
-## Milestones
+The Ask agent answers from the model with `evaluate`. It shows each number with "how this was
+calculated" (the measure, its filters, the tables used), which builds trust.
 
-Each milestone is a separate commit with tests that use a fake AI, so they run without a key.
-A deliberately messy sample dataset (sales, customers, products) ships with the repo for
-end-to-end checks.
+## Platform architecture (hosted)
 
-| # | Delivers | You can test |
-| --- | --- | --- |
-| M0 | Project setup, Settings page, ilmu connection test (including tool-calling support check) | Your key works |
-| M1 | Get Data: CSV, Excel, Google Sheets link; column profiling | Load files, see tables and profiles |
-| M2 | Transform engine (operation catalogue, replay, undo) + AI cleaning | AI builds Applied Steps |
-| M3 | Model: relationships, date table, measures, model diagram | AI-built star schema |
-| M4 | Report builder with ECharts and AI insights | A full AI dashboard |
-| M5 | Stage chat agents, Run all, Full AI / Review mode, stale markers | Steering each stage in English |
-| M6 | Ask tab and PDF export | The end-to-end flow |
-
-## Path to public, paid use
-
-Ship in three phases. Only the cheap choices that make hosting easier are made now: the
-provider abstraction, a storage interface for project state, and a `workspace_id` on every
-record from day one.
-
-| Phase | Adds |
+| Part | Choice |
 | --- | --- |
-| 1. Local (now) | Single user, local files, your own API key |
-| 2. Hosted private beta | Login (e.g. Clerk or Supabase Auth), workspaces and roles, Postgres for metadata, object storage for uploads, a job queue for AI runs, encrypted secrets, usage metering per AI call |
-| 3. Paid launch | Stripe billing, plan limits, shared dashboards with viewer seats, scheduled refresh, database connectors, terms of service and a data processing agreement |
+| Frontend | React + Vite + TypeScript (as now), served from a CDN |
+| API | FastAPI (as now), in containers, stateless |
+| Metadata | Supabase Postgres. Every table carries `workspace_id`, with row-level security on it |
+| Sign-in | Supabase Auth: email magic link, Google, Microsoft. SAML SSO for Team customers later |
+| Files | Supabase Storage, per workspace: uploads, plus one DuckDB file per dataset version |
+| Compute | DuckDB in worker processes. Each request opens only its own workspace's files |
+| Jobs | A queue for AI runs, refreshes and PDF exports, so the API never blocks on the AI |
+| AI | Server-side provider key; per-call usage recorded against the workspace's credits |
+| Region | Singapore, Supabase's closest region to Malaysia. Revisit if a customer requires Malaysian hosting |
 
-Main cost and risk drivers for the paid version:
+The code already goes through one storage interface (`ProjectStore`) and stamps
+`workspace_id` on every record, so moving from local files to Supabase is mostly a swap of
+that layer.
 
-- **AI usage is the main variable cost.** Meter tokens per stage run and price plans around AI credits. Offer a bring-your-own-key option.
-- **Customer data leaves their hands.** Publish exactly what is sent to the AI (profiles and samples), offer data residency options, and follow the privacy law of each market served (for example Malaysia's PDPA).
-- **Wrong numbers cost trust.** The validation checks and "how this was calculated" view are part of the product, not polish.
+## Security
 
-Illustrative plans, to be set from measured AI cost per project during the beta:
+- **Tenant isolation, two layers.** The API resolves the workspace from the signed-in user's
+  verified token and checks membership and role on every request. Postgres row-level security
+  also enforces `workspace_id`, so a missed filter in code can't leak another company's data.
+  Storage paths are per workspace, and file links are signed and short-lived.
+- **Tests for isolation.** Every endpoint is tested as a user from another workspace and must
+  return 404. The same goes for viewers trying creator actions.
+- **Sign-in.** Supabase tokens are verified in FastAPI on every request, with short sessions and
+  refresh rotation. Admins can require Google or Microsoft sign-in for their workspace.
+- **Secrets.** The AI provider key, payment keys and the database service key live in the host's
+  secret store. They are never sent to the browser, and never logged.
+- **The AI's reach.**
+  - The AI returns only catalogue operations. It never writes SQL or code.
+  - DuckDB runs with external file and network access turned off.
+  - The Ask agent is read-only.
+  - Data sent to the AI is limited to profiles, 5 sample rows and aggregates. A workspace
+    setting turns sample rows off.
+- **Uploads.** Size limits, CSV and Excel only, parsed in a worker. No macros or formulas are
+  executed (openpyxl reads values only).
+- **Payments.** Card details never touch our servers: CHIP's hosted checkout and saved-card
+  tokens handle them. Webhooks are verified by signature, and each event is processed once.
+- **Operations.**
+  - Encryption in transit (TLS) and at rest (Supabase default).
+  - Daily backups with point-in-time recovery.
+  - An audit log of every AI and human change.
+  - Rate limits per user and per workspace.
+  - Error monitoring that strips data values.
+- **Privacy and legal (Malaysia PDPA).**
+  - Privacy notice, terms of service and a data processing agreement.
+  - A published list of exactly what is sent to the AI provider, and where it is processed.
+  - Workspace data export and deletion on request, and a retention policy.
+  - Cross-border transfer (Singapore hosting, the AI provider's region) reviewed with a lawyer before launch.
+- **Before launch.** Run a `/security-review` of the code and an external penetration test.
+
+## Billing and payments
+
+**Provider: CHIP first**, behind a `PaymentProvider` interface:
+
+| Provider | Card | FPX | Recurring | ≈ cost on RM 99 |
+| --- | --- | --- | --- | --- |
+| CHIP | 2.0% credit / 1.0% debit | RM 1 (B2B RM 2) | Saved-card recurring | RM 1.98 |
+| Bayarcash | n/a | RM 1 (less on paid tiers) | FPX Direct Debit mandate RM 1.50 | RM 1.50 |
+| Stripe | 3% + RM 1 (+1% international) | 3% + RM 1 | Stripe Billing | RM 3.97 + Billing fee |
+
+Rates are from published pages and comparisons in October 2026. Confirm them with each
+provider before signing.
+
+- **CHIP** collects monthly card payments and one-off FPX payments (annual plans, credit top-ups).
+- **Stripe** is added when international customers arrive.
+- **Bayarcash direct debit** is added if companies ask for bank mandates.
+
+Since CHIP has no subscription engine, we build a small one:
+- Plans, seats and renewal dates in Postgres.
+- A daily renewal job charges saved cards.
+- Failed payments are retried on day 1, 3 and 7, then the workspace drops to read-only.
+- Receipts and invoices include SST.
+- Admins see billing history.
+
+**AI credits:**
+- Each AI call records its tokens against the workspace in a credits ledger.
+- Plans include monthly credits, and top-ups are bought with FPX or card.
+- When credits run out, the AI stops and dashboards stay viewable.
+
+**Plans** (prices set from measured AI cost per project during the beta):
 
 | Plan | For | Includes |
 | --- | --- | --- |
-| Free | Trying it out | 1 project, file uploads, limited AI credits |
-| Pro (per creator) | Individual analysts | More projects and credits, Google Sheets refresh, PDF export |
-| Team | Organizations | Shared workspaces, viewer seats, database connectors, admin controls |
+| Free | Trying it out | 1 dataset, 1 dashboard, small monthly AI credits, 1 creator |
+| Pro (per creator) | Analysts | More datasets and dashboards, more credits, Google Sheets refresh, PDF export |
+| Team | Organisations | Viewer seats, admin controls, audit log, SSO (later), priority support |
+
+## Landing page, sign-in and onboarding
+
+- **Look:** calm, serious B2B, light theme. It uses the same colour tokens as the dashboards
+  (accent `#005A9C`, page `#F3F4F6`), system fonts and no gimmicks.
+- **Skills:**
+  - `design-taste-frontend` for the landing page (it avoids the generic template look; it is
+    not for dashboards).
+  - `ui-ux-pro-max` for the overall system: type scale, spacing, components.
+  - `frontend-design` for polish.
+  - `my-dashboard-style` inside the app.
+  - `web-design-guidelines` and `playwright-cli` for an accessibility audit and screenshots.
+- **Landing page:**
+  1. A headline that says what it does: "From spreadsheet to dashboard, with AI doing the work."
+  2. A live product preview of the four stages.
+  3. How it works, in 4 steps.
+  4. Why trust it: checks, approval and undo, what the AI sees.
+  5. Security and privacy summary.
+  6. Pricing, FAQ, and a footer with legal links.
+- **Sign-in and sign-up:** email magic link, Google and Microsoft. No passwords to store.
+- **Onboarding:**
+  1. Create workspace.
+  2. Invite teammates with roles.
+  3. Choose "Load sample data" or "Bring your data".
+  4. The AI builds a first dashboard.
+
+## Milestones from here
+
+Each milestone is committed and pushed to `main` once its tests pass and it has been checked
+in the app.
+
+| # | Delivers | You can test |
+| --- | --- | --- |
+| M5 | Datasets + Dashboards structure, draft and publish, "new data / existing data" on Home | Two dashboards sharing one dataset |
+| M6 | Stage chat agents on every stage, Full AI and Review modes, stale markers, activity log | Steering each stage in English |
+| M7 | Ask chat on dashboards (with "how this was calculated") and PDF export | The end-to-end flow |
+| M8 | Supabase: sign-in, workspaces, roles, invites, Postgres metadata with RLS, file storage | Two companies, fully isolated |
+| M9 | Landing page, sign-in and onboarding | A new company signing up |
+| M10 | Billing: plans, seats, AI credits ledger, CHIP checkout and renewals | Paying for Pro, topping up credits |
+| M11 | Launch hardening: isolation tests, security review, rate limits, monitoring, backups, PDPA documents | Launch checklist complete |
+
+## Stack (today)
+
+| Part | Choice |
+| --- | --- |
+| Backend | Python, FastAPI |
+| Engine | DuckDB (one database file per project) |
+| Ingestion | pandas + openpyxl |
+| Frontend | React + Vite + TypeScript |
+| Charts | ECharts (SVG renderer) |
+| AI client | `openai` SDK pointed at any OpenAI-compatible base URL |

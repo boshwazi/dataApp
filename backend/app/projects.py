@@ -190,7 +190,8 @@ class ProjectStore:
 
     @contextmanager
     def connect(self, project_id: str):
-        con = duckdb.connect(str(self._folder(project_id) / "data.duckdb"))
+        # No reading or writing other files or URLs from SQL: all data arrives through ingest.
+        con = duckdb.connect(str(self._folder(project_id) / "data.duckdb"), config={"enable_external_access": False})
         try:
             yield con
         finally:

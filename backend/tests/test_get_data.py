@@ -330,3 +330,13 @@ def test_reprofile_clears_the_ai_description(tmp_path):
     api, pid, sid = setup_source(tmp_path, FakeAI(ANSWER), {"tools": True})
     api.post(f"/api/projects/{pid}/sources/{sid}/describe")
     assert api.post(f"/api/projects/{pid}/sources/{sid}/profile").json()["ai"] is None
+
+
+def test_sql_cannot_reach_outside_files(tmp_path):
+    from app.projects import ProjectStore
+
+    store = ProjectStore(tmp_path)
+    project = store.create("Locked")
+    with store.connect(project["id"]) as con:
+        with pytest.raises(Exception, match="(?i)external|permission"):
+            con.execute(f"SELECT * FROM read_csv('{(tmp_path / 'x.csv').as_posix()}')")
