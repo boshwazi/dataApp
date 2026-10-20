@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from . import ingest, llm
 from .projects import ProjectStore
 from .projects_api import build_router
+from .transform_api import build_router as build_transform_router
 from .settings import ProviderSettings, SettingsStore, public_view
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -36,7 +37,9 @@ def create_app(
 ) -> FastAPI:
     store = SettingsStore(data_dir / "settings.json")
     app = FastAPI(title="AI Data Analytics")
-    app.include_router(build_router(ProjectStore(data_dir / "projects"), store, client_factory, fetch_url, SAMPLES_DIR))
+    projects = ProjectStore(data_dir / "projects")
+    app.include_router(build_router(projects, store, client_factory, fetch_url, SAMPLES_DIR))
+    app.include_router(build_transform_router(projects, store, client_factory))
 
     @app.get("/api/health")
     def health():

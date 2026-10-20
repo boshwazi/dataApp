@@ -144,3 +144,76 @@ export const api = {
   reprofile: (pid: string, sid: string) => request<Source>(`${source(pid, sid)}/profile`, { method: "POST" }),
   describe: (pid: string, sid: string) => request<Source>(`${source(pid, sid)}/describe`, { method: "POST" }),
 };
+
+// Transform
+
+export type LogicalType = "text" | "integer" | "decimal" | "date" | "boolean";
+
+export type Step = {
+  id: string;
+  op: string;
+  params: Record<string, unknown>;
+  reason: string;
+  status: "AI" | "Approved";
+  added_at: string;
+  label: string;
+};
+
+export type QuerySummary = {
+  id: string;
+  name: string;
+  source_table: string | null;
+  steps: Step[];
+  error: string | null;
+  rows: number | null;
+  columns: { name: string; type: LogicalType }[];
+  issue_count: number | null;
+};
+
+export type TransformState = { queries: QuerySummary[]; can_undo: boolean };
+
+export type QueryDetail = QuerySummary & { profile: Source["profile"] | null };
+
+export type StepRows = {
+  columns: { name: string; type: LogicalType }[];
+  rows: (string | null)[][];
+  total: number;
+};
+
+export type StepPreview = {
+  step: number;
+  before: StepRows | null;
+  after: StepRows;
+  impact: {
+    rows_before: number;
+    rows_after: number;
+    added_columns: string[];
+    removed_columns: string[];
+    type_changes: { column: string; from: LogicalType; to: LogicalType }[];
+    blank_changes: { column: string; before: number; after: number }[];
+  } | null;
+};
+
+export type AIRun = TransformState & {
+  summary: string;
+  added: Step[];
+  rejected: { op: string; reason: string; error: string }[];
+};
+
+const tf = (pid: string) => `/api/projects/${pid}/transform`;
+const tq = (pid: string, qid: string) => `${tf(pid)}/queries/${qid}`;
+
+export const transformApi = {
+  state: (pid: string) => request<TransformState>(tf(pid)),
+  query: (pid: string, qid: string) => request<QueryDetail>(tq(pid, qid)),
+  preview: (pid: string, qid: string, step: number) => request<StepPreview>(`${tq(pid, qid)}/preview?step=${step}`),
+  approve: (pid: string, qid: string, sid: string) =>
+    request<TransformState>(`${tq(pid, qid)}/steps/${sid}/approve`, { method: "POST" }),
+  remove: (pid: string, qid: string, sid: string) =>
+    request<TransformState>(`${tq(pid, qid)}/steps/${sid}`, { method: "DELETE" }),
+  move: (pid: string, qid: string, sid: string, to: number) =>
+    request<TransformState>(`${tq(pid, qid)}/steps/${sid}/move`, json("POST", { to })),
+  rename: (pid: string, qid: string, name: string) => request<TransformState>(tq(pid, qid), json("PATCH", { name })),
+  undo: (pid: string) => request<TransformState>(`${tf(pid)}/undo`, { method: "POST" }),
+  aiClean: (pid: string, qid: string) => request<AIRun>(`${tq(pid, qid)}/ai`, { method: "POST" }),
+};

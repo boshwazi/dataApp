@@ -684,6 +684,153 @@ input {
   margin-right: auto;
 }
 
+/* Transform */
+
+.side-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.badge.ok-badge {
+  background: #e3f4ea;
+  color: var(--ok);
+  border-color: transparent;
+}
+
+.badge.bad-badge {
+  background: #fbe5e5;
+  color: var(--bad);
+  border-color: transparent;
+}
+
+.bad-notice {
+  background: #fbe5e5;
+  border-color: #f0b8b8;
+  color: var(--bad);
+}
+
+.section-title {
+  margin: 18px 0 8px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.steps {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 16px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.steps li:last-child {
+  border-bottom: none;
+}
+
+.steps li.selected {
+  background: var(--selected);
+}
+
+.step-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text);
+  padding: 4px 0;
+}
+
+.step-main > span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.step-number {
+  width: 22px;
+  flex-shrink: 0;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.step-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding-top: 4px;
+}
+
+button.icon {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--muted);
+  padding: 0 6px;
+  line-height: 1.6;
+}
+
+button.icon:hover:not(:disabled) {
+  border-color: var(--border);
+  color: var(--text);
+}
+
+button.icon.danger:hover:not(:disabled) {
+  color: var(--bad);
+}
+
+.impact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+.segmented {
+  margin-left: auto;
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.segmented button {
+  background: var(--panel);
+  color: var(--muted);
+  border: none;
+  border-radius: 0;
+  padding: 4px 12px;
+  font-size: 13px;
+}
+
+.segmented button.on {
+  background: var(--selected);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.preview th .type {
+  margin-left: 4px;
+  font-weight: 400;
+}
+
 @media (max-width: 1100px) {
   .get-data {
     flex-direction: column;

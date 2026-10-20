@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
-from . import ai_profile, ingest, llm
+from . import ai_profile, ingest, llm, transform
 from .projects import NotFound, ProjectStore
 from .settings import ProviderSettings, SettingsStore
 
@@ -166,6 +166,9 @@ def build_router(
     def delete_source(project_id: str, source_id: str):
         find_source(load(project_id), source_id)
         store.delete_source(project_id, source_id)
+        with store.edit(project_id) as project, store.connect(project_id) as con:
+            transform.drop_source(project, source_id)
+            transform.apply_all(con, project)
         return {"deleted": source_id}
 
     @router.post("/{project_id}/sources/{source_id}/profile")
