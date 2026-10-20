@@ -1,5 +1,5 @@
 :root {
-  /* datalemon, direction A "Clear Analyst". Lemon marks the AI and nothing else. */
+  /* datawazi, direction A "Clear Analyst". Yellow marks the AI and where you are, nothing else. */
   --bg: #f4f6f9;
   --panel: #ffffff;
   --sidebar: #ffffff;
@@ -17,7 +17,7 @@
   --notice-line: #c7d7f2;
   --warn: #9a3412;
   --warn-bg: #ffedd5;
-  --lemon: #facc15;
+  --highlight: #facc15;
   --ai: #854d0e;
   --ai-bg: #fef3c7;
   --ai-line: #eab308;
@@ -2675,9 +2675,9 @@ a.pipe-step:hover {
   border-color: var(--ok);
 }
 
-/* Lemon marks where you are. */
+/* Yellow marks where you are. */
 .pipeline li.here .pipe-dot {
-  box-shadow: 0 0 0 3px var(--lemon);
+  box-shadow: 0 0 0 3px var(--highlight);
 }
 
 .pipeline li.here .pipe-step {

@@ -1,6 +1,6 @@
-# Implementation Plan — datalemon
+# Implementation Plan — datawazi
 
-**datalemon** is an AI-powered take on Power BI: the same Get Data → Transform → Model → Report flow,
+**datawazi** is an AI-powered take on Power BI: the same Get Data → Transform → Model → Report flow,
 but the AI does every step. There are no manual tools. Users steer each stage in plain
 English through a chat panel whose powers are scoped to that stage (similar to Snowflake
 Cortex Code). It launches as a public, paid SaaS product.
@@ -11,7 +11,7 @@ Product requirements: [AI Data Analytics Web App — Product Requirements](https
 
 | Topic | Decision |
 | --- | --- |
-| Name | **datalemon** |
+| Name | **datawazi** |
 | Market | Public SaaS from day one: any company signs up, gets a workspace and pays a subscription |
 | Structure | **Datasets** (Get Data, Transform, Model) are reusable; **Dashboards** (Report, Ask, Export) are built on a dataset |
 | Roles | Admin, Creator, Viewer per workspace |
@@ -130,7 +130,7 @@ dimensions such as Date, Customer and Product across facts
 ([Microsoft Learn](https://learn.microsoft.com/en-gb/power-BI/guidance/composite-model-guidance),
 [PowerBI.tips](https://powerbi.tips/2025/03/07/managing-multiple-datasets-ep-404/),
 [Tabular Editor](https://tabulareditor.com/blog/composite-models-in-power-bi-and-fabric)).
-datalemon follows the same idea in three levels:
+datawazi follows the same idea in three levels:
 
 1. **Many sources in one dataset (works today).** A dataset can hold any number of files and
    sheets, and the model can have several fact tables. For example, `sales` and `targets` can
@@ -162,7 +162,7 @@ far more accurate
 [Teradata](https://www.teradata.com/insights/data-analytics/what-is-conversational-analytics),
 [TDWI](https://tdwi.org/webcasts/2026/09/biz-all-expert-panel-semantic-layers-the-foundation-for-trusted-generative-bi.aspx),
 [Big Data Boutique](https://bigdataboutique.com/talk-to-your-data)).
-datalemon is built that way already. These are the features that would add the most for
+datawazi is built that way already. These are the features that would add the most for
 business users, in rough priority order:
 
 | Feature | Why it matters | Notes |
@@ -304,7 +304,7 @@ in the app.
 | # | Delivers | You can test |
 | --- | --- | --- |
 | M10b | Supabase Postgres for workspaces, members and metadata with row-level security; files in Supabase Storage per workspace; invite emails | Two companies, isolated at the database too |
-| M11 | Landing page, sign-in and onboarding (datalemon brand) | A new company signing up |
+| M11 | Landing page, sign-in and onboarding (datawazi brand) | A new company signing up |
 | M12 | Billing: plans, seats, AI credits ledger, CHIP checkout and renewals | Paying for Pro, topping up credits |
 | M13 | Launch hardening: isolation tests, security review, rate limits, monitoring, backups, PDPA documents | Launch checklist complete |
 | Later | Server-rendered PDFs for scheduled emails, alerts and digests, sharing and embeds, row-level security, data quality monitors, connectors, templates, Bahasa Malaysia, comments, forecasts, version history, usage analytics, mobile view | See the feature roadmap |

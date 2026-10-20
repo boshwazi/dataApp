@@ -13,12 +13,15 @@ import { X } from "lucide-react";
 
 // Logo
 
-export function LemonMark({ size = 22 }: { size?: number }) {
+export function BrandMark({ size = 22 }: { size?: number }) {
+  // Placeholder mark until the datawazi logo is designed: rising bars, with the yellow AI dot.
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
-      <path d="M3.5 12c0-4 3.8-7.5 8.5-7.5s8.5 3.5 8.5 7.5-3.8 7.5-8.5 7.5S3.5 16 3.5 12z" fill="#FACC15" stroke="#CA8A04" strokeWidth="1.2" />
-      <path d="M2 12h3M19 12h3" stroke="#CA8A04" strokeWidth="1.6" strokeLinecap="round" />
-      <path d="M12 7.5c1.6 1.2 1.6 7.8 0 9" stroke="#CA8A04" strokeWidth="1" fill="none" opacity=".6" />
+      <rect x="1" y="1" width="22" height="22" rx="6" fill="#0B3D91" />
+      <rect x="6" y="12" width="3" height="6" rx="1" fill="#fff" />
+      <rect x="10.5" y="9" width="3" height="9" rx="1" fill="#fff" />
+      <rect x="15" y="6" width="3" height="12" rx="1" fill="#fff" opacity=".55" />
+      <circle cx="18.5" cy="5.5" r="2.5" fill="#FACC15" stroke="#0B3D91" strokeWidth="1" />
     </svg>
   );
 }

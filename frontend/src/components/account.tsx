@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { Mail } from "lucide-react";
 import { accountApi, ApiError, configureSession, type Me, type Role, type WorkspaceRef } from "../api";
-import { LemonMark } from "./ui";
+import { BrandMark } from "./ui";
 
 const WORKSPACE_KEY = "workspace";
 
@@ -108,7 +108,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   }, [state, load]);
 
   if (state.status === "loading") return <Splash />;
-  if (state.status === "error") return <Splash message={`Can't reach datalemon: ${state.message}`} />;
+  if (state.status === "error") return <Splash message={`Can't reach datawazi: ${state.message}`} />;
   if (state.status === "signed-out") return <SignIn client={state.client} />;
   return <AccountContext.Provider value={account}>{children}</AccountContext.Provider>;
 }
@@ -128,7 +128,7 @@ function Splash({ message }: { message?: string }) {
   return (
     <div className="auth-page">
       <div className="auth-card center">
-        <LemonMark size={32} />
+        <BrandMark size={32} />
         <p className={message ? "bad" : "muted"}>{message ?? "Loading…"}</p>
       </div>
     </div>
@@ -165,7 +165,7 @@ function SignIn({ client }: { client: SupabaseClient }) {
     <div className="auth-page">
       <main className="auth-card">
         <div className="auth-brand">
-          <LemonMark size={28} /> datalemon
+          <BrandMark size={28} /> datawazi
         </div>
         {sent ? (
           <>
@@ -233,7 +233,7 @@ function CreateWorkspace() {
     <div className="auth-page">
       <main className="auth-card">
         <div className="auth-brand">
-          <LemonMark size={28} /> datalemon
+          <BrandMark size={28} /> datawazi
         </div>
         <h1>Set up your workspace</h1>
         <p className="muted">

@@ -79,7 +79,7 @@ export function Members() {
       <p className="muted">People in {account.workspace?.name}. Only admins see this page.</p>
 
       {local ? (
-        <div className="notice small">Inviting people needs sign-in, which the hosted version of datalemon adds.</div>
+        <div className="notice small">Inviting people needs sign-in, which the hosted version of datawazi adds.</div>
       ) : (
         <form className="card invite-form" onSubmit={invite}>
           <h2>Invite someone</h2>

@@ -119,7 +119,7 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
               Connect your AI provider first: <Link to="/settings">open Settings</Link> and run the connection test.
             </>
           ) : (
-            "The AI isn't connected yet. The people running datalemon need to set it up."
+            "The AI isn't connected yet. The people running datawazi need to set it up."
           )}
         </div>
       )}

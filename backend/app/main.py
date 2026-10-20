@@ -71,7 +71,7 @@ def create_app(
 ) -> FastAPI:
     auth = auth or AuthConfig()  # local mode unless sign-in is configured
     store = SettingsStore(data_dir / "settings.json")
-    app = FastAPI(title="datalemon", lifespan=scheduler_lifespan if run_scheduler else None)
+    app = FastAPI(title="datawazi", lifespan=scheduler_lifespan if run_scheduler else None)
 
     # Each workspace keeps its own folders; the stores follow the workspace of the current request.
     members = workspaces.WorkspaceStore(data_dir / "workspaces.json")

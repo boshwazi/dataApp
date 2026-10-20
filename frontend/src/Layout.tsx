@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { Check, ChevronsUpDown, ChevronRight, Database, House, LayoutDashboard, LogOut, Plus, Search, Settings as SettingsIcon, Users } from "lucide-react";
 import { accountApi, api, dashboardsApi, type DashboardSummary, type Dataset, type Role } from "./api";
 import { useAccount } from "./components/account";
-import { LemonMark, useCurrentCrumbs, useDialogs, useToast } from "./components/ui";
+import { BrandMark, useCurrentCrumbs, useDialogs, useToast } from "./components/ui";
 
 type NavItem = { to: string; label: string; icon: typeof House; end: boolean; role?: Role; platform?: boolean; hosted?: boolean };
 
@@ -40,8 +40,8 @@ export function Layout() {
         Skip to content
       </a>
       <aside className="sidebar">
-        <Link to="/" className="brand" aria-label="datalemon home">
-          <LemonMark /> datalemon
+        <Link to="/" className="brand" aria-label="datawazi home">
+          <BrandMark /> datawazi
         </Link>
         <nav aria-label="Main">
           {nav.map(({ to, label, icon: Icon, end }) => (

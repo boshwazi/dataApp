@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { accountApi, type Role } from "../api";
 import { useAccount } from "../components/account";
-import { LemonMark } from "../components/ui";
+import { BrandMark } from "../components/ui";
 
 /** Opening an invite link: say which workspace it is for, then join with one click. */
 export function Invite() {
@@ -34,14 +34,14 @@ export function Invite() {
     <div className="auth-page">
       <main className="auth-card">
         <div className="auth-brand">
-          <LemonMark size={28} /> datalemon
+          <BrandMark size={28} /> datawazi
         </div>
         {error ? (
           <>
             <h1>This invite can't be used</h1>
             <p className="bad">{error}</p>
             <button className="secondary" onClick={() => navigate("/", { replace: true })}>
-              Go to datalemon
+              Go to datawazi
             </button>
           </>
         ) : !invite ? (

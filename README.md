@@ -1,6 +1,6 @@
-# datalemon
+# datawazi
 
-datalemon is an AI-powered take on Power BI Desktop: Get Data → Transform → Model → Report, with the AI
+datawazi is an AI-powered take on Power BI Desktop: Get Data → Transform → Model → Report, with the AI
 doing every step and each stage steered by a plain-English chat. See
 [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md).
 
@@ -55,7 +55,7 @@ whether the provider supports tool calling and JSON mode (used by the stage agen
 
 ## Sign-in, workspaces and roles
 
-Without sign-in settings, datalemon runs as one person on their own computer, in the
+Without sign-in settings, datawazi runs as one person on their own computer, in the
 **Local workspace**. To turn sign-in on, create a Supabase project (Singapore region) and add its
 URL and publishable key to `.env` (see `.env.example`). Then:
 
@@ -87,7 +87,7 @@ Moving around:
 - The sidebar holds Home, Datasets, Dashboards and Settings. The top bar shows where you are.
 - Press **Ctrl+K** (⌘K on a Mac) to jump to any dashboard or dataset.
 - On a dataset, the step bar shows Get Data, Transform, Model, Publish and Dashboard.
-  - Finished steps are ticked, and the current one is ringed in lemon.
+  - Finished steps are ticked, and the current one is ringed in yellow.
   - The button on the right takes you to the next step.
 - On a dashboard, **Present** shows the pages full screen. Press Esc to leave.
 - While the AI is replying, **Stop** stops waiting for the reply.
@@ -115,7 +115,7 @@ dashboard if it had report pages.
 
 Every published dashboard has an **Ask** panel, open to anyone who can see the dashboard. It
 answers questions about the data in plain words.
-- The AI never writes SQL. It picks from the dataset's measures and columns, and datalemon
+- The AI never writes SQL. It picks from the dataset's measures and columns, and datawazi
   calculates the numbers with the same engine the dashboard uses.
 - Each answer shows **How this was calculated**: the measures and their definitions, what it
   was split and filtered by, and which tables were used.

@@ -21,7 +21,7 @@ export function ExportView() {
       .state(dashboardId, "published")
       .then((s) => {
         setState(s);
-        document.title = `${s.name} — datalemon`;
+        document.title = `${s.name} — datawazi`;
       })
       .catch((e) => setError(e.message));
   }, [dashboardId]);
@@ -66,7 +66,7 @@ export function ExportView() {
 
       <section className="export-sheet export-cover">
         <div className="brand-line">
-          <span className="brand-mark">●</span> datalemon
+          <span className="brand-mark">●</span> datawazi
         </div>
         <h1>{state.name}</h1>
         <dl>
