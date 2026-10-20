@@ -4,7 +4,7 @@ An AI-powered take on Power BI Desktop: Get Data → Transform → Model → Rep
 doing every step and each stage steered by a plain-English chat. See
 [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md).
 
-**Status:** M0 — project setup, Settings page and AI connection test.
+**Status:** M1 — projects and Get Data (CSV, Excel, Google Sheets) with column profiling and AI table descriptions.
 
 ## Requirements
 
@@ -51,7 +51,21 @@ cd backend && ../.venv/bin/uvicorn app.main:app --port 8000   # open http://loca
 ```
 
 Then open **Settings** and click **Test connection**. It checks the key and model, and
-whether the provider supports tool calling and JSON mode (used by the stage agents later).
+whether the provider supports tool calling and JSON mode (used by the stage agents).
+
+## Get Data
+
+Create a project on the Home page, then add data on its **Get Data** tab:
+
+- **Files:** drop CSV (any delimiter) or Excel `.xlsx` files. Each Excel sheet with data becomes a table.
+- **Google Sheets:** paste the sheet's link. It must be shared as "Anyone with the link can view".
+- **Sample data:** a deliberately messy sales, customers and products set from [samples/](samples/).
+
+Every table is loaded as raw text (types and cleaning are Transform steps) and profiled:
+detected type, blanks, distinct values, ranges, common values and data quality issues. With
+an API key set, the AI then describes the table and each column. It sees only the profile and
+5 sample rows, never the full data. Project data is stored in `data/projects/` (one DuckDB
+file per project).
 
 ## Tests
 
