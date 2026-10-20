@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>datalemon — three brand directions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* House-style data tokens, the same in every direction */
+    --data: #005A9C; --good: #007A5E; --bad: #B54A00; --grid: #E5E7EB;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #E9EBEF; font-family: system-ui, sans-serif; color: #1F2937; }
+  .intro { max-width: 1180px; margin: 28px auto 8px; padding: 0 16px; }
+  .intro h1 { margin: 0 0 6px; font-size: 22px; }
+  .intro p { margin: 0; color: #4B5563; }
+  .direction { max-width: 1180px; margin: 24px auto 40px; padding: 0 16px; }
+  .label { display: flex; align-items: baseline; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+  .label h2 { margin: 0; font-size: 20px; }
+  .label span { color: #4B5563; font-size: 14px; }
+  .swatches { display: flex; gap: 6px; margin-left: auto; }
+  .swatches i { width: 22px; height: 22px; border-radius: 6px; border: 1px solid rgba(0,0,0,.12); display: inline-block; }
+
+  /* The mock app screen */
+  .app { display: grid; grid-template-columns: 210px 1fr 290px; min-height: 560px; border-radius: 14px; overflow: hidden;
+         box-shadow: 0 8px 30px rgba(15, 23, 42, .12); background: var(--page); font-family: var(--font); color: var(--ink); }
+  .nav { background: var(--nav); color: var(--nav-ink); padding: 18px 14px; display: flex; flex-direction: column; gap: 4px; }
+  .logo { display: flex; align-items: center; gap: 8px; font-family: var(--display); font-weight: 700; font-size: 19px; color: var(--logo-ink); margin: 0 6px 18px; letter-spacing: -.01em; }
+  .logo svg { width: 24px; height: 24px; }
+  .nav a { color: inherit; text-decoration: none; padding: 8px 10px; border-radius: 8px; font-size: 14px; display: flex; gap: 10px; align-items: center; }
+  .nav a svg { width: 16px; height: 16px; opacity: .85; }
+  .nav a.on { background: var(--nav-on); color: var(--nav-on-ink); font-weight: 600; }
+  .nav .ws { margin-top: auto; font-size: 12px; opacity: .8; padding: 8px 10px; border-top: 1px solid var(--nav-line); }
+  .main { padding: 18px 22px; min-width: 0; }
+  .crumbs { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .head h1 { margin: 0; font-family: var(--display); font-size: 24px; letter-spacing: -.01em; }
+  .spacer { flex: 1; }
+  .btn { font: inherit; font-size: 13px; font-weight: 600; padding: 8px 14px; border-radius: var(--radius); border: 1px solid var(--primary); background: var(--primary); color: var(--on-primary); }
+  .btn.ghost { background: transparent; color: var(--primary-text); border-color: var(--line); }
+  .steps { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+  .step { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 5px 10px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); color: var(--muted); }
+  .step b { width: 16px; height: 16px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; background: var(--line); color: var(--ink); }
+  .step.done b { background: var(--good); color: #fff; }
+  .step.now { border-color: var(--primary); color: var(--ink); font-weight: 600; }
+  .step.now b { background: var(--highlight); color: var(--on-highlight); }
+  .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 12px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 12px 14px; }
+  .k-label { font-size: 12px; color: var(--muted); }
+  .k-value { font-size: 28px; font-weight: 700; margin: 2px 0; font-variant-numeric: tabular-nums; color: #1F2937; }
+  .k-change { font-size: 12px; font-weight: 600; }
+  .k-change.up { color: var(--good); } .k-change.down { color: var(--bad); }
+  .k-foot { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .chart h3 { margin: 0 0 8px; font-size: 13px; }
+  .bars { display: grid; gap: 7px; }
+  .bar { display: grid; grid-template-columns: 90px 1fr 56px; align-items: center; gap: 8px; font-size: 12px; }
+  .bar i { height: 14px; border-radius: 3px; background: var(--data); display: block; }
+  .bar span:last-child { font-variant-numeric: tabular-nums; color: #374151; }
+  .insight { font-size: 12px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--grid); }
+  .ai { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 999px; background: var(--ai-bg); color: var(--ai-ink); margin-right: 6px; }
+  .chat { border-left: 1px solid var(--line); background: var(--card); display: flex; flex-direction: column; }
+  .chat header { padding: 14px; border-bottom: 1px solid var(--line); font-weight: 700; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; font-size: 11px; font-weight: 600; }
+  .seg span { padding: 3px 8px; color: var(--muted); } .seg span.on { background: var(--highlight-soft); color: var(--ink); }
+  .msgs { padding: 14px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+  .msg { font-size: 13px; padding: 9px 11px; border-radius: 12px; max-width: 92%; line-height: 1.45; }
+  .msg.me { align-self: flex-end; background: var(--me); color: var(--me-ink); }
+  .msg.bot { background: var(--page); }
+  .change { margin-top: 6px; border-left: 3px solid var(--highlight-line); padding-left: 8px; font-size: 12px; }
+  .change div { color: var(--good); }
+  .input { margin: 12px; border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; font-size: 13px; color: var(--muted); display: flex; justify-content: space-between; }
+  .input b { color: var(--primary-text); }
+
+  /* A — Clear Analyst: calm and closest to the dashboard house style */
+  .a { --font: "Plus Jakarta Sans", system-ui, sans-serif; --display: var(--font);
+       --page: #F4F6F9; --card: #FFFFFF; --ink: #1F2937; --muted: #5B6472; --line: #E3E7EE;
+       --nav: #FFFFFF; --nav-ink: #374151; --nav-on: #EAF1FB; --nav-on-ink: #0B3D91; --nav-line: #E3E7EE; --logo-ink: #111827;
+       --primary: #0B3D91; --primary-text: #0B3D91; --on-primary: #FFFFFF;
+       --highlight: #FACC15; --on-highlight: #111827; --highlight-soft: #FEF3C7; --highlight-line: #EAB308;
+       --ai-bg: #FEF3C7; --ai-ink: #854D0E; --me: #EAF1FB; --me-ink: #0B2E66;
+       --radius: 8px; --radius-lg: 12px; }
+  .a .nav { border-right: 1px solid #E3E7EE; }
+
+  /* B — Citrus Fresh: warm, friendly, leaf green and lemon */
+  .b { --font: "DM Sans", system-ui, sans-serif; --display: var(--font);
+       --page: #FBFAF4; --card: #FFFFFF; --ink: #1C1917; --muted: #57534E; --line: #ECE8DA;
+       --nav: #14532D; --nav-ink: #DCFCE7; --nav-on: #FDE047; --nav-on-ink: #1C1917; --nav-line: rgba(255,255,255,.15); --logo-ink: #FFFFFF;
+       --primary: #166534; --primary-text: #166534; --on-primary: #FFFFFF;
+       --highlight: #FDE047; --on-highlight: #1C1917; --highlight-soft: #FEF9C3; --highlight-line: #CA8A04;
+       --ai-bg: #FEF9C3; --ai-ink: #713F12; --me: #DCFCE7; --me-ink: #14532D;
+       --radius: 10px; --radius-lg: 16px; }
+
+  /* C — Midnight Lemon: bold, technical, lemon on deep ink */
+  .c { --font: "Inter", system-ui, sans-serif; --display: "Space Grotesk", var(--font);
+       --page: #F3F4F6; --card: #FFFFFF; --ink: #0F172A; --muted: #4B5563; --line: #E2E5EA;
+       --nav: #0B1220; --nav-ink: #CBD5E1; --nav-on: #1E293B; --nav-on-ink: #FACC15; --nav-line: #1E293B; --logo-ink: #FACC15;
+       --primary: #0F172A; --primary-text: #0F172A; --on-primary: #FACC15;
+       --highlight: #FACC15; --on-highlight: #0F172A; --highlight-soft: #FEF08A; --highlight-line: #EAB308;
+       --ai-bg: #0F172A; --ai-ink: #FACC15; --me: #0F172A; --me-ink: #F8FAFC;
+       --radius: 6px; --radius-lg: 10px; }
+  .c .nav a.on { box-shadow: inset 3px 0 0 #FACC15; }
+
+  @media (max-width: 900px) { .app { grid-template-columns: 1fr; } .nav, .chat { display: none; } .kpis { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="intro">
+  <h1>datalemon — three brand directions</h1>
+  <p>Same screen in each: navigation, the pipeline steps, KPI cards, a chart and the AI chat. Charts keep the house-style data colours in every direction, so only the brand around the data changes.</p>
+</div>
+
+
+<section class="direction a">
+  <div class="label"><h2>A · Clear Analyst</h2><span>Calm and trustworthy. Navy for actions, lemon only for the logo and highlights. Plus Jakarta Sans. Closest to your dashboard house style.</span>
+    <span class="swatches"><i style="background:#0B3D91"></i><i style="background:#FACC15"></i><i style="background:#F4F6F9"></i><i style="background:#005A9C"></i></span></div>
+  <div class="app">
+    <nav class="nav">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12c0-4 3.8-7.5 8.5-7.5s8.5 3.5 8.5 7.5-3.8 7.5-8.5 7.5S3.5 16 3.5 12z" fill="#FACC15" stroke="#CA8A04" stroke-width="1.2"/><path d="M2 12h3M19 12h3" stroke="#CA8A04" stroke-width="1.6" stroke-linecap="round"/><path d="M12 7.5c1.6 1.2 1.6 7.8 0 9" stroke="#CA8A04" stroke-width="1" fill="none" opacity=".6"/></svg>
+        datalemon
+      </div>
+      <a class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l9-8 9 8M5 10v10h14V10"/></svg>Home</a>
+      <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/></svg>Datasets</a>
+      <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>Dashboards</a>
+      <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z"/></svg>Settings</a>
+      <div class="ws">YTL Cement · Admin</div>
+    </nav>
+    <main class="main">
+      <div class="crumbs">Home › Dashboards › Sales review</div>
+      <div class="head"><h1>Sales review</h1><span class="spacer"></span><button class="btn ghost">Export PDF</button><button class="btn">Publish changes</button></div>
+      <div class="steps">
+        <span class="step done"><b>✓</b>Get Data</span><span class="step done"><b>✓</b>Transform</span><span class="step done"><b>✓</b>Model</span><span class="step now"><b>4</b>Report</span><span class="step"><b>5</b>Publish</span>
+      </div>
+      <div class="kpis">
+        <div class="card"><div class="k-label">Revenue · 2025 to date</div><div class="k-value">RM 46.4K</div><div class="k-change down">▼ −RM 42.8K (−48.0%) vs same period 2024</div><div class="k-foot">Top driver: Johor −RM 23.4K</div></div>
+        <div class="card"><div class="k-label">Orders · 2025 to date</div><div class="k-value">97</div><div class="k-change down">▼ −6 (−5.8%) vs same period 2024</div><div class="k-foot">12-month trend steady</div></div>
+        <div class="card"><div class="k-label">Active customers</div><div class="k-value">35</div><div class="k-change up">▲ +2 (+6.1%) vs same period 2024</div><div class="k-foot">Online segment leads</div></div>
+      </div>
+      <div class="card chart">
+        <h3>Revenue by state</h3>
+        <div class="bars">
+          <div class="bar"><span>Johor</span><i style="width:100%"></i><span>RM 31.8K</span></div>
+          <div class="bar"><span>Sarawak</span><i style="width:92%"></i><span>RM 29.4K</span></div>
+          <div class="bar"><span>Pahang</span><i style="width:87%"></i><span>RM 27.8K</span></div>
+          <div class="bar"><span>Penang</span><i style="width:66%"></i><span>RM 21.1K</span></div>
+          <div class="bar"><span>Selangor</span><i style="width:50%"></i><span>RM 16.0K</span></div>
+        </div>
+        <div class="insight"><span class="ai">AI</span>Johor leads at RM 31.8K, just ahead of Sarawak (RM 29.4K) and Pahang (RM 27.8K).</div>
+      </div>
+    </main>
+    <aside class="chat">
+      <header>Report AI <span class="seg"><span class="on">Full AI</span><span>Review</span></span></header>
+      <div class="msgs">
+        <div class="msg me">Swap the donut for a bar chart of revenue by state</div>
+        <div class="msg bot">Switching to a sorted bar chart of revenue by state.
+          <div class="change"><strong>Applied</strong><div>✓ Replace 'Revenue share' with a bar 'Revenue by state'</div></div>
+        </div>
+      </div>
+      <div class="input">Ask or request a change… <b>Send</b></div>
+    </aside>
+  </div>
+</section>
+
+<section class="direction b">
+  <div class="label"><h2>B · Citrus Fresh</h2><span>Warm and friendly. Leaf green with lemon highlights on a soft cream page. DM Sans. Feels approachable for first-time users.</span>
+    <span class="swatches"><i style="background:#14532D"></i><i style="background:#FDE047"></i><i style="background:#FBFAF4"></i><i style="background:#005A9C"></i></span></div>
+  <div class="app">
+    <nav class="nav">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12c0-4 3.8-7.5 8.5-7.5s8.5 3.5 8.5 7.5-3.8 7.5-8.5 7.5S3.5 16 3.5 12z" fill="#FACC15" stroke="#CA8A04" stroke-width="1.2"/><path d="M2 12h3M19 12h3" stroke="#CA8A04" stroke-width="1.6" stroke-linecap="round"/><path d="M12 7.5c1.6 1.2 1.6 7.8 0 9" stroke="#CA8A04" stroke-width="1" fill="none" opacity=".6"/></svg>
+        datalemon
+      </div>
+      <a class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l9-8 9 8M5 10v10h14V10"/></svg>Home</a>
+      <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/></svg>Datasets</a>
+      <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>Dashboards</a>
+      <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z"/></svg>Settings</a>
+      <div class="ws">YTL Cement · Admin</div>
+    </nav>
+    <main class="main">
+      <div class="crumbs">Home › Dashboards › Sales review</div>
+      <div class="head"><h1>Sales review</h1><span class="spacer"></span><button class="btn ghost">Export PDF</button><button class="btn">Publish changes</button></div>
+      <div class="steps">
+        <span class="step done"><b>✓</b>Get Data</span><span class="step done"><b>✓</b>Transform</span><span class="step done"><b>✓</b>Model</span><span class="step now"><b>4</b>Report</span><span class="step"><b>5</b>Publish</span>
+      </div>
+      <div class="kpis">
+        <div class="card"><div class="k-label">Revenue · 2025 to date</div><div class="k-value">RM 46.4K</div><div class="k-change down">▼ −RM 42.8K (−48.0%) vs same period 2024</div><div class="k-foot">Top driver: Johor −RM 23.4K</div></div>
+        <div class="card"><div class="k-label">Orders · 2025 to date</div><div class="k-value">97</div><div class="k-change down">▼ −6 (−5.8%) vs same period 2024</div><div class="k-foot">12-month trend steady</div></div>
+        <div class="card"><div class="k-label">Active customers</div><div class="k-value">35</div><div class="k-change up">▲ +2 (+6.1%) vs same period 2024</div><div class="k-foot">Online segment leads</div></div>
+      </div>
+      <div class="card chart">
+        <h3>Revenue by state</h3>
+        <div class="bars">
+          <div class="bar"><span>Johor</span><i style="width:100%"></i><span>RM 31.8K</span></div>
+          <div class="bar"><span>Sarawak</span><i style="width:92%"></i><span>RM 29.4K</span></div>
+          <div class="bar"><span>Pahang</span><i style="width:87%"></i><span>RM 27.8K</span></div>
+          <div class="bar"><span>Penang</span><i style="width:66%"></i><span>RM 21.1K</span></div>
+          <div class="bar"><span>Selangor</span><i style="width:50%"></i><span>RM 16.0K</span></div>
+        </div>
+        <div class="insight"><span class="ai">AI</span>Johor leads at RM 31.8K, just ahead of Sarawak (RM 29.4K) and Pahang (RM 27.8K).</div>
+      </div>
+    </main>
+    <aside class="chat">
+      <header>Report AI <span class="seg"><span class="on">Full AI</span><span>Review</span></span></header>
+      <div class="msgs">
+        <div class="msg me">Swap the donut for a bar chart of revenue by state</div>
+        <div class="msg bot">Switching to a sorted bar chart of revenue by state.
+          <div class="change"><strong>Applied</strong><div>✓ Replace 'Revenue share' with a bar 'Revenue by state'</div></div>
+        </div>
+      </div>
+      <div class="input">Ask or request a change… <b>Send</b></div>
+    </aside>
+  </div>
+</section>
+
+<section class="direction c">
+  <div class="label"><h2>C · Midnight Lemon</h2><span>Bold and technical. Lemon on deep ink navigation, sharper corners. Space Grotesk headings with Inter. Feels like a modern AI product.</span>
+    <span class="swatches"><i style="background:#0B1220"></i><i style="background:#FACC15"></i><i style="background:#F3F4F6"></i><i style="background:#005A9C"></i></span></div>
+  <div class="app">
+    <nav class="nav">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12c0-4 3.8-7.5 8.5-7.5s8.5 3.5 8.5 7.5-3.8 7.5-8.5 7.5S3.5 16 3.5 12z" fill="#FACC15" stroke="#CA8A04" stroke-width="1.2"/><path d="M2 12h3M19 12h3" stroke="#CA8A04" stroke-width="1.6" stroke-linecap="round"/><path d="M12 7.5c1.6 1.2 1.6 7.8 0 9" stroke="#CA8A04" stroke-width="1" fill="none" opacity=".6"/></svg>
+        datalemon
+      </div>
+      <a class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l9-8 9 8M5 10v10h14V10"/></svg>Home</a>
+      <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/></svg>Datasets</a>
+      <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>Dashboards</a>
+      <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z"/></svg>Settings</a>
+      <div class="ws">YTL Cement · Admin</div>
+    </nav>
+    <main class="main">
+      <div class="crumbs">Home › Dashboards › Sales review</div>
+      <div class="head"><h1>Sales review</h1><span class="spacer"></span><button class="btn ghost">Export PDF</button><button class="btn">Publish changes</button></div>
+      <div class="steps">
+        <span class="step done"><b>✓</b>Get Data</span><span class="step done"><b>✓</b>Transform</span><span class="step done"><b>✓</b>Model</span><span class="step now"><b>4</b>Report</span><span class="step"><b>5</b>Publish</span>
+      </div>
+      <div class="kpis">
+        <div class="card"><div class="k-label">Revenue · 2025 to date</div><div class="k-value">RM 46.4K</div><div class="k-change down">▼ −RM 42.8K (−48.0%) vs same period 2024</div><div class="k-foot">Top driver: Johor −RM 23.4K</div></div>
+        <div class="card"><div class="k-label">Orders · 2025 to date</div><div class="k-value">97</div><div class="k-change down">▼ −6 (−5.8%) vs same period 2024</div><div class="k-foot">12-month trend steady</div></div>
+        <div class="card"><div class="k-label">Active customers</div><div class="k-value">35</div><div class="k-change up">▲ +2 (+6.1%) vs same period 2024</div><div class="k-foot">Online segment leads</div></div>
+      </div>
+      <div class="card chart">
+        <h3>Revenue by state</h3>
+        <div class="bars">
+          <div class="bar"><span>Johor</span><i style="width:100%"></i><span>RM 31.8K</span></div>
+          <div class="bar"><span>Sarawak</span><i style="width:92%"></i><span>RM 29.4K</span></div>
+          <div class="bar"><span>Pahang</span><i style="width:87%"></i><span>RM 27.8K</span></div>
+          <div class="bar"><span>Penang</span><i style="width:66%"></i><span>RM 21.1K</span></div>
+          <div class="bar"><span>Selangor</span><i style="width:50%"></i><span>RM 16.0K</span></div>
+        </div>
+        <div class="insight"><span class="ai">AI</span>Johor leads at RM 31.8K, just ahead of Sarawak (RM 29.4K) and Pahang (RM 27.8K).</div>
+      </div>
+    </main>
+    <aside class="chat">
+      <header>Report AI <span class="seg"><span class="on">Full AI</span><span>Review</span></span></header>
+      <div class="msgs">
+        <div class="msg me">Swap the donut for a bar chart of revenue by state</div>
+        <div class="msg bot">Switching to a sorted bar chart of revenue by state.
+          <div class="change"><strong>Applied</strong><div>✓ Replace 'Revenue share' with a bar 'Revenue by state'</div></div>
+        </div>
+      </div>
+      <div class="input">Ask or request a change… <b>Send</b></div>
+    </aside>
+  </div>
+</section>
+
+</body>
+</html>
