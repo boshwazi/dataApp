@@ -89,12 +89,32 @@ def columns_of(con: duckdb.DuckDBPyConnection, sql: str) -> list[Column]:
     return [Column(name, logical_type(kind)) for name, kind, *_ in con.execute(f"DESCRIBE {sql}").fetchall()]
 
 
+def base_sql(con, project: dict, query: dict, visiting: frozenset) -> str:
+    """The SQL a query starts from: its raw source table, or for a lookup table the output of the
+    table it was split from, as it was right after the step where the split happened."""
+    if not query.get("base_query"):
+        source = next((s for s in project["sources"] if s["id"] == query["source_id"]), None)
+        if source is None:
+            raise StepError("Its source table was removed in Get Data.")
+        return f"SELECT * FROM {quote(source['table'])}"
+    base = next((q for q in state(project)["queries"] if q["id"] == query["base_query"]), None)
+    if base is None:
+        raise StepError("The table it was split from was removed.")
+    if base["id"] in visiting:
+        raise StepError(f"'{base['name']}' already depends on this table.")
+    upto = 0
+    if query.get("base_step"):
+        ids = [s["id"] for s in base["steps"]]
+        if query["base_step"] not in ids:
+            raise StepError(f"The step of '{base['name']}' it was split after was removed.")
+        upto = ids.index(query["base_step"]) + 1
+    return compile_query(con, project, base, visiting).sql(upto)
+
+
 def compile_query(con, project: dict, query: dict, visiting: frozenset = frozenset()) -> Compiled:
-    source = next((s for s in project["sources"] if s["id"] == query["source_id"]), None)
-    if source is None:
-        raise StepError("Its source table was removed in Get Data.")
     names = query_names(project)
     visiting = visiting | {query["id"]}
+    start = base_sql(con, project, query, visiting)
 
     def resolve(ref):
         if not isinstance(ref, str):
@@ -105,7 +125,7 @@ def compile_query(con, project: dict, query: dict, visiting: frozenset = frozens
         compiled = compile_query(con, project, other, visiting)
         return compiled.sql(), compiled.columns[-1], other["id"]
 
-    ctes = [f"s0 AS (SELECT * FROM {quote(source['table'])})"]
+    ctes = [f"s0 AS ({start})"]
     compiled = Compiled(ctes, [])
     compiled.columns.append(columns_of(con, compiled.sql()))
     for i, step in enumerate(query["steps"], start=1):
@@ -285,11 +305,91 @@ def approve_all(project, query_id: str | None = None) -> int:
     """Approve every AI step, in one table or all of them, as a single undoable change."""
     queries = [find_query(project, query_id)] if query_id else state(project)["queries"]
     pending = [s for q in queries for s in q["steps"] if s["status"] != "Approved"]
+    pending += [q for q in queries if q.get("status") == "AI"]  # lookup tables the AI split off
     if pending:
         snapshot(project)
-        for step in pending:
-            step["status"] = "Approved"
+        for item in pending:
+            item["status"] = "Approved"
     return len(pending)
+
+
+# Lookup tables
+
+
+def split_table(con, project: dict, from_query: str, columns: list, key: str | None = None, name: str | None = None,
+                reason: str = "", status: str = "Approved") -> dict:
+    """Split columns of a table off into a lookup table with one row per key (Reference, keep
+    columns, remove blank keys, remove duplicates). It starts from the table as it is now, so
+    later steps there, such as removing the moved columns, do not change it."""
+    base = find_query(project, from_query)
+    available = compile_query(con, project, base).columns[-1]
+    if isinstance(columns, str):
+        columns = [columns]
+    if not isinstance(columns, list) or not columns:
+        raise StepError("List the columns to move into the lookup table.")
+
+    def actual(ref):
+        for column in available:
+            if isinstance(ref, str) and column.name.lower() == ref.strip().lower():
+                return column.name
+        raise StepError(f"'{base['name']}' has no column '{ref}'.")
+
+    picked = list(dict.fromkeys(actual(c) for c in columns))
+    key_name = actual(key) if key else picked[0]
+    if key_name not in picked:
+        picked.insert(0, key_name)
+    if len(picked) == len(available):
+        raise StepError("A lookup table should take some columns, not all of them.")
+    taken = {q["name"] for q in state(project)["queries"]}
+    new_name = table_name(name or key_name)
+    if new_name in taken:
+        raise StepError(f"A table named {new_name} already exists.")
+    made = now()
+    step = lambda op, params, why: {"id": new_id(), "op": op, "params": params, "reason": why, "status": status, "added_at": made}
+    query = {
+        "id": new_id(),
+        "workspace_id": project["workspace_id"],
+        "name": new_name,
+        "source_id": None,
+        "base_query": base["id"],
+        "base_step": base["steps"][-1]["id"] if base["steps"] else None,
+        "status": status,
+        "reason": str(reason or ""),
+        "steps": [
+            step("remove_columns", {"columns": [c.name for c in available if c.name not in picked]}, "Keep only the lookup columns."),
+            step("filter_rows", {"column": key_name, "operator": "is_not_blank"}, "Every row needs a key."),
+            step("remove_duplicates", {"columns": [key_name]}, "One row per key, so it can be the one side of a relationship."),
+        ],
+        "output": None,
+        "error": None,
+    }
+    before = copy.deepcopy(project)
+    snapshot(project)
+    state(project)["queries"].append(query)
+    try:
+        check_change(con, before, project, query["id"])
+    except StepError:
+        project.clear()
+        project.update(before)
+        raise
+    return query
+
+
+def remove_table(con, project: dict, query_id: str) -> None:
+    """Remove a lookup table. Tables loaded in Get Data are removed there instead."""
+    query = find_query(project, query_id)
+    if not query.get("base_query"):
+        raise StepError("Remove this table in Get Data; only lookup tables are removed here.")
+    before = copy.deepcopy(project)
+    state(project)["queries"].remove(query)
+    broken_before, broken_after = failing(con, before), failing(con, project)
+    newly = [qid for qid in broken_after if qid not in broken_before]
+    if newly:
+        names = query_names(before)
+        project.clear()
+        project.update(before)
+        raise StepError(f"'{names[newly[0]]}' uses this table, so it cannot be removed.")
+    push_history(project, before["transform"]["queries"])
 
 
 def rename_query(con, project, query_id, name: str):
@@ -304,13 +404,17 @@ def undo(project: dict) -> None:
     if not transform["history"]:
         raise StepError("Nothing to undo.")
     sources = {s["id"] for s in project["sources"]}
-    saved = {q["id"]: q for q in transform["history"].pop() if q["source_id"] in sources}
-    queries = []
+    current = {q["id"]: q for q in transform["queries"]}
+    queries = [
+        {**current.get(saved["id"], {"output": None, "error": None}), **saved}
+        for saved in transform["history"].pop()
+        if saved.get("base_query") or saved["source_id"] in sources
+    ]
+    restored = {q["id"] for q in queries}
     for query in transform["queries"]:
-        if query["id"] in saved:
-            queries.append({**query, **saved.pop(query["id"])})
-        else:
-            queries.append({**query, "steps": []})  # added after the snapshot: its source is new
+        # A source loaded after the snapshot keeps its table, without steps; lookup tables made since are dropped.
+        if query["id"] not in restored and not query.get("base_query"):
+            queries.append({**query, "steps": []})
     transform["queries"] = queries
 
 

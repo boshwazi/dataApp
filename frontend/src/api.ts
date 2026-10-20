@@ -162,6 +162,11 @@ export type Step = {
 export type QuerySummary = {
   id: string;
   name: string;
+  kind: "source" | "lookup";
+  status: "AI" | "Approved" | null;
+  reason: string;
+  base_table: string | null;
+  split_after_step: number | null;
   source_table: string | null;
   steps: Step[];
   error: string | null;
@@ -197,6 +202,7 @@ export type StepPreview = {
 export type AIRun = TransformState & {
   summary: string;
   added: Step[];
+  new_tables: string[];
   rejected: { op: string; reason: string; error: string }[];
 };
 
@@ -214,6 +220,7 @@ export const transformApi = {
   move: (pid: string, qid: string, sid: string, to: number) =>
     request<TransformState>(`${tq(pid, qid)}/steps/${sid}/move`, json("POST", { to })),
   rename: (pid: string, qid: string, name: string) => request<TransformState>(tq(pid, qid), json("PATCH", { name })),
+  removeTable: (pid: string, qid: string) => request<TransformState>(tq(pid, qid), { method: "DELETE" }),
   approveAll: (pid: string, qid?: string) =>
     request<TransformState>(`${tf(pid)}/approve-all${qid ? `?query_id=${qid}` : ""}`, { method: "POST" }),
   undo: (pid: string) => request<TransformState>(`${tf(pid)}/undo`, { method: "POST" }),

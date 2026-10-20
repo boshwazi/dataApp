@@ -77,7 +77,13 @@ compiles it to SQL itself and refuses steps that fail, break another table, or m
 multiply rows. Steps replay from the raw table on every change, are marked `AI` or `Approved`
 with the AI's reason, and can be reordered, removed or undone. Click a step to see its rows
 before and after, and its impact. The results are stored as tables in the project's `clean`
-schema, which the Model stage will read.
+schema, which the Model stage reads.
+
+When one table repeats the details of something with its own key (for example product code,
+name and category on every order line), the AI can **split** those columns into a lookup
+table with one row per key, then remove them from the original. A lookup table is a copy of
+the original as it was at that step, so later steps there don't change it. Lookup tables are
+marked `AI` until you approve them, and can be removed or undone like any step.
 
 ## Model
 

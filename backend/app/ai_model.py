@@ -96,6 +96,7 @@ def build_prompt(con, project: dict) -> str:
     found = model.tables(con, project)
     queries = {q["id"]: q for q in transform.state(project)["queries"]}
     sources = {s["id"]: s for s in project["sources"]}
+    names_by_id = transform.query_names(project)
     described = []
     for table in found.values():
         if table.id == model.DATE_ID:
@@ -107,6 +108,7 @@ def build_prompt(con, project: dict) -> str:
             "table": table.name,
             "rows": query["output"]["profile"]["rows"],
             "notes": {k: notes.get(k) for k in ("summary", "grain", "table_role")} if notes else None,
+            "lookup_split_from": names_by_id.get(query.get("base_query")),
             "columns": [
                 {
                     "name": c.name,
@@ -153,7 +155,8 @@ def apply(con, project: dict, proposal: dict) -> dict:
             added.append({"kind": kind, "label": label})
             return item
         except (model.ModelError, KeyError, TypeError) as exc:
-            refused.append({"kind": kind, "label": label, "error": str(exc)})
+            if "already exists" not in str(exc):  # re-proposing what is there is not worth reporting
+                refused.append({"kind": kind, "label": label, "error": str(exc)})
 
     date_plan = proposal.get("date_table") or {}
     if date_plan.get("create") and not current["date_table"]:

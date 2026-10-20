@@ -79,7 +79,10 @@ export function Transform() {
 
   const busy = cleaning.size > 0;
   const cleanable = state.queries.filter((q) => !q.error).map((q) => q.id);
-  const unapproved = state.queries.reduce((n, q) => n + q.steps.filter((s) => s.status === "AI").length, 0);
+  const unapproved = state.queries.reduce(
+    (n, q) => n + q.steps.filter((s) => s.status === "AI").length + (q.status === "AI" ? 1 : 0),
+    0,
+  );
 
   return (
     <div className="get-data">
@@ -145,6 +148,9 @@ function QueryItem(props: { query: QuerySummary; selected: boolean; cleaning: bo
           {query.steps.length === 1 ? "step" : "steps"}
         </span>
         <span className="badges">
+          {query.kind === "lookup" && (
+            <span className={`badge ${query.status === "AI" ? "ai" : ""}`}>lookup{query.status === "AI" ? " · AI" : ""}</span>
+          )}
           {query.error && <span className="badge bad-badge">error</span>}
           {query.issue_count ? <span className="badge warn">{query.issue_count} {query.issue_count === 1 ? "issue" : "issues"}</span> : null}
           {query.issue_count === 0 && <span className="badge ok-badge">clean</span>}
@@ -188,7 +194,7 @@ function QueryDetailView({ projectId, query, hasKey, cleaning, run, onClean, onC
         <div>
           <h2>{query.name}</h2>
           <p className="muted small">
-            From {query.source_table ?? "a removed source"}
+            {query.kind === "lookup" ? `Lookup table from ${query.base_table ?? "a removed table"}` : `From ${query.source_table ?? "a removed source"}`}
             {query.rows !== null && ` · ${query.rows.toLocaleString()} rows · ${query.columns.length} columns`}
           </p>
         </div>
@@ -196,6 +202,11 @@ function QueryDetailView({ projectId, query, hasKey, cleaning, run, onClean, onC
           <button className="secondary" onClick={rename}>
             Rename
           </button>
+          {query.kind === "lookup" && (
+            <button className="secondary danger" onClick={() => onChange(() => transformApi.removeTable(projectId, query.id))}>
+              Remove table
+            </button>
+          )}
           <button onClick={onClean} disabled={!hasKey || cleaning || !!query.error}>
             {cleaning ? "AI is cleaning…" : "Clean with AI"}
           </button>
@@ -203,6 +214,18 @@ function QueryDetailView({ projectId, query, hasKey, cleaning, run, onClean, onC
       </header>
 
       {query.error && <div className="notice bad-notice">{query.error}</div>}
+      {query.kind === "lookup" && query.status === "AI" && (
+        <div className="ai-card">
+          <span className="badge ai">AI</span>
+          <div className="grow">
+            <p>The AI split this lookup table off {query.base_table}.</p>
+            {query.reason && <p className="muted small">{query.reason}</p>}
+          </div>
+          <button className="secondary" onClick={() => onChange(() => transformApi.approveAll(projectId, query.id))}>
+            Approve table
+          </button>
+        </div>
+      )}
       {run && <RunResult run={run} />}
 
       <div className="section-head">
@@ -217,7 +240,11 @@ function QueryDetailView({ projectId, query, hasKey, cleaning, run, onClean, onC
         <li className={step === 0 ? "selected" : ""}>
           <button className="step-main" onClick={() => setStep(0)}>
             <span className="step-number">0</span>
-            <span>Source: {query.source_table}</span>
+            <span>
+              {query.kind === "lookup"
+                ? `Copy of ${query.base_table} ${query.split_after_step ? `after its step ${query.split_after_step}` : "as loaded"}`
+                : `Source: ${query.source_table}`}
+            </span>
           </button>
         </li>
         {query.steps.map((s, i) => (
@@ -301,6 +328,7 @@ function RunResult({ run }: { run: AIRun | { error: string } }) {
         <p>{run.summary || "The AI reviewed this table."}</p>
         <p className="muted small">
           {run.added.length ? `Added ${run.added.length} ${run.added.length === 1 ? "step" : "steps"}.` : "No new steps needed."}
+          {run.new_tables?.length > 0 && ` Split off ${run.new_tables.join(", ")}.`}
           {run.rejected.length > 0 && ` ${run.rejected.length} proposed ${run.rejected.length === 1 ? "step was" : "steps were"} refused by the checks:`}
         </p>
         {run.rejected.map((r, i) => (

@@ -24,7 +24,11 @@ SYSTEM = (
     "never invent column names; do not drop rows or columns unless they are clearly junk; keep fact and "
     "dimension tables separate (the Model stage relates them), so only merge when told to; order steps so "
     "each one sees the columns it needs (e.g. blanks_to_null and trim before change_type or replace_values); "
-    "add nothing if the table is already clean. Give each step a short reason a business user understands."
+    "add nothing if the table is already clean. Give each step a short reason a business user understands. "
+    "If the table repeats descriptive attributes of something with its own key (e.g. product code, name and "
+    "category on every sales row), you may split those columns off into a lookup table with new_tables; the key "
+    "stays in this table, and you may add a remove_columns step for the moved attributes. Do not split off a "
+    "single column with no attributes, and never split dates (the Model stage adds a date table)."
 )
 
 SCHEMA = {
@@ -41,6 +45,20 @@ SCHEMA = {
                     "reason": {"type": "string"},
                 },
                 "required": ["op", "params", "reason"],
+            },
+        },
+        "new_tables": {
+            "type": "array",
+            "description": "Optional lookup tables to split off this table, made after your steps run.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "key": {"type": "string", "description": "The column identifying each row, e.g. product code."},
+                    "columns": {"type": "array", "items": {"type": "string"}, "description": "Key plus its attributes."},
+                    "reason": {"type": "string"},
+                },
+                "required": ["name", "key", "columns", "reason"],
             },
         },
     },
@@ -81,7 +99,7 @@ def build_prompt(con, project: dict, query: dict) -> str:
     names = [d[0] for d in result.description]
     samples = [{k: shorten(None if v is None else str(v)) for k, v in zip(names, row)} for row in result.fetchall()]
 
-    source = next(s for s in project["sources"] if s["id"] == query["source_id"])
+    source = next((s for s in project["sources"] if s["id"] == query["source_id"]), {})  # lookup tables have none
     query_names = transform.query_names(project)
     others = [
         {"table": q["name"], "columns": [c["name"] for c in (q["output"] or {}).get("columns", [])]}
@@ -93,6 +111,7 @@ def build_prompt(con, project: dict, query: dict) -> str:
         "rows": profile["rows"],
         "exact_duplicate_rows": profile["duplicate_rows"],
         "get_data_notes": source.get("ai"),
+        "lookup_split_from": transform.query_names(project).get(query.get("base_query")),
         "steps_so_far": [describe(s["op"], s["params"], query_names) for s in query["steps"]],
         "columns": columns,
         "sample_rows": samples,
@@ -109,4 +128,5 @@ def propose(client, model: str, capabilities: dict, con, project: dict, query: d
     prompt = build_prompt(con, project, query)
     raw = llm.ask_json(client, model, capabilities, SYSTEM, prompt, "propose_steps", SCHEMA)
     steps = [s for s in raw.get("steps") or [] if isinstance(s, dict)]
-    return {"summary": str(raw.get("summary") or ""), "steps": steps}
+    tables = [t for t in raw.get("new_tables") or [] if isinstance(t, dict)]
+    return {"summary": str(raw.get("summary") or ""), "steps": steps, "new_tables": tables}

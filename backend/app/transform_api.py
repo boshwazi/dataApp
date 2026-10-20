@@ -21,6 +21,14 @@ class StepBody(BaseModel):
     position: int | None = None
 
 
+class SplitBody(BaseModel):
+    from_table: str
+    columns: list[str]
+    key: str | None = None
+    name: str | None = None
+    reason: str = ""
+
+
 class MoveBody(BaseModel):
     to: int
 
@@ -37,9 +45,19 @@ def query_summary(project: dict, query: dict) -> dict:
     names = transform.query_names(project)
     source = next((s for s in project["sources"] if s["id"] == query["source_id"]), None)
     profile = (query["output"] or {}).get("profile")
+    base = next((q for q in transform.state(project)["queries"] if q["id"] == query.get("base_query")), None)
+    split_after = None
+    if base and query.get("base_step"):
+        ids = [s["id"] for s in base["steps"]]
+        split_after = ids.index(query["base_step"]) + 1 if query["base_step"] in ids else None
     return {
         "id": query["id"],
         "name": query["name"],
+        "kind": "lookup" if query.get("base_query") else "source",
+        "status": query.get("status"),
+        "reason": query.get("reason", ""),
+        "base_table": base["name"] if base else None,
+        "split_after_step": split_after,
         "source_table": source["table"] if source else None,
         "steps": [step_view(s, names) for s in query["steps"]],
         "error": query["error"],
@@ -134,6 +152,18 @@ def build_router(
             transform.approve_step(project, query_of(project, query_id)["id"], step_id)
         return view(project)
 
+    @router.post("/split")
+    def split(project_id: str, body: SplitBody):
+        with editing(project_id) as (project, con):
+            transform.split_table(con, project, body.from_table, body.columns, body.key, body.name, body.reason)
+        return view(project)
+
+    @router.delete("/queries/{query_id}")
+    def remove_table(project_id: str, query_id: str):
+        with editing(project_id) as (project, con):
+            transform.remove_table(con, project, query_of(project, query_id)["id"])
+        return view(project)
+
     @router.post("/approve-all")
     def approve_all(project_id: str, query_id: str | None = None):
         """Approve every AI step; pass query_id to limit it to one table."""
@@ -182,12 +212,39 @@ def build_router(
                 )
         except llm.AIError as exc:
             raise HTTPException(502, f"AI cleaning failed: {exc}") from exc
+        # Cleaning steps first, then the lookup tables (so they get cleaned values), then removing the
+        # columns that moved into them. Each part is checked; together they undo as one change.
+        moved = {c.lower() for t in proposal["new_tables"] for c in t.get("columns") or [] if isinstance(c, str)}
+
+        def removes_moved(step):
+            cols = (step.get("params") or {}).get("columns")
+            cols = [cols] if isinstance(cols, str) else cols or []
+            return step.get("op") == "remove_columns" and moved and all(str(c).lower() in moved for c in cols)
+
+        first = [s for s in proposal["steps"] if not removes_moved(s)]
+        last = [s for s in proposal["steps"] if removes_moved(s)]
         with editing(project_id) as (project, con):
-            added, rejected = transform.add_steps(con, project, query["id"], proposal["steps"], "AI")
+            before = len(transform.state(project)["history"])
+            added, rejected = transform.add_steps(con, project, query["id"], first, "AI")
+            tables = []
+            for spec in proposal["new_tables"]:
+                try:
+                    made = transform.split_table(con, project, query["id"], spec.get("columns"), spec.get("key"),
+                                                 spec.get("name"), spec.get("reason", ""), "AI")
+                    tables.append(made["name"])
+                except StepError as exc:
+                    rejected.append({"op": "new table", "params": spec, "reason": spec.get("reason", ""),
+                                     "error": f"Lookup table '{spec.get('name')}': {exc}"})
+            more, refused = transform.add_steps(con, project, query["id"], last, "AI")
+            added += more
+            rejected += refused
+            history = transform.state(project)["history"]
+            del history[before + 1:]  # keep only the first snapshot, so one undo reverts the whole run
         names = transform.query_names(project)
         return {
             "summary": proposal["summary"],
             "added": [step_view(s, names) for s in added],
+            "new_tables": tables,
             "rejected": rejected,
             **view(project),
         }

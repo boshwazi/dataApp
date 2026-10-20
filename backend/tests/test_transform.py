@@ -345,3 +345,97 @@ def test_steps_that_blank_most_of_a_column_are_refused(p):
 def test_replacements_that_match_nothing_are_refused(p):
     response = p.add("sales", "replace_values", column="region", replacements=[{"from": "Atlantis", "to": "x"}])
     assert response.status_code == 400 and "change nothing" in response.json()["detail"]
+
+
+# Lookup tables
+
+ORDERS = (
+    "order,product,product name,category,qty\n"
+    "1,P1,Apple,Fruit,2\n"
+    "2,P2,Bread,Bakery,1\n"
+    "3,P1,Apple,Fruit,5\n"
+    "4,,,,1\n"
+)
+
+
+@pytest.fixture
+def orders(tmp_path):
+    project = Project(tmp_path)
+    project.upload("orders.csv", ORDERS)
+    return project
+
+
+def split(p, **body):
+    return p.api.post(f"{p.base}/split", json=body)
+
+
+def test_split_makes_a_lookup_table_with_one_row_per_key(orders):
+    p = orders
+    state = ok(split(p, from_table="orders", columns=["product", "product name", "category"], name="Products"))
+    lookup = next(q for q in state["queries"] if q["name"] == "products")
+    assert lookup["kind"] == "lookup" and lookup["base_table"] == "orders" and lookup["status"] == "Approved"
+    assert [c["name"] for c in lookup["columns"]] == ["product", "product name", "category"]
+    assert sorted(p.column("products", "product")) == ["P1", "P2"]  # no blank key, one row each
+
+    # The original can now drop the moved attributes without changing the lookup table.
+    ok(p.add("orders", "remove_columns", columns=["product name", "category"]))
+    assert [c["name"] for c in p.query("orders")["columns"]] == ["order", "product", "qty"]
+    assert p.query("products")["rows"] == 2 and p.query("products")["error"] is None
+
+
+def test_split_refuses_unknown_columns_and_taken_names(orders):
+    assert "has no column" in split(orders, from_table="orders", columns=["nope"]).json()["detail"]
+    assert "already exists" in split(orders, from_table="orders", columns=["product"], name="orders").json()["detail"]
+    everything = ["order", "product", "product name", "category", "qty"]
+    assert "not all of them" in split(orders, from_table="orders", columns=everything).json()["detail"]
+
+
+def test_steps_the_lookup_depends_on_cannot_be_removed(orders):
+    p = orders
+    ok(p.add("orders", "change_case", columns=["category"], case="upper"))
+    ok(split(p, from_table="orders", columns=["product", "category"]))
+    assert sorted(p.column("product", "category")) == ["BAKERY", "FRUIT"]
+    step = p.query("orders")["steps"][0]
+    response = p.api.delete(f"{p.base}/queries/{p.query('orders')['id']}/steps/{step['id']}")
+    assert response.status_code == 400 and "break 'product'" in response.json()["detail"]
+
+
+def test_lookup_tables_can_be_removed_and_undone(orders):
+    p = orders
+    ok(split(p, from_table="orders", columns=["product", "category"]))
+    ok(p.api.delete(f"{p.base}/queries/{p.query('product')['id']}"))
+    assert [q["name"] for q in p.state()["queries"]] == ["orders"]
+    ok(p.api.post(f"{p.base}/undo"))
+    assert [q["name"] for q in p.state()["queries"]] == ["orders", "product"]
+    ok(p.api.post(f"{p.base}/undo"))
+    assert [q["name"] for q in p.state()["queries"]] == ["orders"]
+    # Tables loaded in Get Data are removed there, not here.
+    assert p.api.delete(f"{p.base}/queries/{p.query('orders')['id']}").status_code == 400
+
+
+def test_ai_splits_after_cleaning_and_removes_moved_columns_last(tmp_path):
+    ai = FakeAI([
+        {"op": "remove_columns", "params": {"columns": ["product name", "category"]}, "reason": "moved to products"},
+        {"op": "change_case", "params": {"columns": ["category"], "case": "upper"}, "reason": "consistent case"},
+    ])
+    ai.answer["new_tables"] = [
+        {"name": "Products", "key": "product", "columns": ["product", "product name", "category"], "reason": "product details"},
+        {"name": "Bad", "key": "nope", "columns": ["nope"], "reason": "invented"},
+    ]
+    p = Project(tmp_path, ai)
+    p.api.put("/api/settings", json={"api_key": "sk-secret-value-1234"})
+    p.upload("orders.csv", ORDERS)
+    body = ok(p.api.post(f"{p.base}/queries/{p.query('orders')['id']}/ai"))
+
+    assert body["new_tables"] == ["products"]
+    assert any("Lookup table 'Bad'" in r["error"] for r in body["rejected"])
+    assert [s["op"] for s in p.query("orders")["steps"]] == ["change_case", "remove_columns"]
+    products = p.query("products")
+    assert products["status"] == "AI" and products["split_after_step"] == 1
+    assert sorted(p.column("products", "category")) == ["BAKERY", "FRUIT"]
+
+    ok(p.api.post(f"{p.base}/approve-all"))
+    assert p.query("products")["status"] == "Approved"
+    ok(p.api.post(f"{p.base}/undo"))  # the approval
+    ok(p.api.post(f"{p.base}/undo"))  # the whole AI run: steps and the lookup table
+    assert [q["name"] for q in p.state()["queries"]] == ["orders"] and p.query("orders")["steps"] == []
