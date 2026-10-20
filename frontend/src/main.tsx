@@ -10,6 +10,12 @@ import { Lineage } from "./pages/Lineage";
 import { Refresh } from "./pages/Refresh";
 import { Settings } from "./pages/Settings";
 import { Transform } from "./pages/Transform";
+import "@fontsource/plus-jakarta-sans/400.css";
+import "@fontsource/plus-jakarta-sans/500.css";
+import "@fontsource/plus-jakarta-sans/600.css";
+import "@fontsource/plus-jakarta-sans/700.css";
+import "@fontsource/plus-jakarta-sans/800.css";
+import { CrumbProvider, DialogProvider, ToastProvider } from "./components/ui";
 import "./styles.css";
 
 // Dashboards carry the chart library, so they load only when opened.
@@ -26,6 +32,9 @@ function OldProjectLink() {
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>
+      <ToastProvider>
+      <DialogProvider>
+      <CrumbProvider>
       <Routes>
         {/* The PDF export is a page of its own, without the app's sidebar. */}
         <Route
@@ -38,6 +47,8 @@ createRoot(document.getElementById("root")!).render(
         />
         <Route element={<Layout />}>
           <Route index element={<Home />} />
+          <Route path="datasets" element={<Home show="datasets" />} />
+          <Route path="dashboards" element={<Home show="dashboards" />} />
           <Route path="settings" element={<Settings />} />
           <Route path="datasets/:datasetId" element={<Dataset />}>
             <Route index element={<Navigate to="get-data" replace />} />
@@ -58,6 +69,9 @@ createRoot(document.getElementById("root")!).render(
           <Route path="projects/:projectId/*" element={<OldProjectLink />} />
         </Route>
       </Routes>
+      </CrumbProvider>
+      </DialogProvider>
+      </ToastProvider>
     </BrowserRouter>
   </StrictMode>,
 );

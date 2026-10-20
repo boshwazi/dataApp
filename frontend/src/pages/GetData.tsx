@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, type AddResult, type ColumnProfile, type LinkCatalogue, type Preview, type Source, type SourceSummary } from "../api";
+import { useDialogs } from "../components/ui";
 import { useDataset } from "./Dataset";
 
 const ACCEPT = ".csv,.tsv,.txt,.xlsx,.xlsm";
@@ -241,6 +242,7 @@ function SourceDetail(props: DetailProps) {
   const [tab, setTab] = useState<"profile" | "preview">("profile");
   const [error, setError] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
+  const dialogs = useDialogs();
 
   useEffect(() => {
     api.getSource(projectId, sourceId).then(setSource).catch((e) => setError(e.message));
@@ -260,15 +262,21 @@ function SourceDetail(props: DetailProps) {
 
   const rename = () =>
     run(async () => {
-      const name = prompt("Table name", source!.table);
-      if (!name?.trim() || name === source!.table) return;
+      const name = await dialogs.prompt({ title: "Rename table", label: "Table name", initial: source!.table, confirmLabel: "Rename" });
+      if (!name || name === source!.table) return;
       setSource(await api.renameSource(projectId, sourceId, name));
       await props.onChanged();
     });
 
   const remove = () =>
     run(async () => {
-      if (!confirm(`Remove ${source!.table} from this project? The loaded data will be deleted.`)) return;
+      const ok = await dialogs.confirm({
+        title: `Remove ${source!.table}?`,
+        body: "The loaded data and its cleaning steps are deleted from this dataset.",
+        confirmLabel: "Remove table",
+        danger: true,
+      });
+      if (!ok) return;
       await api.deleteSource(projectId, sourceId);
       props.onRemoved();
     });

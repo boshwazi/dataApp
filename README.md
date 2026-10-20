@@ -65,6 +65,17 @@ The app follows Power BI's shared-model practice: data is prepared once and reus
 - On Home, **New dashboard** offers **Use existing data** (pick a published dataset) or
   **Bring new data** (create a dataset first; publishing it leads back to the dashboard).
 
+Moving around:
+
+- The sidebar holds Home, Datasets, Dashboards and Settings. The top bar shows where you are.
+- Press **Ctrl+K** (⌘K on a Mac) to jump to any dashboard or dataset.
+- On a dataset, the step bar shows Get Data, Transform, Model, Publish and Dashboard.
+  - Finished steps are ticked, and the current one is ringed in lemon.
+  - The button on the right takes you to the next step.
+- On a dashboard, **Present** shows the pages full screen. Press Esc to leave.
+- While the AI is replying, **Stop** stops waiting for the reply.
+  - Stopping does not undo a change the AI has already started making.
+
 Projects from earlier versions are moved over automatically. Each becomes a dataset, plus a
 dashboard if it had report pages.
 

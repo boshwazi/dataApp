@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, type ConnectionReport, type ProviderSettings } from "../api";
+import { useCrumbs } from "../components/ui";
 
 function YesNo({ value }: { value: boolean | null }) {
   if (value === null) return <span className="muted">not checked</span>;
@@ -15,6 +16,7 @@ export function Settings() {
   const [testing, setTesting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [report, setReport] = useState<ConnectionReport | null>(null);
+  useCrumbs([{ label: "Settings" }]);
 
   function apply(next: ProviderSettings) {
     setSettings(next);

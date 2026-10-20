@@ -54,6 +54,19 @@ def project_view(project: dict, dashboards: list[dict] | None = None, versions: 
         "status": publishing.draft_status(project),
         "stale": activity.stale(project),
         "dashboards": [{"id": d["id"], "name": d["name"]} for d in dashboards or []],
+        "progress": progress(project),
+    }
+
+
+def progress(project: dict) -> dict:
+    """How far the dataset is along the pipeline, for the stepper. Reads only; never creates state."""
+    queries = (project.get("transform") or {}).get("queries", [])
+    model = project.get("model") or {}
+    return {
+        "sources": len(project["sources"]),
+        "steps": sum(len(q["steps"]) for q in queries),
+        "relationships": len(model.get("relationships", [])),
+        "measures": len(model.get("measures", [])),
     }
 
 

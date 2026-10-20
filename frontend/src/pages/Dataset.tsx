@@ -9,8 +9,10 @@ import {
   type Dataset as DatasetData,
   type DatasetStage,
 } from "../api";
+import { BadgeCheck, Check, GitBranch, History, MessageSquare, Pencil, RefreshCw } from "lucide-react";
 import { ActivityDrawer } from "../components/ActivityDrawer";
 import { ChatPanel, type ChatHandle } from "../components/ChatPanel";
+import { useCrumbs, useDialogs, useToast } from "../components/ui";
 
 // The dataset half of the pipeline, in Power BI order. Dashboards build on what is published here.
 const STAGES: { path: string; key: DatasetStage; name: string; suggestions: string[] }[] = [
@@ -63,11 +65,22 @@ export function Dataset() {
   const [showActivity, setShowActivity] = useState(false);
   const [version, setVersion] = useState(0);
   const chat = useRef<ChatHandle | null>(null);
+  const dialogs = useDialogs();
+  const toast = useToast();
   const location = useLocation();
   const stage = STAGES.find((s) => location.pathname.endsWith(`/${s.path}`)) ?? STAGES[0];
-  const onRefresh = location.pathname.endsWith("/refresh") || location.pathname.endsWith("/lineage");
+  const extra = location.pathname.endsWith("/refresh") ? "Refresh" : location.pathname.endsWith("/lineage") ? "Lineage" : null;
+  const onRefresh = extra !== null;
   const showChat = chatOpen && !onRefresh;
   const thread = useMemo(() => datasetChat(datasetId, stage.key), [datasetId, stage.key]);
+
+  useCrumbs(
+    dataset && [
+      { label: "Datasets", to: "/datasets" },
+      { label: dataset.name, to: `/datasets/${dataset.id}/get-data` },
+      { label: extra ?? stage.name },
+    ],
+  );
 
   const refresh = useCallback(async () => {
     const next = await api.getDataset(datasetId);
@@ -81,12 +94,13 @@ export function Dataset() {
 
   async function rename() {
     if (!dataset) return;
-    const name = prompt("Dataset name", dataset.name);
-    if (!name?.trim() || name === dataset.name) return;
+    const name = await dialogs.prompt({ title: "Rename dataset", label: "Name", initial: dataset.name, confirmLabel: "Rename" });
+    if (!name || name === dataset.name) return;
     try {
       setDataset(await api.renameDataset(dataset.id, name));
+      toast("Dataset renamed");
     } catch (e) {
-      setError((e as Error).message);
+      toast((e as Error).message, "error");
     }
   }
 
@@ -125,7 +139,9 @@ export function Dataset() {
   async function toggleCertified() {
     if (!dataset) return;
     try {
-      setDataset(await api.certify(dataset.id, !dataset.certified));
+      const next = await api.certify(dataset.id, !dataset.certified);
+      setDataset(next);
+      toast(next.certified ? "Certified: others can link to it as a trusted source" : "Certification removed");
     } catch (e) {
       setError((e as Error).message);
     }
@@ -162,33 +178,75 @@ export function Dataset() {
   return (
     <div className="project">
       <header className="project-header">
-        <span className="kind-label">Dataset</span>
-        <h1>{dataset.name}</h1>
-        <button className="link" onClick={rename}>
-          Rename
-        </button>
+        <div className="title-block">
+          <span className="kind-label">Dataset</span>
+          <h1>
+            {dataset.name}
+            {dataset.certified && <BadgeCheck size={20} className="certified-icon" aria-label="Certified" />}
+          </h1>
+          <button className="icon" onClick={rename} aria-label="Rename dataset" title="Rename">
+            <Pencil size={15} />
+          </button>
+        </div>
         <span className="spacer" />
         <button className="secondary" onClick={() => setShowActivity(true)}>
-          Activity
+          <History size={16} aria-hidden="true" /> Activity
         </button>
-        <button className="secondary" onClick={toggleChat} aria-pressed={chatOpen}>
-          {chatOpen ? "Hide chat" : "AI chat"}
-        </button>
-        {dataset.certified && <span className="badge ok-badge" title="A trusted, shared dataset">✓ Certified</span>}
-        <button className="link small" onClick={toggleCertified}>
-          {dataset.certified ? "Remove certification" : "Certify"}
+        {!onRefresh && (
+          <button className="secondary" onClick={toggleChat} aria-pressed={chatOpen}>
+            <MessageSquare size={16} aria-hidden="true" /> {chatOpen ? "Hide chat" : "AI chat"}
+          </button>
+        )}
+        <button className="secondary" onClick={toggleCertified} title="Certified datasets are marked as trusted when others link to them">
+          <BadgeCheck size={16} aria-hidden="true" /> {dataset.certified ? "Uncertify" : "Certify"}
         </button>
         <PublishBadge published={status.published} version={status.version} changes={status.unpublished_changes} />
-        <button onClick={() => publish(false)} disabled={publishing || (status.published && !status.unpublished_changes)}>
+        <button onClick={() => publish(false)} disabled={publishing || !dataset.sources.length || (status.published && !status.unpublished_changes)}>
           {publishing ? "Publishing…" : status.published ? "Publish changes" : "Publish dataset"}
         </button>
       </header>
+      {(dataset.linked_by.length > 0 || dataset.dashboards.length > 0) && (
+        <p className="muted small used-by">
+          {dataset.dashboards.length > 0 && (
+            <span>
+              Used by{" "}
+              {dataset.dashboards.map((d, i) => (
+                <span key={d.id}>
+                  {i > 0 && ", "}
+                  <Link to={`/dashboards/${d.id}`}>{d.name}</Link>
+                </span>
+              ))}
+              .{" "}
+            </span>
+          )}
+          {dataset.linked_by.length > 0 && (
+            <span>
+              Linked by{" "}
+              {dataset.linked_by.map((d, i) => (
+                <span key={d.id}>
+                  {i > 0 && ", "}
+                  <Link to={`/datasets/${d.id}/get-data`}>{d.name}</Link> ({d.tables.join(", ")})
+                </span>
+              ))}
+              .
+            </span>
+          )}
+        </p>
+      )}
+
+      <Pipeline
+        dataset={dataset}
+        current={onRefresh ? null : stage.key}
+        publishing={publishing}
+        onPublish={() => publish(false)}
+        nextDashboard={nextDashboard}
+      />
 
       {error && <p className="bad">{error}</p>}
       {notice && (
         <div className="notice small">
           {notice}{" "}
-          {nextDashboard && <Link to={`/dashboards/${nextDashboard}`}>Continue to the dashboard →</Link>}
+          {nextDashboard && <Link to={`/dashboards/${nextDashboard}`}>Continue to the dashboard</Link>}
         </div>
       )}
       {problems && (
@@ -199,7 +257,7 @@ export function Dataset() {
           <ul>
             {problems.map((p, i) => (
               <li key={i}>
-                <Link to={`/dashboards/${p.dashboard_id}`}>{p.dashboard}</Link> ({p.version}) · {p.page} · {p.visual}: {p.error}
+                <Link to={`/dashboards/${p.dashboard_id}`}>{p.dashboard}</Link> ({p.version}), {p.page}, {p.visual}: {p.error}
               </li>
             ))}
           </ul>
@@ -213,52 +271,8 @@ export function Dataset() {
           </div>
         </div>
       )}
-      {dataset.linked_by.length > 0 && (
-        <p className="muted small used-by">
-          Linked by:{" "}
-          {dataset.linked_by.map((d, i) => (
-            <span key={d.id}>
-              {i > 0 && ", "}
-              <Link to={`/datasets/${d.id}/get-data`}>{d.name}</Link> ({d.tables.join(", ")})
-            </span>
-          ))}
-        </p>
-      )}
-      {dataset.dashboards.length > 0 && (
-        <p className="muted small used-by">
-          Used by:{" "}
-          {dataset.dashboards.map((d, i) => (
-            <span key={d.id}>
-              {i > 0 && ", "}
-              <Link to={`/dashboards/${d.id}`}>{d.name}</Link>
-            </span>
-          ))}
-        </p>
-      )}
 
       <div className={`project-body ${showChat ? "with-chat" : ""}`}>
-        <nav className="stage-rail" aria-label="Stages">
-          {STAGES.map((s, i) => (
-            <NavLink key={s.path} to={s.path}>
-              <span className="step">{i + 1}</span>
-              {s.name}
-              {dataset.stale[s.key] && (
-                <span className="stale-dot" title={`${dataset.stale[s.key]} changed since this stage was updated`}>
-                  needs re-run
-                </span>
-              )}
-            </NavLink>
-          ))}
-          <NavLink to="refresh" className="rail-extra">
-            <span className="step">↻</span>
-            Refresh
-          </NavLink>
-          <NavLink to="lineage">
-            <span className="step">⇢</span>
-            Lineage
-          </NavLink>
-          <p className="rail-hint muted small">Publish when the model is ready. Dashboards read the published version.</p>
-        </nav>
         <section className="stage">
           {!onRefresh && dataset.stale[stage.key] && (
             <div className="notice stale-banner small">
@@ -295,11 +309,116 @@ export function Dataset() {
   );
 }
 
+/** Get Data → Transform → Model → Publish → Dashboard, with what is done ticked and one clear next step. */
+function Pipeline(props: {
+  dataset: DatasetData;
+  current: DatasetStage | null;
+  publishing: boolean;
+  onPublish: () => void;
+  nextDashboard: string | null;
+}) {
+  const { dataset, current, nextDashboard } = props;
+  const { progress, status, stale } = dataset;
+  const live = status.published && !status.unpublished_changes;
+  const dashboardTo = nextDashboard ? `/dashboards/${nextDashboard}` : "/dashboards?new=1";
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  const steps = [
+    { key: "get_data", name: "Get Data", to: "get-data", done: progress.sources > 0, detail: plural(progress.sources, "table", "tables") },
+    { key: "transform", name: "Transform", to: "transform", done: progress.steps > 0, detail: plural(progress.steps, "step", "steps") },
+    { key: "model", name: "Model", to: "model", done: progress.measures > 0, detail: plural(progress.measures, "measure", "measures") },
+    {
+      key: "publish",
+      name: "Publish",
+      to: null,
+      done: live,
+      detail: status.published ? `v${status.version}${status.unpublished_changes ? ", changes waiting" : ""}` : "Not yet",
+    },
+    {
+      key: "dashboard",
+      name: "Dashboard",
+      to: dashboardTo,
+      done: dataset.dashboards.length > 0,
+      detail: dataset.dashboards.length ? `${dataset.dashboards.length} using it` : "None yet",
+    },
+  ];
+
+  let next: { label: string; to?: string; action?: () => void; disabled?: boolean } | null = null;
+  if (current === "get_data") next = { label: "Next: Transform", to: "transform", disabled: !progress.sources };
+  else if (current === "transform") next = { label: "Next: Model", to: "model", disabled: !progress.sources };
+  else if (current === "model")
+    next = live
+      ? { label: nextDashboard ? "Open the dashboard" : "Build a dashboard", to: dashboardTo }
+      : { label: props.publishing ? "Publishing…" : "Next: Publish", action: props.onPublish, disabled: props.publishing || !progress.sources };
+
+  return (
+    <div className="pipeline-bar">
+      <ol className="pipeline" aria-label="Dataset steps">
+        {steps.map((s, i) => {
+          const here = s.key === current;
+          const needs = s.key in stale ? stale[s.key as DatasetStage] : null;
+          const body = (
+            <>
+              <span className={`pipe-dot ${s.done ? "done" : ""}`} aria-hidden="true">
+                {s.done ? <Check size={13} strokeWidth={3} /> : i + 1}
+              </span>
+              <span className="pipe-text">
+                <span className="pipe-name">{s.name}</span>
+                <span className="pipe-detail">{needs ? "Needs re-run" : s.detail}</span>
+              </span>
+            </>
+          );
+          return (
+            <li key={s.key} className={`${here ? "here" : ""} ${needs ? "needs" : ""}`}>
+              {s.to === null ? (
+                <span className="pipe-step static" title={s.done ? "Published and up to date" : "Publish makes the dataset available to dashboards"}>
+                  {body}
+                </span>
+              ) : s.key === "dashboard" ? (
+                <Link className="pipe-step" to={s.to}>
+                  {body}
+                </Link>
+              ) : (
+                <Link className="pipe-step" to={s.to} aria-current={here ? "step" : undefined}>
+                  {body}
+                </Link>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+      <nav className="pipeline-extra" aria-label="Dataset tools">
+        <NavLink to="refresh">
+          <RefreshCw size={15} aria-hidden="true" /> Refresh
+        </NavLink>
+        <NavLink to="lineage">
+          <GitBranch size={15} aria-hidden="true" /> Lineage
+        </NavLink>
+      </nav>
+      {next &&
+        (next.to ? (
+          next.disabled ? (
+            <button className="next-step" disabled>
+              {next.label}
+            </button>
+          ) : (
+            <Link className="button next-step" to={next.to}>
+              {next.label}
+            </Link>
+          )
+        ) : (
+          <button className="next-step" onClick={next.action} disabled={next.disabled}>
+            {next.label}
+          </button>
+        ))}
+    </div>
+  );
+}
+
 export function PublishBadge({ published, version, changes }: { published: boolean; version?: number | null; changes: boolean }) {
   if (!published) return <span className="badge">Not published</span>;
   return (
     <span className={`badge ${changes ? "warn" : "ok-badge"}`}>
-      {changes ? `Draft changes · v${version ?? ""} live` : `Published${version ? ` v${version}` : ""}`}
+      {changes ? `Draft changes (v${version ?? ""} live)` : `Published${version ? ` v${version}` : ""}`}
     </span>
   );
 }

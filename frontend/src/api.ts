@@ -70,6 +70,7 @@ export type Dataset = {
   certified: boolean;
   linked_by: { id: string; name: string; tables: string[] }[];
   dashboards: { id: string; name: string }[];
+  progress: { sources: number; steps: number; relationships: number; measures: number };
 };
 
 export type DatasetStage = "get_data" | "transform" | "model";
@@ -514,7 +515,7 @@ export type ActivityEntry = { at: string; stage: string; summary: string; actor:
 /** One chat thread: a dataset stage or a dashboard. */
 export type ChatThread = {
   load: () => Promise<{ messages: ChatMessage[] }>;
-  send: (message: string, mode: ChatMode) => Promise<ChatResult>;
+  send: (message: string, mode: ChatMode, signal?: AbortSignal) => Promise<ChatResult>;
   decide: (changeId: string, decision: "approve" | "reject") => Promise<ChatResult>;
 };
 
@@ -522,7 +523,7 @@ export function datasetChat(datasetId: string, stage: DatasetStage): ChatThread 
   const base = `/api/datasets/${datasetId}/chat/${stage}`;
   return {
     load: () => request(base),
-    send: (message, mode) => request(base, json("POST", { message, mode })),
+    send: (message, mode, signal) => request(base, { ...json("POST", { message, mode }), signal }),
     decide: (changeId, decision) => request(`${base}/changes/${changeId}/${decision}`, { method: "POST" }),
   };
 }
@@ -531,7 +532,7 @@ export function dashboardChat(dashboardId: string): ChatThread {
   const base = `/api/dashboards/${dashboardId}/chat`;
   return {
     load: () => request(base),
-    send: (message, mode) => request(base, json("POST", { message, mode })),
+    send: (message, mode, signal) => request(base, { ...json("POST", { message, mode }), signal }),
     decide: (changeId, decision) => request(`${base}/changes/${changeId}/${decision}`, { method: "POST" }),
   };
 }
@@ -569,8 +570,8 @@ export type AskResponse = {
 };
 
 export const askApi = {
-  ask: (dashboardId: string, question: string, history: { role: string; content: string }[], side: "draft" | "published") =>
-    request<AskResponse>(`/api/dashboards/${dashboardId}/ask`, json("POST", { question, history, side })),
+  ask: (dashboardId: string, question: string, history: { role: string; content: string }[], side: "draft" | "published", signal?: AbortSignal) =>
+    request<AskResponse>(`/api/dashboards/${dashboardId}/ask`, { ...json("POST", { question, history, side }), signal }),
 };
 
 // Refresh

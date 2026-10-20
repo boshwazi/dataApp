@@ -1,0 +1,203 @@
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
+import { X } from "lucide-react";
+
+// Logo
+
+export function LemonMark({ size = 22 }: { size?: number }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
+      <path d="M3.5 12c0-4 3.8-7.5 8.5-7.5s8.5 3.5 8.5 7.5-3.8 7.5-8.5 7.5S3.5 16 3.5 12z" fill="#FACC15" stroke="#CA8A04" strokeWidth="1.2" />
+      <path d="M2 12h3M19 12h3" stroke="#CA8A04" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M12 7.5c1.6 1.2 1.6 7.8 0 9" stroke="#CA8A04" strokeWidth="1" fill="none" opacity=".6" />
+    </svg>
+  );
+}
+
+// Toasts: short confirmations and errors that don't take focus.
+
+type Toast = { id: number; text: string; kind: "ok" | "error" | "info" };
+const ToastContext = createContext<(text: string, kind?: Toast["kind"]) => void>(() => {});
+
+export function ToastProvider({ children }: { children: ReactNode }) {
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const next = useRef(0);
+  const show = useCallback((text: string, kind: Toast["kind"] = "ok") => {
+    const id = ++next.current;
+    setToasts((current) => [...current.slice(-3), { id, text, kind }]);
+    setTimeout(() => setToasts((current) => current.filter((t) => t.id !== id)), kind === "error" ? 7000 : 4000);
+  }, []);
+  return (
+    <ToastContext.Provider value={show}>
+      {children}
+      <div className="toasts" role="status" aria-live="polite">
+        {toasts.map((t) => (
+          <div key={t.id} className={`toast toast-${t.kind}`}>
+            <span>{t.text}</span>
+            <button className="icon" aria-label="Dismiss" onClick={() => setToasts((c) => c.filter((x) => x.id !== t.id))}>
+              <X size={14} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </ToastContext.Provider>
+  );
+}
+
+export function useToast() {
+  return useContext(ToastContext);
+}
+
+// Dialogs: confirm and name prompts as real, keyboard-friendly dialogs.
+
+type ConfirmOptions = { title: string; body?: ReactNode; confirmLabel: string; danger?: boolean };
+type PromptOptions = { title: string; label: string; initial?: string; confirmLabel: string; hint?: string };
+type Request =
+  | ({ kind: "confirm"; resolve: (ok: boolean) => void } & ConfirmOptions)
+  | ({ kind: "prompt"; resolve: (value: string | null) => void } & PromptOptions);
+
+type Dialogs = {
+  confirm: (options: ConfirmOptions) => Promise<boolean>;
+  prompt: (options: PromptOptions) => Promise<string | null>;
+};
+
+const DialogContext = createContext<Dialogs>({ confirm: async () => false, prompt: async () => null });
+
+export function DialogProvider({ children }: { children: ReactNode }) {
+  const [request, setRequest] = useState<Request | null>(null);
+  const api = useMemo<Dialogs>(
+    () => ({
+      confirm: (options) => new Promise((resolve) => setRequest({ kind: "confirm", resolve, ...options })),
+      prompt: (options) => new Promise((resolve) => setRequest({ kind: "prompt", resolve, ...options })),
+    }),
+    [],
+  );
+  const close = (value: boolean | string | null) => {
+    if (!request) return;
+    if (request.kind === "confirm") request.resolve(value === true);
+    else request.resolve(typeof value === "string" ? value : null);
+    setRequest(null);
+  };
+  return (
+    <DialogContext.Provider value={api}>
+      {children}
+      {request && <DialogView request={request} onClose={close} />}
+    </DialogContext.Provider>
+  );
+}
+
+export function useDialogs() {
+  return useContext(DialogContext);
+}
+
+function DialogView({ request, onClose }: { request: Request; onClose: (value: boolean | string | null) => void }) {
+  const ref = useRef<HTMLDialogElement>(null);
+  const [value, setValue] = useState(request.kind === "prompt" ? request.initial ?? "" : "");
+
+  useEffect(() => {
+    const dialog = ref.current;
+    if (dialog && !dialog.open) dialog.showModal();
+  }, []);
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    if (request.kind === "prompt") {
+      if (value.trim()) onClose(value.trim());
+    } else onClose(true);
+  }
+
+  return (
+    <dialog
+      ref={ref}
+      className="dialog"
+      aria-labelledby="dialog-title"
+      onCancel={(e) => {
+        e.preventDefault();
+        onClose(request.kind === "confirm" ? false : null);
+      }}
+      onClick={(e) => {
+        if (e.target === ref.current) onClose(request.kind === "confirm" ? false : null);
+      }}
+    >
+      <form method="dialog" onSubmit={submit}>
+        <h2 id="dialog-title">{request.title}</h2>
+        {request.kind === "confirm" && request.body && <div className="dialog-body">{request.body}</div>}
+        {request.kind === "prompt" && (
+          <label className="field">
+            <span>{request.label}</span>
+            <input autoFocus value={value} onChange={(e) => setValue(e.target.value)} onFocus={(e) => e.target.select()} />
+            {request.hint && <small className="muted">{request.hint}</small>}
+          </label>
+        )}
+        <div className="dialog-actions">
+          <button type="button" className="secondary" onClick={() => onClose(request.kind === "confirm" ? false : null)}>
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className={request.kind === "confirm" && request.danger ? "danger-solid" : ""}
+            autoFocus={request.kind === "confirm"}
+            disabled={request.kind === "prompt" && !value.trim()}
+          >
+            {request.confirmLabel}
+          </button>
+        </div>
+      </form>
+    </dialog>
+  );
+}
+
+// Breadcrumbs: pages say where they are; the top bar shows it.
+
+export type Crumb = { label: string; to?: string };
+const CrumbContext = createContext<{ crumbs: Crumb[]; setCrumbs: (c: Crumb[]) => void }>({ crumbs: [], setCrumbs: () => {} });
+
+export function CrumbProvider({ children }: { children: ReactNode }) {
+  const [crumbs, setCrumbs] = useState<Crumb[]>([]);
+  return <CrumbContext.Provider value={{ crumbs, setCrumbs }}>{children}</CrumbContext.Provider>;
+}
+
+export function useCrumbs(crumbs: Crumb[] | null) {
+  const { setCrumbs } = useContext(CrumbContext);
+  const key = JSON.stringify(crumbs);
+  useEffect(() => {
+    if (crumbs) setCrumbs(crumbs);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, setCrumbs]);
+}
+
+export function useCurrentCrumbs() {
+  return useContext(CrumbContext).crumbs;
+}
+
+// Empty states and loading placeholders
+
+export function EmptyState(props: { icon?: ReactNode; title: string; children?: ReactNode; action?: ReactNode }) {
+  return (
+    <div className="empty-state">
+      {props.icon && <div className="empty-icon">{props.icon}</div>}
+      <h2>{props.title}</h2>
+      {props.children && <div className="muted">{props.children}</div>}
+      {props.action && <div className="empty-action">{props.action}</div>}
+    </div>
+  );
+}
+
+export function Skeleton({ lines = 3, height = 14 }: { lines?: number; height?: number }) {
+  return (
+    <div className="skeleton" aria-busy="true" aria-label="Loading">
+      {Array.from({ length: lines }, (_, i) => (
+        <span key={i} style={{ height, width: `${92 - i * 14}%` }} />
+      ))}
+    </div>
+  );
+}

@@ -571,7 +571,8 @@ def system_prompt(stage: Stage, mode: str = "full") -> str:
         "answer it from the state you are given (never invent numbers) and return no actions. If they ask for a "
         "change, return the actions and say briefly what you will do. If the request belongs to another stage, "
         "say which stage and return no actions. Every action is checked by the app before it runs, so keep them "
-        "exact: use names exactly as they appear in the state. Be concise and friendly; no jargon."
+        "exact: use names exactly as they appear in the state. Be concise and friendly; no jargon. "
+        "For three or more items use a short Markdown bullet list (\"- item\"), with **bold** for names; no headings or tables."
     )
 
 

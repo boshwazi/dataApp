@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import type { EChartsCoreOption } from "echarts/core";
+import { FileDown, History, Maximize2, MessageSquare, Minimize2, Pencil } from "lucide-react";
 import {
   activityApi,
   api,
@@ -20,6 +21,7 @@ import { ActivityDrawer } from "../components/ActivityDrawer";
 import { AskPanel } from "../components/AskPanel";
 import { Chart, SERIES, TOKENS } from "../components/Chart";
 import { ChatPanel, type ChatHandle } from "../components/ChatPanel";
+import { useCrumbs, useDialogs, useToast } from "../components/ui";
 
 const SUGGESTIONS = ["Add a page about customers", "Swap the donut for a bar chart", "Which visual shows the biggest change?"];
 import { PublishBadge } from "./Dataset";
@@ -37,8 +39,14 @@ export function Dashboard() {
   const [run, setRun] = useState<ReportRun | { error: string } | null>(null);
   const [chatOpen, setChatOpen] = useState(true);
   const [showActivity, setShowActivity] = useState(false);
+  const [presenting, setPresenting] = useState(false);
+  const stageRef = useRef<HTMLDivElement>(null);
   const chat = useRef<ChatHandle | null>(null);
   const thread = useMemo(() => dashboardChat(dashboardId), [dashboardId]);
+  const dialogs = useDialogs();
+  const toast = useToast();
+
+  useCrumbs(state && [{ label: "Dashboards", to: "/dashboards" }, { label: state.name }]);
 
   const load = useCallback(() => {
     reportApi.state(dashboardId, side).then(setState).catch((e) => setError(e.message));
@@ -48,6 +56,25 @@ export function Dashboard() {
     load();
     api.getSettings().then((s) => setHasKey(s.has_api_key)).catch(() => setHasKey(false));
   }, [load]);
+
+  // Present: the pages fill the screen (browser full screen where allowed); Esc leaves.
+  useEffect(() => {
+    if (!presenting) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !document.fullscreenElement) setPresenting(false);
+    };
+    const onFull = () => {
+      if (!document.fullscreenElement) setPresenting(false);
+    };
+    window.addEventListener("keydown", onKey);
+    document.addEventListener("fullscreenchange", onFull);
+    stageRef.current?.requestFullscreen?.().catch(() => {});
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("fullscreenchange", onFull);
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+    };
+  }, [presenting]);
 
   const go = (next: Record<string, string>) => {
     setParams({ ...Object.fromEntries(params), ...next }, { replace: true });
@@ -80,14 +107,18 @@ export function Dashboard() {
 
   async function publish() {
     setPublishing(true);
-    await change(() => dashboardsApi.publish(dashboardId));
+    await change(async () => {
+      const next = await dashboardsApi.publish(dashboardId);
+      toast("Published: viewers now see this version");
+      return next;
+    });
     setPublishing(false);
   }
 
   async function rename() {
     if (!state) return;
-    const name = prompt("Dashboard name", state.name);
-    if (name?.trim() && name !== state.name) await change(() => dashboardsApi.rename(dashboardId, name));
+    const name = await dialogs.prompt({ title: "Rename dashboard", label: "Name", initial: state.name, confirmLabel: "Rename" });
+    if (name && name !== state.name) await change(() => dashboardsApi.rename(dashboardId, name));
   }
 
   if (!state) return <p className={error ? "bad" : "muted"}>{error ?? "Loading…"}</p>;
@@ -106,21 +137,26 @@ export function Dashboard() {
         <span className="kind-label">Dashboard</span>
         <h1>{state.name}</h1>
         {editing && (
-          <button className="link" onClick={rename}>
-            Rename
+          <button className="icon" onClick={rename} aria-label="Rename dashboard" title="Rename">
+            <Pencil size={15} />
           </button>
         )}
         <span className="spacer" />
         <button className="secondary" onClick={() => setShowActivity(true)}>
-          Activity
+          <History size={16} aria-hidden="true" /> Activity
         </button>
         {state.published && (
           <Link className="button secondary" to={`/dashboards/${dashboardId}/export`}>
-            Export PDF
+            <FileDown size={16} aria-hidden="true" /> Export PDF
           </Link>
         )}
+        {state.pages.length > 0 && (
+          <button className="secondary" onClick={() => setPresenting(true)}>
+            <Maximize2 size={16} aria-hidden="true" /> Present
+          </button>
+        )}
         <button className="secondary" onClick={() => setChatOpen(!chatOpen)} aria-pressed={chatOpen}>
-          {chatOpen ? "Hide chat" : editing ? "AI chat" : "Ask"}
+          <MessageSquare size={16} aria-hidden="true" /> {chatOpen ? "Hide chat" : editing ? "AI chat" : "Ask"}
         </button>
         <span className="segmented">
           <button className={editing ? "on" : ""} onClick={() => go({ view: "draft" })}>
@@ -221,12 +257,22 @@ export function Dashboard() {
           </div>
         )
       ) : (
-        <>
+        <div ref={stageRef} className={presenting ? "presenting" : undefined}>
+          {presenting && (
+            <div className="present-bar">
+              <strong>{state.name}</strong>
+              <span className="muted small">{editing ? "Draft" : "Published"}, data as of {state.as_of ?? "unknown"}</span>
+              <span className="spacer" />
+              <button className="secondary" onClick={() => setPresenting(false)}>
+                <Minimize2 size={16} aria-hidden="true" /> Exit
+              </button>
+            </div>
+          )}
           <nav className="page-tabs" aria-label="Report pages">
             {state.pages.map((p) => (
               <button key={p.id} className={p.id === page.id ? "on" : ""} onClick={() => go({ page: p.id })}>
                 {p.title}
-                {editing && p.status === "AI" && <span className="badge ai">AI</span>}
+                {editing && !presenting && p.status === "AI" && <span className="badge ai">AI</span>}
               </button>
             ))}
           </nav>
@@ -243,7 +289,7 @@ export function Dashboard() {
               </div>
               <div className="report-meta">
                 <span>Data as of {state.as_of ?? "unknown"}</span>
-                {editing && (
+                {editing && !presenting && (
                   <span className="step-tools">
                     {page.status === "AI" && (
                       <button className="link small" onClick={() => change(() => reportApi.approve(dashboardId, page.id))}>
@@ -265,7 +311,7 @@ export function Dashboard() {
               {page.visuals
                 .filter((v) => v.type === "kpi")
                 .map((v) => (
-                  <VisualFrame key={v.id} visual={v} dashboardId={dashboardId} editing={editing} onChange={change}>
+                  <VisualFrame key={v.id} visual={v} dashboardId={dashboardId} editing={editing && !presenting} onChange={change}>
                     <KpiCard visual={v} format={state.formats[v.measures[0]]} />
                   </VisualFrame>
                 ))}
@@ -273,13 +319,13 @@ export function Dashboard() {
             <div className="visual-grid">
               {fillRows(page.visuals.filter((v) => v.type !== "kpi"))
                 .map((v) => (
-                  <VisualFrame key={v.id} visual={v} dashboardId={dashboardId} editing={editing} onChange={change}>
+                  <VisualFrame key={v.id} visual={v} dashboardId={dashboardId} editing={editing && !presenting} onChange={change}>
                     <ChartVisual visual={v} formats={state.formats} />
                   </VisualFrame>
                 ))}
             </div>
           </section>
-        </>
+        </div>
       )}
       </div>
       {editing && chatOpen && (

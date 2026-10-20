@@ -1,54 +1,116 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { BadgeCheck, Database, LayoutDashboard, Plus, Trash2 } from "lucide-react";
 import { api, dashboardsApi, type DashboardSummary, type Dataset, type ProviderSettings } from "../api";
+import { EmptyState, Skeleton, useCrumbs, useDialogs, useToast } from "../components/ui";
 import { PublishBadge } from "./Dataset";
 
 type Choice = "existing" | "new";
+type Show = "all" | "datasets" | "dashboards";
 
-export function Home() {
+export function Home({ show = "all" }: { show?: Show }) {
   const [settings, setSettings] = useState<ProviderSettings | null>(null);
   const [dashboards, setDashboards] = useState<DashboardSummary[] | null>(null);
   const [datasets, setDatasets] = useState<Dataset[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [params, setParams] = useSearchParams();
   const [creating, setCreating] = useState<Choice | null>(null);
   const navigate = useNavigate();
+  const toast = useToast();
+  const dialogs = useDialogs();
+
+  useCrumbs([{ label: show === "datasets" ? "Datasets" : show === "dashboards" ? "Dashboards" : "Home" }]);
 
   function load() {
-    dashboardsApi.list().then(setDashboards).catch((e) => setError(e.message));
-    api.listDatasets().then(setDatasets).catch((e) => setError(e.message));
+    dashboardsApi.list().then(setDashboards).catch((e) => toast(e.message, "error"));
+    api.listDatasets().then(setDatasets).catch((e) => toast(e.message, "error"));
   }
 
   useEffect(() => {
     api.getSettings().then(setSettings).catch(() => setSettings(null));
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function act(action: () => Promise<unknown>) {
-    setError(null);
+  const published = (datasets ?? []).filter((d) => d.status.published);
+
+  // "New dashboard" from quick search lands here with ?new=1.
+  useEffect(() => {
+    if (params.get("new") && datasets) {
+      setCreating(published.length ? "existing" : "new");
+      setParams({}, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params, datasets]);
+
+  async function removeDashboard(d: DashboardSummary) {
+    const ok = await dialogs.confirm({
+      title: `Delete ${d.name}?`,
+      body: "The dashboard and its pages are deleted. Its dataset is kept.",
+      confirmLabel: "Delete dashboard",
+      danger: true,
+    });
+    if (!ok) return;
     try {
-      await action();
+      await dashboardsApi.remove(d.id);
+      toast(`Deleted ${d.name}`);
       load();
     } catch (e) {
-      setError((e as Error).message);
+      toast((e as Error).message, "error");
+    }
+  }
+
+  async function removeDataset(d: Dataset) {
+    const ok = await dialogs.confirm({
+      title: `Delete ${d.name}?`,
+      body: "Its sources, steps, model and published versions are deleted. This can't be undone.",
+      confirmLabel: "Delete dataset",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api.deleteDataset(d.id);
+      toast(`Deleted ${d.name}`);
+      load();
+    } catch (e) {
+      toast((e as Error).message, "error");
+    }
+  }
+
+  async function newDataset() {
+    const name = await dialogs.prompt({ title: "New dataset", label: "Name", confirmLabel: "Create dataset", hint: "For example: Sales 2025" });
+    if (!name) return;
+    try {
+      const dataset = await api.createDataset(name);
+      navigate(`/datasets/${dataset.id}/get-data`);
+    } catch (e) {
+      toast((e as Error).message, "error");
     }
   }
 
   const connected = settings?.capabilities.tools !== undefined;
-  const published = (datasets ?? []).filter((d) => d.status.published);
+  const title = show === "datasets" ? "Datasets" : show === "dashboards" ? "Dashboards" : "Home";
 
   return (
     <div className="page wide">
       <div className="home-head">
-        <h1>Home</h1>
+        <h1>{title}</h1>
         <span className="spacer" />
-        <button onClick={() => setCreating(creating ? null : published.length ? "existing" : "new")}>New dashboard</button>
+        {show !== "dashboards" && (
+          <button className="secondary" onClick={newDataset}>
+            <Database size={16} aria-hidden="true" /> New dataset
+          </button>
+        )}
+        {show !== "datasets" && (
+          <button onClick={() => setCreating(creating ? null : published.length ? "existing" : "new")} aria-expanded={!!creating}>
+            <Plus size={16} aria-hidden="true" /> New dashboard
+          </button>
+        )}
       </div>
       {settings && !connected && (
         <div className="notice">
           Connect your AI provider first: <Link to="/settings">open Settings</Link> and run the connection test.
         </div>
       )}
-      {error && <p className="bad">{error}</p>}
 
       {creating && (
         <NewDashboard
@@ -56,67 +118,87 @@ export function Home() {
           onChoice={setCreating}
           published={published}
           onCreated={(path) => navigate(path)}
-          onError={setError}
+          onError={(m) => toast(m, "error")}
         />
       )}
 
-      <section>
-        <h2 className="section-title">Dashboards</h2>
-        {dashboards?.length === 0 && <p className="muted small">No dashboards yet. Click "New dashboard" to make one.</p>}
-        <ul className="project-list">
-          {dashboards?.map((d) => (
-            <li key={d.id}>
-              <Link to={`/dashboards/${d.id}`} className="project-link">
-                <strong>{d.name}</strong>
-                <span className="muted small">
-                  {d.dataset ? `On ${d.dataset.name}` : "Dataset removed"} · {d.pages} {d.pages === 1 ? "page" : "pages"} · updated{" "}
-                  {new Date(d.updated_at).toLocaleString()}
-                </span>
-              </Link>
-              <span className={`badge ${d.published ? (d.unpublished_changes ? "warn" : "ok-badge") : ""}`}>
-                {d.published ? (d.unpublished_changes ? "Draft changes" : "Published") : "Draft"}
-              </span>
-              <button
-                className="link danger"
-                onClick={() => confirm(`Delete the dashboard "${d.name}"? Its dataset is kept.`) && act(() => dashboardsApi.remove(d.id))}
-              >
-                Delete
-              </button>
-            </li>
-          ))}
-        </ul>
-      </section>
+      {show !== "datasets" && (
+        <section className="home-section">
+          <h2 className="section-title">Dashboards</h2>
+          {dashboards === null ? (
+            <Skeleton lines={3} height={52} />
+          ) : dashboards.length === 0 ? (
+            <EmptyState icon={<LayoutDashboard size={28} />} title="No dashboards yet">
+              A dashboard is built by the AI from a dataset's measures. Click New dashboard to make the first one.
+            </EmptyState>
+          ) : (
+            <ul className="project-list">
+              {dashboards.map((d) => (
+                <li key={d.id}>
+                  <LayoutDashboard size={18} className="row-icon" aria-hidden="true" />
+                  <Link to={`/dashboards/${d.id}`} className="project-link">
+                    <strong>{d.name}</strong>
+                    <span className="muted small">
+                      {d.dataset ? `On ${d.dataset.name}` : "Its dataset was removed"}, {d.pages} {d.pages === 1 ? "page" : "pages"}, updated{" "}
+                      {new Date(d.updated_at).toLocaleDateString()}
+                    </span>
+                  </Link>
+                  <span className={`badge ${d.published ? (d.unpublished_changes ? "warn" : "ok-badge") : ""}`}>
+                    {d.published ? (d.unpublished_changes ? "Draft changes" : "Published") : "Draft"}
+                  </span>
+                  <button className="icon danger" aria-label={`Delete ${d.name}`} onClick={() => removeDashboard(d)}>
+                    <Trash2 size={16} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
 
-      <section>
-        <div className="section-head">
+      {show !== "dashboards" && (
+        <section className="home-section">
           <h2 className="section-title">Datasets</h2>
-          <NewDataset onCreated={(id) => navigate(`/datasets/${id}/get-data`)} onError={setError} />
-        </div>
-        <p className="muted small">
-          A dataset is loaded, cleaned and modelled once, then reused by any number of dashboards.
-        </p>
-        {datasets?.length === 0 && <p className="muted small">No datasets yet.</p>}
-        <ul className="project-list">
-          {datasets?.map((d) => (
-            <li key={d.id}>
-              <Link to={`/datasets/${d.id}/get-data`} className="project-link">
-                <strong>{d.name}</strong>
-                <span className="muted small">
-                  {d.sources.length} {d.sources.length === 1 ? "source" : "sources"} · used by {d.dashboards.length}{" "}
-                  {d.dashboards.length === 1 ? "dashboard" : "dashboards"}
-                </span>
-              </Link>
-              <PublishBadge published={d.status.published} version={d.status.version} changes={d.status.unpublished_changes} />
-              <button
-                className="link danger"
-                onClick={() => confirm(`Delete the dataset "${d.name}" and all of its data? This cannot be undone.`) && act(() => api.deleteDataset(d.id))}
-              >
-                Delete
-              </button>
-            </li>
-          ))}
-        </ul>
-      </section>
+          <p className="muted small section-hint">Load, clean and model data once, then reuse it in any number of dashboards.</p>
+          {datasets === null ? (
+            <Skeleton lines={3} height={52} />
+          ) : datasets.length === 0 ? (
+            <EmptyState
+              icon={<Database size={28} />}
+              title="No datasets yet"
+              action={
+                <button onClick={newDataset}>
+                  <Plus size={16} aria-hidden="true" /> New dataset
+                </button>
+              }
+            >
+              Start with a CSV, an Excel file, a Google Sheet or the sample data.
+            </EmptyState>
+          ) : (
+            <ul className="project-list">
+              {datasets.map((d) => (
+                <li key={d.id}>
+                  <Database size={18} className="row-icon" aria-hidden="true" />
+                  <Link to={`/datasets/${d.id}/get-data`} className="project-link">
+                    <strong>
+                      {d.name}
+                      {d.certified && <BadgeCheck size={15} className="certified-icon" aria-label="Certified" />}
+                    </strong>
+                    <span className="muted small">
+                      {d.sources.length} {d.sources.length === 1 ? "source" : "sources"}, used by {d.dashboards.length}{" "}
+                      {d.dashboards.length === 1 ? "dashboard" : "dashboards"}
+                    </span>
+                  </Link>
+                  <PublishBadge published={d.status.published} version={d.status.version} changes={d.status.unpublished_changes} />
+                  <button className="icon danger" aria-label={`Delete ${d.name}`} onClick={() => removeDataset(d)}>
+                    <Trash2 size={16} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
     </div>
   );
 }
@@ -155,6 +237,7 @@ function NewDashboard(props: {
 
   return (
     <form className="card new-dashboard" onSubmit={create}>
+      <h2>New dashboard</h2>
       <div className="choice-row" role="radiogroup" aria-label="Where the data comes from">
         <button
           type="button"
@@ -181,37 +264,27 @@ function NewDashboard(props: {
         </button>
       </div>
       <div className="inline-form">
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Dashboard name" aria-label="Dashboard name" />
+        <label className="field grow">
+          <span>Dashboard name</span>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Sales review" />
+        </label>
         {choice === "existing" && (
-          <select value={datasetId} onChange={(e) => setDatasetId(e.target.value)} aria-label="Dataset">
-            {published.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name} (v{d.status.version})
-              </option>
-            ))}
-          </select>
+          <label className="field">
+            <span>Dataset</span>
+            <select value={datasetId} onChange={(e) => setDatasetId(e.target.value)}>
+              {published.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.certified ? "✓ " : ""}
+                  {d.name} (v{d.status.version})
+                </option>
+              ))}
+            </select>
+          </label>
         )}
-        <button type="submit" disabled={busy || (choice === "existing" && !datasetId)}>
+        <button type="submit" className="align-end" disabled={busy || (choice === "existing" && !datasetId)}>
           {busy ? "Creating…" : choice === "existing" ? "Create dashboard" : "Start with data"}
         </button>
       </div>
     </form>
-  );
-}
-
-function NewDataset({ onCreated, onError }: { onCreated: (id: string) => void; onError: (message: string) => void }) {
-  async function create() {
-    const name = prompt("Dataset name");
-    if (!name?.trim()) return;
-    try {
-      onCreated((await api.createDataset(name)).id);
-    } catch (e) {
-      onError((e as Error).message);
-    }
-  }
-  return (
-    <button className="link small" onClick={create}>
-      + New dataset
-    </button>
   );
 }

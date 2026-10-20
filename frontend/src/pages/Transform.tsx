@@ -11,6 +11,7 @@ import {
   type TransformState,
 } from "../api";
 import { ProfileTable } from "./GetData";
+import { useDialogs } from "../components/ui";
 import { useDataset } from "./Dataset";
 
 export function Transform() {
@@ -176,14 +177,15 @@ function QueryDetailView({ projectId, query, hasKey, cleaning, run, onClean, onC
   const [step, setStep] = useState(query.steps.length);
   const [tab, setTab] = useState<"preview" | "profile">("preview");
   const [detail, setDetail] = useState<QueryDetail | null>(null);
+  const dialogs = useDialogs();
 
   useEffect(() => {
     transformApi.query(projectId, query.id).then(setDetail).catch(() => setDetail(null));
   }, [projectId, query.id]);
 
-  const rename = () => {
-    const name = prompt("Table name", query.name);
-    if (name?.trim() && name !== query.name) void onChange(() => transformApi.rename(projectId, query.id, name));
+  const rename = async () => {
+    const name = await dialogs.prompt({ title: "Rename table", label: "Table name", initial: query.name, confirmLabel: "Rename" });
+    if (name && name !== query.name) void onChange(() => transformApi.rename(projectId, query.id, name));
   };
 
   const last = query.steps.length;

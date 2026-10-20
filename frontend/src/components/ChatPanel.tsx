@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { Send, Square } from "lucide-react";
 import type { ChatMessage, ChatMode, ChatThread } from "../api";
+import { Markdown } from "./Markdown";
 
 const MODE_KEY = "chatMode";
 
@@ -31,7 +33,9 @@ export function ChatPanel(props: {
   const [mode, setMode] = useState<ChatMode>(savedMode);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stopped, setStopped] = useState(false);
   const list = useRef<HTMLDivElement>(null);
+  const controller = useRef<AbortController | null>(null);
 
   useEffect(() => {
     setMessages([]);
@@ -51,18 +55,27 @@ export function ChatPanel(props: {
     }
   }
 
-  async function run(action: () => Promise<{ messages: ChatMessage[]; applied: boolean }>) {
+  async function run(action: (signal: AbortSignal) => Promise<{ messages: ChatMessage[]; applied: boolean }>) {
+    const abort = new AbortController();
+    controller.current = abort;
     setBusy(true);
     setError(null);
+    setStopped(false);
     try {
-      const result = await action();
+      const result = await action(abort.signal);
       setMessages(result.messages);
       if (result.applied) onApplied();
     } catch (e) {
-      setError((e as Error).message);
+      if (!abort.signal.aborted) setError((e as Error).message);
     } finally {
+      if (controller.current === abort) controller.current = null;
       setBusy(false);
     }
+  }
+
+  function stop() {
+    controller.current?.abort();
+    setStopped(true);
   }
 
   function send(message: string) {
@@ -70,7 +83,7 @@ export function ChatPanel(props: {
     if (!clean || busy) return;
     setText("");
     setMessages((current) => [...current, { id: "pending", role: "user", content: clean, at: new Date().toISOString() }]);
-    void run(() => thread.send(clean, mode));
+    void run((signal) => thread.send(clean, mode, signal));
   }
 
   useEffect(() => {
@@ -133,6 +146,11 @@ export function ChatPanel(props: {
           <Message key={m.id + m.at} message={m} busy={busy} onDecide={(id, d) => run(() => thread.decide(id, d))} />
         ))}
         {busy && <div className="chat-msg assistant thinking">Thinking…</div>}
+        {stopped && (
+          <p className="muted small chat-stopped">
+            Stopped waiting. A change the AI had already started may still finish; check Activity or reopen the chat.
+          </p>
+        )}
       </div>
 
       {error && <p className="bad small chat-error">{error}</p>}
@@ -148,9 +166,15 @@ export function ChatPanel(props: {
             rows={2}
             aria-label="Message"
           />
-          <button type="submit" disabled={busy || !text.trim()}>
-            Send
-          </button>
+          {busy ? (
+            <button type="button" className="secondary" onClick={stop} aria-label="Stop waiting for the AI">
+              <Square size={14} aria-hidden="true" /> Stop
+            </button>
+          ) : (
+            <button type="submit" disabled={!text.trim()} aria-label="Send">
+              <Send size={15} aria-hidden="true" /> Send
+            </button>
+          )}
         </form>
       )}
     </aside>
@@ -161,7 +185,7 @@ function Message({ message, busy, onDecide }: { message: ChatMessage; busy: bool
   const change = message.change;
   return (
     <div className={`chat-msg ${message.role}`}>
-      {message.content && <p>{message.content}</p>}
+      {message.content && (message.role === "assistant" ? <Markdown text={message.content} /> : <p>{message.content}</p>)}
       {change && (
         <div className={`chat-change ${change.status}`}>
           <div className="chat-change-head">
@@ -173,7 +197,7 @@ function Message({ message, busy, onDecide }: { message: ChatMessage; busy: bool
                 <span aria-hidden="true">{a.ok ? "✓" : "✗"}</span>
                 <span>
                   {a.label}
-                  {a.error && <span className="small"> — {a.error}</span>}
+                  {a.error && <span className="small">: {a.error}</span>}
                 </span>
               </li>
             ))}

@@ -30,7 +30,8 @@ PLAN_SYSTEM = (
 ANSWER_SYSTEM = (
     "You explain query results to a business user in 1 to 3 short sentences. Use only numbers that appear in "
     "the results or follow directly from them (differences, shares). Round sensibly (RM 1.2M, 34%). Do not "
-    "guess causes the data does not show; say what else could be checked instead. Then suggest up to 3 short "
+    "guess causes the data does not show; say what else could be checked instead. When listing three or more "
+    "items, put each on its own line as a Markdown bullet (\"- **Name**: note\"); no headings or tables. Then suggest up to 3 short "
     "follow-up questions the data can answer."
 )
 

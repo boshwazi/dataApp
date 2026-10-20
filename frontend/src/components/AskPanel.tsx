@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { EChartsCoreOption } from "echarts/core";
 import { askApi, formatCompact, formatMeasure, type AskResponse, type AskResult, type MeasureFormat } from "../api";
+import { Send, Square } from "lucide-react";
 import { Chart, TOKENS } from "./Chart";
+import { Markdown } from "./Markdown";
 
 type Turn = { question: string; response?: AskResponse; error?: string };
 
@@ -16,6 +18,7 @@ export function AskPanel({ dashboardId, side }: { dashboardId: string; side: "dr
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const list = useRef<HTMLDivElement>(null);
+  const controller = useRef<AbortController | null>(null);
 
   useEffect(() => {
     list.current?.scrollTo({ top: list.current.scrollHeight });
@@ -31,13 +34,16 @@ export function AskPanel({ dashboardId, side }: { dashboardId: string; side: "dr
       { role: "assistant", content: t.response?.answer ?? t.error ?? "" },
     ]);
     setTurns((current) => [...current, { question: clean }]);
+    const abort = new AbortController();
+    controller.current = abort;
     try {
-      const response = await askApi.ask(dashboardId, clean, history, side);
+      const response = await askApi.ask(dashboardId, clean, history, side, abort.signal);
       setTurns((current) => current.map((t, i) => (i === current.length - 1 ? { ...t, response } : t)));
     } catch (e) {
-      const error = (e as Error).message;
+      const error = abort.signal.aborted ? "Stopped." : (e as Error).message;
       setTurns((current) => current.map((t, i) => (i === current.length - 1 ? { ...t, error } : t)));
     } finally {
+      controller.current = null;
       setBusy(false);
     }
   }
@@ -91,9 +97,15 @@ export function AskPanel({ dashboardId, side }: { dashboardId: string; side: "dr
           rows={2}
           aria-label="Question"
         />
-        <button type="submit" disabled={busy || !text.trim()}>
-          Ask
-        </button>
+        {busy ? (
+          <button type="button" className="secondary" onClick={() => controller.current?.abort()} aria-label="Stop this question">
+            <Square size={14} aria-hidden="true" /> Stop
+          </button>
+        ) : (
+          <button type="submit" disabled={!text.trim()}>
+            <Send size={15} aria-hidden="true" /> Ask
+          </button>
+        )}
       </form>
     </aside>
   );
@@ -102,7 +114,7 @@ export function AskPanel({ dashboardId, side }: { dashboardId: string; side: "dr
 function Answer({ response, onFollowUp, busy }: { response: AskResponse; onFollowUp: (q: string) => void; busy: boolean }) {
   return (
     <div className="chat-msg assistant answer">
-      <p>{response.answer || response.cannot_answer}</p>
+      <Markdown text={response.answer || response.cannot_answer || ""} />
       {!response.check.verified && (
         <p className="unverified small">⚠ Unverified number{response.check.unmatched.length > 1 ? "s" : ""}: {response.check.unmatched.join(", ")}. Check the results below.</p>
       )}
@@ -110,7 +122,7 @@ function Answer({ response, onFollowUp, busy }: { response: AskResponse; onFollo
         <ResultCard key={i} result={result} formats={response.formats} />
       ))}
       <p className="muted small">
-        Data as of {response.as_of ?? "unknown"} · dataset v{response.dataset_version}
+        Data as of {response.as_of ?? "unknown"}, dataset v{response.dataset_version}
       </p>
       {response.follow_ups.length > 0 && (
         <div className="chat-empty">

@@ -54,6 +54,7 @@ it on DuckDB.
 | M7b | PDF export: print-ready pages, cover, AI executive summary with checked numbers (browser "Save as PDF") | Done |
 | M8 | Data refresh: replace files, scheduled Google Sheets pulls, checks on refresh, auto-publish, refresh history | Done |
 | M9 | Linked tables from other datasets, certified datasets, multiple fact tables, lineage view | Done |
+| UX | Direction A "Clear Analyst": new tokens and font, sidebar shell, breadcrumbs, Ctrl+K search, dialogs and toasts, pipeline stepper with a next step, Present mode, formatted chat replies with Stop, phone and tablet layouts | Done |
 
 ## Product structure
 

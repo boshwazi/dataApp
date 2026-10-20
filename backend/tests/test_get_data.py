@@ -266,6 +266,8 @@ def test_sample_dataset_loads(tmp_path):
     tables = {s["table"]: s for s in api.post(f"/api/datasets/{pid}/sources/sample").json()["added"]}
     assert set(tables) == {"customers", "products", "sales"}
     assert tables["sales"]["issue_count"] > 0
+    progress = api.get(f"/api/datasets/{pid}").json()["progress"]
+    assert progress == {"sources": 3, "steps": 0, "relationships": 0, "measures": 0}
 
 
 # AI profiling
