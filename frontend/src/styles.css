@@ -3445,3 +3445,10 @@ button.workspace:hover {
     min-width: 230px;
   }
 }
+
+.code-input {
+  font-size: 22px !important;
+  letter-spacing: 0.3em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}

@@ -38,7 +38,7 @@ function savedWorkspace(): string | null {
 
 type State =
   | { status: "loading" }
-  | { status: "signed-out"; client: SupabaseClient }
+  | { status: "signed-out"; client: SupabaseClient; problem?: string }
   | { status: "ready"; me: Me; workspaceId: string | null }
   | { status: "error"; message: string };
 
@@ -64,16 +64,33 @@ export function AccountProvider({ children }: { children: ReactNode }) {
         return;
       }
       const supabase = createClient(config.supabase_url, config.supabase_key, {
-        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: "pkce" },
+        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, flowType: "pkce" },
       });
       client.current = supabase;
       configureSession({
         token: async () => (await supabase.auth.getSession()).data.session?.access_token ?? null,
         onSignedOut: () => setState({ status: "signed-out", client: supabase }),
       });
+
+      // Coming back from a sign-in link or Google/Microsoft: swap the one-time code for a session here,
+      // so a failure is shown instead of silently landing on the sign-in page again.
+      const url = new URL(window.location.href);
+      const code = url.searchParams.get("code");
+      const linkError = url.searchParams.get("error_description") ?? new URLSearchParams(url.hash.slice(1)).get("error_description");
+      let problem: string | undefined = linkError ?? undefined;
+      if (code || linkError) {
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) problem = error.message;
+        }
+        ["code", "error", "error_code", "error_description"].forEach((k) => url.searchParams.delete(k));
+        window.history.replaceState(null, "", url.pathname + url.search);
+      }
+
       const { data } = supabase.auth.onAuthStateChange((event, session) => {
-        if (!session) setState({ status: "signed-out", client: supabase });
-        else if (event === "SIGNED_IN" || event === "INITIAL_SESSION") void load();
+        if (!session) setState({ status: "signed-out", client: supabase, problem });
+        // Run outside the auth event: calling the API from inside it waits on the auth lock and hangs.
+        else if (event === "SIGNED_IN" || event === "INITIAL_SESSION") setTimeout(() => void load(), 0);
       });
       unsubscribe = () => data.subscription.unsubscribe();
     })().catch((e) => setState({ status: "error", message: (e as Error).message }));
@@ -109,7 +126,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
   if (state.status === "loading") return <Splash />;
   if (state.status === "error") return <Splash message={`Can't reach datawazi: ${state.message}`} />;
-  if (state.status === "signed-out") return <SignIn client={state.client} />;
+  if (state.status === "signed-out") return <SignIn client={state.client} problem={state.problem} />;
   return <AccountContext.Provider value={account}>{children}</AccountContext.Provider>;
 }
 
@@ -135,12 +152,28 @@ function Splash({ message }: { message?: string }) {
   );
 }
 
-function SignIn({ client }: { client: SupabaseClient }) {
+function SignIn({ client, problem }: { client: SupabaseClient; problem?: string }) {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    problem
+      ? `That sign-in link didn't work (${problem}). Links work once, in the browser where you asked for them. Request a new one below.`
+      : null,
+  );
   const back = window.location.href;
+
+  const [code, setCode] = useState("");
+
+  async function verifyCode(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    // The code works in any browser or device, unlike the link, which needs the browser that asked for it.
+    const { error } = await client.auth.verifyOtp({ email: email.trim(), token: code.trim(), type: "email" });
+    setBusy(false);
+    if (error) setError(error.message);
+  }
 
   async function sendLink(event: FormEvent) {
     event.preventDefault();
@@ -171,8 +204,26 @@ function SignIn({ client }: { client: SupabaseClient }) {
           <>
             <h1>Check your inbox</h1>
             <p className="muted">
-              We sent a sign-in link to <strong>{email}</strong>. Open it on this device to continue.
+              We sent a sign-in email to <strong>{email}</strong>. Type the code from it here, or open its link in this
+              browser.
             </p>
+            <form onSubmit={verifyCode} className="auth-form">
+              <label className="field">
+                <span>Code from the email</span>
+                <input
+                  autoFocus
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+                  maxLength={10}
+                  className="code-input"
+                />
+              </label>
+              <button type="submit" disabled={busy || code.length < 6}>
+                {busy ? "Checking…" : "Sign in"}
+              </button>
+            </form>
             <button className="link" onClick={() => setSent(false)}>
               Use a different email
             </button>
