@@ -298,3 +298,15 @@ def test_ai_sees_all_values_of_small_text_columns_but_not_all_rows(tmp_path):
 
 def test_ai_cleaning_needs_a_key(p):
     assert p.api.post(f"{p.base}/queries/{p.query('sales')['id']}/ai").status_code == 400
+
+
+def test_approve_all_is_one_undoable_change(tmp_path):
+    p, _ = ai_project(tmp_path, [
+        {"op": "trim", "params": {"columns": ["region"]}, "reason": "spaces"},
+        {"op": "remove_duplicates", "params": {}, "reason": "dupes"},
+    ])
+    ok(p.api.post(f"{p.base}/queries/{p.query('sales')['id']}/ai"))
+    ok(p.api.post(f"{p.base}/approve-all"))
+    assert {s["status"] for s in p.query("sales")["steps"]} == {"Approved"}
+    ok(p.api.post(f"{p.base}/undo"))
+    assert {s["status"] for s in p.query("sales")["steps"]} == {"AI"}

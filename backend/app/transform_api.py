@@ -134,6 +134,13 @@ def build_router(
             transform.approve_step(project, query_of(project, query_id)["id"], step_id)
         return view(project)
 
+    @router.post("/approve-all")
+    def approve_all(project_id: str, query_id: str | None = None):
+        """Approve every AI step; pass query_id to limit it to one table."""
+        with editing(project_id) as (project, _):
+            transform.approve_all(project, query_of(project, query_id)["id"] if query_id else None)
+        return view(project)
+
     @router.delete("/queries/{query_id}/steps/{step_id}")
     def remove(project_id: str, query_id: str, step_id: str):
         with editing(project_id) as (project, con):

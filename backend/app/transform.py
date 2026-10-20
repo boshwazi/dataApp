@@ -241,6 +241,17 @@ def approve_step(project, query_id, step_id):
         step["status"] = "Approved"
 
 
+def approve_all(project, query_id: str | None = None) -> int:
+    """Approve every AI step, in one table or all of them, as a single undoable change."""
+    queries = [find_query(project, query_id)] if query_id else state(project)["queries"]
+    pending = [s for q in queries for s in q["steps"] if s["status"] != "Approved"]
+    if pending:
+        snapshot(project)
+        for step in pending:
+            step["status"] = "Approved"
+    return len(pending)
+
+
 def rename_query(con, project, query_id, name: str):
     new = table_name(name)
     if any(q["name"] == new and q["id"] != query_id for q in state(project)["queries"]):

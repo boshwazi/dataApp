@@ -214,6 +214,8 @@ export const transformApi = {
   move: (pid: string, qid: string, sid: string, to: number) =>
     request<TransformState>(`${tq(pid, qid)}/steps/${sid}/move`, json("POST", { to })),
   rename: (pid: string, qid: string, name: string) => request<TransformState>(tq(pid, qid), json("PATCH", { name })),
+  approveAll: (pid: string, qid?: string) =>
+    request<TransformState>(`${tf(pid)}/approve-all${qid ? `?query_id=${qid}` : ""}`, { method: "POST" }),
   undo: (pid: string) => request<TransformState>(`${tf(pid)}/undo`, { method: "POST" }),
   aiClean: (pid: string, qid: string) => request<AIRun>(`${tq(pid, qid)}/ai`, { method: "POST" }),
 };

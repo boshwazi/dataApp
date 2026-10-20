@@ -79,6 +79,7 @@ export function Transform() {
 
   const busy = cleaning.size > 0;
   const cleanable = state.queries.filter((q) => !q.error).map((q) => q.id);
+  const unapproved = state.queries.reduce((n, q) => n + q.steps.filter((s) => s.status === "AI").length, 0);
 
   return (
     <div className="get-data">
@@ -98,6 +99,13 @@ export function Transform() {
         <div className="side-actions">
           <button onClick={() => clean(cleanable)} disabled={!hasKey || busy || cleanable.length === 0}>
             {busy ? "AI is cleaning…" : "Clean all tables with AI"}
+          </button>
+          <button
+            className="secondary"
+            onClick={() => run(() => transformApi.approveAll(project.id))}
+            disabled={unapproved === 0 || busy}
+          >
+            {unapproved ? `Approve all AI steps (${unapproved})` : "All steps approved"}
           </button>
           <button className="secondary" onClick={() => run(() => transformApi.undo(project.id))} disabled={!state.can_undo || busy}>
             Undo last change
@@ -172,6 +180,7 @@ function QueryDetailView({ projectId, query, hasKey, cleaning, run, onClean, onC
   };
 
   const last = query.steps.length;
+  const aiCount = query.steps.filter((s) => s.status === "AI").length;
 
   return (
     <>
@@ -196,7 +205,14 @@ function QueryDetailView({ projectId, query, hasKey, cleaning, run, onClean, onC
       {query.error && <div className="notice bad-notice">{query.error}</div>}
       {run && <RunResult run={run} />}
 
-      <h3 className="section-title">Applied steps</h3>
+      <div className="section-head">
+        <h3 className="section-title">Applied steps</h3>
+        {aiCount > 0 && (
+          <button className="link small" onClick={() => onChange(() => transformApi.approveAll(projectId, query.id))}>
+            Approve all {aiCount} AI steps
+          </button>
+        )}
+      </div>
       <ol className="steps">
         <li className={step === 0 ? "selected" : ""}>
           <button className="step-main" onClick={() => setStep(0)}>

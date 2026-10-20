@@ -718,6 +718,13 @@ input {
   color: var(--muted);
 }
 
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .steps {
   list-style: none;
   padding: 0;
