@@ -135,7 +135,7 @@ function SourceItem(props: { source: SourceSummary; selected: boolean; describin
           {ORIGIN_LABEL[source.origin.kind]} · {source.rows.toLocaleString()} rows · {source.columns} cols
         </span>
         <span className="badges">
-          {source.issue_count > 0 && <span className="badge warn">{source.issue_count} issues</span>}
+          {source.issue_count > 0 && <span className="badge warn">{source.issue_count} {source.issue_count === 1 ? "issue" : "issues"}</span>}
           {props.describing ? (
             <span className="badge">AI profiling…</span>
           ) : (
@@ -385,7 +385,7 @@ function formatValue(value: number | string | null, type: ColumnProfile["detecte
   return value;
 }
 
-function ProfileTable({ columns, rows, ai }: { columns: ColumnProfile[]; rows: number; ai: Source["ai"] }) {
+export function ProfileTable({ columns, rows, ai }: { columns: ColumnProfile[]; rows: number; ai: Source["ai"] }) {
   return (
     <div className="table-wrap">
       <table className="grid profile">

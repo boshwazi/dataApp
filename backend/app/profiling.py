@@ -8,9 +8,13 @@ from datetime import datetime, timezone
 
 import duckdb
 
-PLACEHOLDERS = ("n/a", "na", "null", "none", "nan", "-", "--", "?", "#n/a", "missing", "unknown")
+# "Unknown" and "missing" are left out: they are usually deliberate labels (Transform fills blanks with them).
+PLACEHOLDERS = ("n/a", "na", "null", "none", "nan", "-", "--", "?", "#n/a")
 DATE_FORMATS = ["%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%d-%m-%Y", "%d.%m.%Y", "%Y/%m/%d", "%d %b %Y", "%b %d, %Y", "%d-%b-%Y"]
 BOOLEANS = ("true", "false", "yes", "no", "y", "n", "t", "f")
+TRUE_WORDS = ("true", "yes", "y", "t")
+# Currency prefixes, thousands separators and spaces, stripped before reading a number.
+NUMBER_NOISE = r"^(RM|MYR|USD|\$|€|£)\s*|,|\s"
 TOP_VALUES = 5
 # A column counts as a type when at least this share of its filled values parse as it.
 MOSTLY = 0.8
@@ -24,8 +28,8 @@ def sql_list(values) -> str:
     return "(" + ", ".join("'" + v.replace("'", "''") + "'" for v in values) + ")"
 
 
-def profile_table(con: duckdb.DuckDBPyConnection, table: str) -> dict:
-    t = quote(table)
+def profile_table(con: duckdb.DuckDBPyConnection, table: str, schema: str | None = None) -> dict:
+    t = f"{quote(schema)}.{quote(table)}" if schema else quote(table)
     rows = con.execute(f"SELECT count(*) FROM {t}").fetchone()[0]
     distinct_rows = con.execute(f"SELECT count(*) FROM (SELECT DISTINCT * FROM {t})").fetchone()[0]
     columns = [row[0] for row in con.execute(f"DESCRIBE {t}").fetchall()]
@@ -38,8 +42,10 @@ def profile_table(con: duckdb.DuckDBPyConnection, table: str) -> dict:
 
 
 def profile_column(con: duckdb.DuckDBPyConnection, t: str, name: str, rows: int) -> dict:
+    # Typed columns (Transform output) are profiled through their text form.
+    text = f"CAST({quote(name)} AS VARCHAR)"
     v = "trim(v)"
-    cleaned_number = f"TRY_CAST(regexp_replace({v}, '^(RM|MYR|USD|\\$|€|£)\\s*|,|\\s', '', 'gi') AS DOUBLE)"
+    cleaned_number = f"TRY_CAST(regexp_replace({v}, '{NUMBER_NOISE}', '', 'gi') AS DOUBLE)"
     stats = con.execute(
         f"""
         SELECT
@@ -56,7 +62,7 @@ def profile_column(con: duckdb.DuckDBPyConnection, t: str, name: str, rows: int)
             count(DISTINCT regexp_replace(regexp_replace({v}, '[0-9]', '9', 'g'), '[A-Za-z]+', 'a', 'g')) AS shapes,
             min(length(v)) AS min_length,
             max(length(v)) AS max_length
-        FROM (SELECT {quote(name)} AS v FROM {t})
+        FROM (SELECT {text} AS v FROM {t})
         """
     ).fetchone()
     (present, placeholders, distinct, distinct_folded, untrimmed, integers, numbers, symbol_numbers,
@@ -82,14 +88,14 @@ def profile_column(con: duckdb.DuckDBPyConnection, t: str, name: str, rows: int)
         "top_values": [
             {"value": value, "count": count}
             for value, count in con.execute(
-                f"SELECT {quote(name)}, count(*) FROM {t} WHERE {quote(name)} IS NOT NULL "
+                f"SELECT {text}, count(*) FROM {t} WHERE {quote(name)} IS NOT NULL "
                 f"GROUP BY 1 ORDER BY 2 DESC, 1 LIMIT {TOP_VALUES}"
             ).fetchall()
         ],
     }
     if detected in ("integer", "decimal"):
         low, high, mean = con.execute(
-            f"SELECT min(n), max(n), avg(n) FROM (SELECT {cleaned_number} AS n FROM (SELECT {quote(name)} AS v FROM {t}))"
+            f"SELECT min(n), max(n), avg(n) FROM (SELECT {cleaned_number} AS n FROM (SELECT {text} AS v FROM {t}))"
         ).fetchone()
         if detected == "integer" and low is not None:
             low, high = int(low), int(high)
@@ -97,7 +103,7 @@ def profile_column(con: duckdb.DuckDBPyConnection, t: str, name: str, rows: int)
     elif detected == "date":
         low, high = con.execute(
             f"SELECT min(d), max(d) FROM (SELECT coalesce(TRY_CAST({v} AS TIMESTAMP), try_strptime({v}, {DATE_FORMATS})) AS d "
-            f"FROM (SELECT {quote(name)} AS v FROM {t}))"
+            f"FROM (SELECT {text} AS v FROM {t}))"
         ).fetchone()
         profile.update(min=low.isoformat() if low else None, max=high.isoformat() if high else None)
 

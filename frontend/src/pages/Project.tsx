@@ -5,7 +5,7 @@ import { api, type Project as ProjectData } from "../api";
 // Pipeline order, as in Power BI. Later stages arrive in later milestones.
 const STAGES = [
   { path: "get-data", name: "Get Data", ready: true },
-  { path: "transform", name: "Transform", ready: false },
+  { path: "transform", name: "Transform", ready: true },
   { path: "model", name: "Model", ready: false },
   { path: "report", name: "Report", ready: false },
   { path: "ask", name: "Ask", ready: false },

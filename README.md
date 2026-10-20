@@ -4,7 +4,7 @@ An AI-powered take on Power BI Desktop: Get Data → Transform → Model → Rep
 doing every step and each stage steered by a plain-English chat. See
 [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md).
 
-**Status:** M1 — projects and Get Data (CSV, Excel, Google Sheets) with column profiling and AI table descriptions.
+**Status:** M2 — Transform: AI-built Applied Steps on top of M1's Get Data and column profiling.
 
 ## Requirements
 
@@ -66,6 +66,18 @@ detected type, blanks, distinct values, ranges, common values and data quality i
 an API key set, the AI then describes the table and each column. It sees only the profile and
 5 sample rows, never the full data. Project data is stored in `data/projects/` (one DuckDB
 file per project).
+
+## Transform
+
+Each loaded table gets a query on the **Transform** tab. **Clean with AI** has the AI propose
+Applied Steps from a fixed catalogue (change type, trim, change case, replace values, blanks
+to null, fill blanks, remove duplicates, remove or rename columns, filter rows, merge, append).
+The AI never writes SQL: the engine checks each step against the columns at that point,
+compiles it to SQL itself and refuses steps that fail, break another table, or make a merge
+multiply rows. Steps replay from the raw table on every change, are marked `AI` or `Approved`
+with the AI's reason, and can be reordered, removed or undone. Click a step to see its rows
+before and after, and its impact. The results are stored as tables in the project's `clean`
+schema, which the Model stage will read.
 
 ## Tests
 
