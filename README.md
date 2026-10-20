@@ -4,7 +4,7 @@ An AI-powered take on Power BI Desktop: Get Data → Transform → Model → Rep
 doing every step and each stage steered by a plain-English chat. See
 [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md).
 
-**Status:** M2 — Transform: AI-built Applied Steps on top of M1's Get Data and column profiling.
+**Status:** M3 — Model: relationships, date table and measures, on top of Get Data (M1) and Transform (M2).
 
 ## Requirements
 
@@ -78,6 +78,19 @@ multiply rows. Steps replay from the raw table on every change, are marked `AI` 
 with the AI's reason, and can be reordered, removed or undone. Click a step to see its rows
 before and after, and its impact. The results are stored as tables in the project's `clean`
 schema, which the Model stage will read.
+
+## Model
+
+**Build model with AI** designs a star schema over the Transform output: many-to-one
+relationships from fact to dimension tables, a generated **Date** table, and measures. The
+engine checks every relationship before keeping it. The "one" side must have one row per
+key, the key types must match, and at least half the keys must match. Unmatched keys are
+reported. Only one active path may join two tables, so extra relationships are kept
+inactive, as in Power BI. Measures are an aggregation (sum, average, count, distinct count,
+min, max) over a `[Column]` expression such as `[Qty] * [Unit Price]`, or a formula over
+other measures such as `[Revenue] / [Orders]`. The app compiles them itself, so the AI never
+writes SQL. The Model tab shows the diagram, each relationship's match rate, and every
+measure's current value. Changes can be approved or undone.
 
 ## Tests
 

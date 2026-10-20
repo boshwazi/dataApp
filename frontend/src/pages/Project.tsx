@@ -6,7 +6,7 @@ import { api, type Project as ProjectData } from "../api";
 const STAGES = [
   { path: "get-data", name: "Get Data", ready: true },
   { path: "transform", name: "Transform", ready: true },
-  { path: "model", name: "Model", ready: false },
+  { path: "model", name: "Model", ready: true },
   { path: "report", name: "Report", ready: false },
   { path: "ask", name: "Ask", ready: false },
   { path: "export", name: "Export", ready: false },

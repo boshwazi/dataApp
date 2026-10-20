@@ -838,6 +838,181 @@ button.icon.danger:hover:not(:disabled) {
   font-weight: 400;
 }
 
+/* Model */
+
+.model section {
+  margin-top: 8px;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.diagram {
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 4px;
+  margin: 8px 0 12px;
+}
+
+.diagram svg {
+  display: block;
+  max-width: none;
+  font-family: inherit;
+}
+
+.diagram .box rect {
+  fill: var(--panel);
+  stroke: var(--border);
+}
+
+.diagram .box .box-head {
+  fill: #eef1f6;
+  stroke: none;
+}
+
+.diagram .kind-fact .box-head {
+  fill: #e4ecfd;
+}
+
+.diagram .kind-dimension .box-head {
+  fill: #e6f4ec;
+}
+
+.diagram .kind-date .box-head {
+  fill: #f6eddc;
+}
+
+.diagram .box-title {
+  font-size: 13px;
+  font-weight: 700;
+  fill: var(--text);
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+}
+
+.diagram .box-meta {
+  font-size: 10px;
+  fill: var(--muted);
+}
+
+.diagram .box-col {
+  font-size: 12px;
+  fill: var(--text);
+}
+
+.diagram .box-col.key {
+  font-weight: 600;
+  fill: var(--accent);
+}
+
+.diagram .box-col.hidden-col {
+  fill: var(--muted);
+  font-style: italic;
+}
+
+.diagram .link path {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+
+.diagram .link text {
+  font-size: 13px;
+  font-weight: 700;
+  fill: var(--accent);
+}
+
+.diagram .link.inactive path {
+  stroke: var(--muted);
+  stroke-dasharray: 5 4;
+}
+
+.diagram .link.inactive text {
+  fill: var(--muted);
+}
+
+.diagram .link.broken path {
+  stroke: var(--bad);
+}
+
+tr.inactive td {
+  color: var(--muted);
+}
+
+.model .grid td:nth-child(4) {
+  min-width: 240px;
+}
+
+.model .grid td:first-child,
+.model .grid td:nth-child(2) {
+  white-space: nowrap;
+}
+
+.measure-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.measure {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.measure.broken {
+  border-color: #f0b8b8;
+}
+
+.measure p {
+  margin: 0;
+}
+
+.measure-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.measure-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.measure-value {
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.measure-def {
+  font-size: 12px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.measure-tools {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+
 @media (max-width: 1100px) {
   .get-data {
     flex-direction: column;

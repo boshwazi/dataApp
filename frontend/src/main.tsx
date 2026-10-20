@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Layout } from "./Layout";
 import { GetData } from "./pages/GetData";
 import { Home } from "./pages/Home";
+import { Model } from "./pages/Model";
 import { Project } from "./pages/Project";
 import { Settings } from "./pages/Settings";
 import { Transform } from "./pages/Transform";
@@ -20,6 +21,7 @@ createRoot(document.getElementById("root")!).render(
             <Route index element={<Navigate to="get-data" replace />} />
             <Route path="get-data" element={<GetData />} />
             <Route path="transform" element={<Transform />} />
+            <Route path="model" element={<Model />} />
           </Route>
         </Route>
       </Routes>

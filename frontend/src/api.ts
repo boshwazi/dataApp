@@ -219,3 +219,103 @@ export const transformApi = {
   undo: (pid: string) => request<TransformState>(`${tf(pid)}/undo`, { method: "POST" }),
   aiClean: (pid: string, qid: string) => request<AIRun>(`${tq(pid, qid)}/ai`, { method: "POST" }),
 };
+
+// Model
+
+export type ModelColumn = { name: string; type: LogicalType; hidden: boolean; key: boolean };
+
+export type ModelTable = {
+  id: string;
+  name: string;
+  kind: "fact" | "dimension" | "date" | "table";
+  rows: number;
+  columns: ModelColumn[];
+};
+
+export type Relationship = {
+  id: string;
+  from_table: string;
+  from_column: string;
+  to_table: string;
+  to_column: string;
+  from_name: string;
+  to_name: string;
+  active: boolean;
+  status: "AI" | "Approved";
+  reason: string;
+  error: string | null;
+  checks: {
+    rows: number;
+    keyed_rows: number;
+    matched_rows: number;
+    match_rate: number;
+    blank_keys: number;
+    unmatched_examples: string[];
+    cardinality: "many_to_one" | "one_to_one";
+  };
+};
+
+export type MeasureFormat = { type: "number" | "integer" | "currency" | "percent"; decimals?: number; currency?: string };
+
+export type Measure = {
+  id: string;
+  name: string;
+  kind: "aggregate" | "formula";
+  label: string;
+  description: string;
+  reason: string;
+  status: "AI" | "Approved";
+  format: MeasureFormat;
+  value: number | null;
+  error: string | null;
+};
+
+export type DateTable = {
+  start_year: number | null;
+  end_year: number | null;
+  status: "AI" | "Approved";
+  reason: string;
+  error?: string | null;
+  first?: string;
+  last?: string;
+};
+
+export type ModelState = {
+  tables: ModelTable[];
+  relationships: Relationship[];
+  measures: Measure[];
+  date_table: DateTable | null;
+  can_undo: boolean;
+};
+
+export type ModelRun = ModelState & {
+  summary: string;
+  added: { kind: string; label: string }[];
+  refused: { kind: string; label: string; error: string }[];
+};
+
+const md = (pid: string) => `/api/projects/${pid}/model`;
+
+export const modelApi = {
+  state: (pid: string) => request<ModelState>(md(pid)),
+  ai: (pid: string) => request<ModelRun>(`${md(pid)}/ai`, { method: "POST" }),
+  approve: (pid: string, itemId?: string) =>
+    request<ModelState>(`${md(pid)}/approve${itemId ? `?item_id=${itemId}` : ""}`, { method: "POST" }),
+  undo: (pid: string) => request<ModelState>(`${md(pid)}/undo`, { method: "POST" }),
+  removeRelationship: (pid: string, id: string) =>
+    request<ModelState>(`${md(pid)}/relationships/${id}`, { method: "DELETE" }),
+  removeMeasure: (pid: string, id: string) => request<ModelState>(`${md(pid)}/measures/${id}`, { method: "DELETE" }),
+  removeDateTable: (pid: string) => request<ModelState>(`${md(pid)}/date-table`, { method: "DELETE" }),
+  setHidden: (pid: string, table: string, column: string, hidden: boolean) =>
+    request<ModelState>(`${md(pid)}/hidden`, json("POST", { table, column, hidden })),
+};
+
+export function formatMeasure(value: number | null, format: MeasureFormat): string {
+  if (value === null || value === undefined) return "(blank)";
+  const decimals = format.type === "integer" ? 0 : (format.decimals ?? 0);
+  const number = (v: number) =>
+    v.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  if (format.type === "percent") return `${number(value * 100)}%`;
+  if (format.type === "currency") return `${format.currency ?? "RM"} ${number(value)}`;
+  return number(value);
+}
