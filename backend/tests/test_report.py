@@ -51,8 +51,8 @@ CUSTOMERS = "customer,segment\nC1,Retail\nC2,Online\nC3,Online\n"
 class Project:
     def __init__(self, tmp_path, ai=None):
         self.api = TestClient(create_app(data_dir=tmp_path, client_factory=lambda s: ai))
-        self.id = self.api.post("/api/projects", json={"name": "R"}).json()["id"]
-        base = f"/api/projects/{self.id}"
+        self.id = self.api.post("/api/datasets", json={"name": "R"}).json()["id"]
+        base = f"/api/datasets/{self.id}"
         for name, text in (("sales.csv", SALES), ("customers.csv", CUSTOMERS)):
             self.api.post(f"{base}/sources/upload", files=[("files", (name, text.encode()))])
         queries = {q["name"]: q["id"] for q in self.api.get(f"{base}/transform").json()["queries"]}
@@ -67,7 +67,13 @@ class Project:
                                              "expression": "[qty] * [price]", "format": {"type": "currency", "decimals": 0}})
         self.api.post(f"{m}/measures", json={"name": "Orders", "kind": "aggregate", "table": "sales", "aggregation": "count"})
         self.api.post(f"{m}/measures", json={"name": "Average order", "kind": "formula", "expression": "[Revenue] / [Orders]"})
-        self.base = f"{base}/report"
+        self.dataset = base
+        self.publish()
+        dash = self.api.post("/api/dashboards", json={"name": "Sales", "dataset_id": self.id}).json()
+        self.base = f"/api/dashboards/{dash['id']}"
+
+    def publish(self):
+        return ok(self.api.post(f"{self.dataset}/publish", params={"confirm": True}))
 
     def page(self, title="Sales overview"):
         return ok(self.api.post(f"{self.base}/pages", json={"title": title}))["pages"][-1]["id"]
@@ -110,7 +116,8 @@ def test_kpi_card_compares_year_to_date_with_the_same_period_last_year(p):
 
 
 def test_kpi_without_a_date_table_says_why(p):
-    ok(p.api.delete(f"/api/projects/{p.id}/model/date-table"))
+    ok(p.api.delete(f"/api/datasets/{p.id}/model/date-table"))
+    p.publish()
     page = p.page()
     ok(p.visual(page, type="kpi", title="Orders", measures=["Orders"]))
     data = p.visuals()[0]["data"]
@@ -180,8 +187,9 @@ def test_donut_only_for_three_slices_or_fewer(p):
 
 def test_measures_that_cannot_reach_a_column_are_refused(p):
     page = p.page()
-    p.api.post(f"/api/projects/{p.id}/model/measures",
+    p.api.post(f"/api/datasets/{p.id}/model/measures",
                json={"name": "Customers", "kind": "aggregate", "table": "customers", "aggregation": "count"})
+    p.publish()
     response = p.visual(page, type="bar", title="x", measures=["Customers"], group_by=[{"table": "Date", "column": "Year"}])
     assert response.status_code == 400 and "no relationship leads there" in response.json()["detail"]
 
@@ -262,7 +270,10 @@ def test_ai_designs_pages_writes_checked_insights_and_undoes_as_one(tmp_path):
 
 def test_ai_report_needs_measures(tmp_path):
     api = TestClient(create_app(data_dir=tmp_path, client_factory=lambda s: None))
-    pid = api.post("/api/projects", json={"name": "Empty"}).json()["id"]
+    pid = api.post("/api/datasets", json={"name": "Empty"}).json()["id"]
     api.put("/api/settings", json={"api_key": "sk-secret-value-1234"})
-    response = api.post(f"/api/projects/{pid}/report/ai")
+    api.post(f"/api/datasets/{pid}/sources/upload", files=[("files", ("t.csv", b"a\n1\n"))])
+    ok(api.post(f"/api/datasets/{pid}/publish"))
+    dash = api.post("/api/dashboards", json={"name": "Empty", "dataset_id": pid}).json()
+    response = api.post(f"/api/dashboards/{dash['id']}/ai")
     assert response.status_code == 400 and "model first" in response.json()["detail"]

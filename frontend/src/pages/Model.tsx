@@ -8,10 +8,10 @@ import {
   type ModelTable,
   type Relationship,
 } from "../api";
-import { useProject } from "./Project";
+import { useDataset } from "./Dataset";
 
 export function Model() {
-  const { project } = useProject();
+  const { project, refresh } = useDataset();
   const [state, setState] = useState<ModelState | null>(null);
   const [hasKey, setHasKey] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,6 +27,7 @@ export function Model() {
     setError(null);
     try {
       setState(await action());
+      void refresh(); // keeps the publish status in the header current
     } catch (e) {
       setError((e as Error).message);
     }
@@ -40,6 +41,7 @@ export function Model() {
       const result = await modelApi.ai(project.id);
       setRun(result);
       setState(result);
+      void refresh();
     } catch (e) {
       setRun({ error: (e as Error).message });
     } finally {

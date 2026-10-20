@@ -11,10 +11,10 @@ import {
   type TransformState,
 } from "../api";
 import { ProfileTable } from "./GetData";
-import { useProject } from "./Project";
+import { useDataset } from "./Dataset";
 
 export function Transform() {
-  const { project } = useProject();
+  const { project, refresh } = useDataset();
   const [params, setParams] = useSearchParams();
   const [state, setState] = useState<TransformState | null>(null);
   const [hasKey, setHasKey] = useState(false);
@@ -34,8 +34,9 @@ export function Transform() {
 
   const apply = useCallback((next: TransformState) => {
     setState(next);
+    void refresh(); // the header shows whether the dataset now differs from what is published
     setVersion((v) => v + 1);
-  }, []);
+  }, [refresh]);
 
   async function run(action: () => Promise<TransformState>) {
     setError(null);

@@ -7,7 +7,8 @@ from fastapi import APIRouter, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
-from . import ai_profile, ingest, llm, transform
+from . import ai_profile, ingest, llm, model, publishing, transform
+from .dashboards import DashboardStore
 from .projects import NotFound, ProjectStore
 from .settings import ProviderSettings, SettingsStore
 
@@ -24,11 +25,16 @@ class SheetBody(BaseModel):
     name: str = ""
 
 
-def project_view(project: dict) -> dict:
-    """A project as the browser sees it: sources without their full profiles."""
+HIDDEN_KEYS = ("sources", "transform", "model", "published", "report")
+
+
+def project_view(project: dict, dashboards: list[dict] | None = None) -> dict:
+    """A dataset as the browser sees it: sources without their full profiles, publish status, users."""
     return {
-        **{k: v for k, v in project.items() if k != "sources"},
+        **{k: v for k, v in project.items() if k not in HIDDEN_KEYS},
         "sources": [source_summary(s) for s in project["sources"]],
+        "status": publishing.draft_status(project),
+        "dashboards": [{"id": d["id"], "name": d["name"]} for d in dashboards or []],
     }
 
 
@@ -47,12 +53,13 @@ def source_summary(source: dict) -> dict:
 
 def build_router(
     store: ProjectStore,
+    boards: DashboardStore,
     settings_store: SettingsStore,
     client_factory: Callable[[ProviderSettings], object],
     fetch_url: Callable[[str], tuple[bytes, str, str]],
     samples_dir: Path,
 ) -> APIRouter:
-    router = APIRouter(prefix="/api/projects")
+    router = APIRouter(prefix="/api/datasets")
 
     def load(project_id: str) -> dict:
         try:
@@ -77,7 +84,8 @@ def build_router(
 
     @router.get("")
     def list_projects():
-        return [project_view(p) for p in store.all()]
+        boards_now = boards.all()
+        return [project_view(p, [d for d in boards_now if d["dataset_id"] == p["id"]]) for p in store.all()]
 
     @router.post("")
     def create_project(body: NameBody):
@@ -85,7 +93,7 @@ def build_router(
 
     @router.get("/{project_id}")
     def get_project(project_id: str):
-        return project_view(load(project_id))
+        return project_view(load(project_id), boards.using(project_id))
 
     @router.patch("/{project_id}")
     def rename_project(project_id: str, body: NameBody):
@@ -95,8 +103,33 @@ def build_router(
     @router.delete("/{project_id}")
     def delete_project(project_id: str):
         load(project_id)
+        users = boards.using(project_id)
+        if users:
+            names = ", ".join(d["name"] for d in users)
+            raise HTTPException(409, f"Dashboards use this dataset: {names}. Delete them or move them first.")
         store.delete(project_id)
         return {"deleted": project_id}
+
+    @router.post("/{project_id}/publish")
+    def publish(project_id: str, confirm: bool = False):
+        """Freeze the dataset for its dashboards. Lists dashboard visuals that would break unless confirmed."""
+        if not load(project_id)["sources"]:
+            raise HTTPException(400, "Load some data before publishing.")
+        with store.edit(project_id) as project:
+            with store.connect(project_id) as con:
+                transform.apply_all(con, project)
+                model.revalidate(con, project)
+                broken = [q["name"] for q in transform.state(project)["queries"] if q["error"]]
+                current = model.state(project)
+                broken += [f"{m['name']} (measure)" for m in current["measures"] if m.get("error")]
+                if broken:
+                    raise HTTPException(400, "Fix these before publishing: " + ", ".join(broken))
+                problems = publishing.broken_visuals(con, project, boards.using(project_id))
+            if problems and not confirm:
+                raise HTTPException(409, {"message": "Publishing would break dashboard visuals.", "problems": problems})
+            published = publishing.publish(store, project)
+        store.remove_old_copies(project_id, keep=published["file"])
+        return {**project_view(project, boards.using(project_id)), "broken_visuals": problems}
 
     # Get Data: adding sources
 

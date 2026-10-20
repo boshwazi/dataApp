@@ -24,6 +24,11 @@
   box-sizing: border-box;
 }
 
+/* The hidden attribute always wins over display rules set by classes. */
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   background: var(--bg);
@@ -285,6 +290,92 @@ input {
 
 .project-link:hover strong {
   color: var(--accent);
+}
+
+/* Home, datasets and dashboards */
+
+.page.wide {
+  max-width: 1100px;
+}
+
+.home-head,
+.project-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.kind-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
+.used-by {
+  margin: -8px 0 12px;
+}
+
+.new-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.choice-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.choice {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  background: var(--panel);
+  color: var(--text);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.choice.on {
+  border-color: var(--accent);
+  background: var(--selected);
+}
+
+.new-dashboard select {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  max-width: 280px;
+}
+
+.rail-hint {
+  margin: 12px 10px 0;
+  line-height: 1.4;
+}
+
+.notice ul {
+  margin: 6px 0 10px;
+  padding-left: 18px;
+}
+
+@media (max-width: 700px) {
+  .choice-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Project */

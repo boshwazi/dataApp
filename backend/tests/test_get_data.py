@@ -54,11 +54,11 @@ def make(tmp_path, ai=None, fetch=None):
 
 
 def new_project(api, name="Demo"):
-    return api.post("/api/projects", json={"name": name}).json()["id"]
+    return api.post("/api/datasets", json={"name": name}).json()["id"]
 
 
 def upload(api, pid, *files):
-    return api.post(f"/api/projects/{pid}/sources/upload", files=[("files", f) for f in files])
+    return api.post(f"/api/datasets/{pid}/sources/upload", files=[("files", f) for f in files])
 
 
 def xlsx(sheets: dict[str, list[list]]) -> bytes:
@@ -154,7 +154,7 @@ def test_gsheet_source_takes_the_sheet_title(tmp_path):
     fetch = FakeFetch()
     api = make(tmp_path, fetch=fetch)
     pid = new_project(api)
-    body = api.post(f"/api/projects/{pid}/sources/gsheet", json={"url": "https://docs.google.com/spreadsheets/d/abc/edit"}).json()
+    body = api.post(f"/api/datasets/{pid}/sources/gsheet", json={"url": "https://docs.google.com/spreadsheets/d/abc/edit"}).json()
     assert body["added"][0]["table"] == "budget_sheet1"
     assert body["added"][0]["origin"]["kind"] == "gsheet"
     assert fetch.urls == ["https://docs.google.com/spreadsheets/d/abc/export?format=csv"]
@@ -163,7 +163,7 @@ def test_gsheet_source_takes_the_sheet_title(tmp_path):
 def test_private_gsheet_gives_a_sharing_hint(tmp_path):
     api = make(tmp_path, fetch=FakeFetch(b"<html>Sign in</html>", "text/html", ""))
     pid = new_project(api)
-    response = api.post(f"/api/projects/{pid}/sources/gsheet", json={"url": "https://docs.google.com/spreadsheets/d/abc"})
+    response = api.post(f"/api/datasets/{pid}/sources/gsheet", json={"url": "https://docs.google.com/spreadsheets/d/abc"})
     assert response.status_code == 400
     assert "Anyone with the link" in response.json()["detail"]
 
@@ -184,7 +184,7 @@ def test_profile_detects_types_and_issues(tmp_path):
     # The quoted price keeps its thousands separator inside one field.
     csv = csv.replace("RM 1,200.50", '"RM 1,200.50"')
     sid = upload(api, pid, ("orders.csv", csv.encode())).json()["added"][0]["id"]
-    profile = api.get(f"/api/projects/{pid}/sources/{sid}").json()["profile"]
+    profile = api.get(f"/api/datasets/{pid}/sources/{sid}").json()["profile"]
 
     assert profile["rows"] == 4 and profile["duplicate_rows"] == 1
     assert column(profile, "id")["detected_type"] == "integer"
@@ -207,7 +207,7 @@ def test_mostly_numeric_column_reports_mixed_types(tmp_path):
     pid = new_project(api)
     values = "\n".join(["n"] + [str(i) for i in range(9)] + ["ten"])
     sid = upload(api, pid, ("t.csv", values.encode())).json()["added"][0]["id"]
-    n = column(api.get(f"/api/projects/{pid}/sources/{sid}").json()["profile"], "n")
+    n = column(api.get(f"/api/datasets/{pid}/sources/{sid}").json()["profile"], "n")
     assert n["detected_type"] == "integer" and n["type_confidence"] == 0.9
     assert any("mixed types" in i for i in n["issues"])
 
@@ -218,17 +218,17 @@ def test_mostly_numeric_column_reports_mixed_types(tmp_path):
 def test_project_lifecycle(tmp_path):
     api = make(tmp_path)
     pid = new_project(api, "Sales review")
-    assert [p["name"] for p in api.get("/api/projects").json()] == ["Sales review"]
-    assert api.patch(f"/api/projects/{pid}", json={"name": "Q3 review"}).json()["name"] == "Q3 review"
-    assert api.get(f"/api/projects/{pid}").json()["workspace_id"] == "local"
-    assert api.delete(f"/api/projects/{pid}").status_code == 200
-    assert api.get(f"/api/projects/{pid}").status_code == 404
+    assert [p["name"] for p in api.get("/api/datasets").json()] == ["Sales review"]
+    assert api.patch(f"/api/datasets/{pid}", json={"name": "Q3 review"}).json()["name"] == "Q3 review"
+    assert api.get(f"/api/datasets/{pid}").json()["workspace_id"] == "local"
+    assert api.delete(f"/api/datasets/{pid}").status_code == 200
+    assert api.get(f"/api/datasets/{pid}").status_code == 404
 
 
 def test_bad_project_ids_are_not_found(tmp_path):
     api = make(tmp_path)
-    assert api.get("/api/projects/..%2F..%2Fsettings").status_code == 404
-    assert api.get("/api/projects/000000000000").status_code == 404
+    assert api.get("/api/datasets/..%2F..%2Fsettings").status_code == 404
+    assert api.get("/api/datasets/000000000000").status_code == 404
 
 
 def test_upload_preview_rename_and_delete_source(tmp_path):
@@ -239,17 +239,17 @@ def test_upload_preview_rename_and_delete_source(tmp_path):
     assert (first["table"], second["table"]) == ("sales_2024", "sales_2024_2")
     assert first["rows"] == 2 and first["columns"] == 2
 
-    preview = api.get(f"/api/projects/{pid}/sources/{first['id']}/preview?limit=1&offset=1").json()
+    preview = api.get(f"/api/datasets/{pid}/sources/{first['id']}/preview?limit=1&offset=1").json()
     assert preview == {"columns": ["a", "b"], "rows": [["3", "4"]], "total": 2, "offset": 1}
 
-    clash = api.patch(f"/api/projects/{pid}/sources/{first['id']}", json={"name": "Sales 2024 2"})
+    clash = api.patch(f"/api/datasets/{pid}/sources/{first['id']}", json={"name": "Sales 2024 2"})
     assert clash.status_code == 400
-    renamed = api.patch(f"/api/projects/{pid}/sources/{first['id']}", json={"name": "Sales"}).json()
+    renamed = api.patch(f"/api/datasets/{pid}/sources/{first['id']}", json={"name": "Sales"}).json()
     assert renamed["table"] == "sales"
-    assert api.get(f"/api/projects/{pid}/sources/{first['id']}/preview").json()["total"] == 2
+    assert api.get(f"/api/datasets/{pid}/sources/{first['id']}/preview").json()["total"] == 2
 
-    api.delete(f"/api/projects/{pid}/sources/{second['id']}")
-    assert [s["table"] for s in api.get(f"/api/projects/{pid}").json()["sources"]] == ["sales"]
+    api.delete(f"/api/datasets/{pid}/sources/{second['id']}")
+    assert [s["table"] for s in api.get(f"/api/datasets/{pid}").json()["sources"]] == ["sales"]
 
 
 def test_upload_reports_bad_files_and_keeps_good_ones(tmp_path):
@@ -263,7 +263,7 @@ def test_upload_reports_bad_files_and_keeps_good_ones(tmp_path):
 def test_sample_dataset_loads(tmp_path):
     api = make(tmp_path)
     pid = new_project(api)
-    tables = {s["table"]: s for s in api.post(f"/api/projects/{pid}/sources/sample").json()["added"]}
+    tables = {s["table"]: s for s in api.post(f"/api/datasets/{pid}/sources/sample").json()["added"]}
     assert set(tables) == {"customers", "products", "sales"}
     assert tables["sales"]["issue_count"] > 0
 
@@ -297,7 +297,7 @@ def setup_source(tmp_path, ai, capabilities):
 def test_describe_with_each_protocol(tmp_path, capabilities):
     ai = FakeAI(ANSWER)
     api, pid, sid = setup_source(tmp_path, ai, capabilities)
-    source = api.post(f"/api/projects/{pid}/sources/{sid}/describe").json()
+    source = api.post(f"/api/datasets/{pid}/sources/{sid}/describe").json()
     assert source["ai"]["table_role"] == "fact" and source["ai"]["status"] == "AI"
     assert set(source["ai"]["columns"]) == {"order_id", "amount"}  # the invented column is dropped
     assert source["ai"]["columns"]["amount"]["issues"] == ["RM prefix"]
@@ -314,7 +314,7 @@ def test_describe_sends_only_profiles_and_a_few_rows(tmp_path):
     pid = new_project(api)
     rows = "\n".join(["id"] + [f"row-{i}" for i in range(50)])
     sid = upload(api, pid, ("t.csv", rows.encode())).json()["added"][0]["id"]
-    api.post(f"/api/projects/{pid}/sources/{sid}/describe")
+    api.post(f"/api/datasets/{pid}/sources/{sid}/describe")
     prompt = ai.calls[0]["messages"][-1]["content"]
     assert "row-4" in prompt and "row-30" not in prompt
 
@@ -323,13 +323,13 @@ def test_describe_needs_a_key(tmp_path):
     api = make(tmp_path, ai=FakeAI(ANSWER))
     pid = new_project(api)
     sid = upload(api, pid, ("t.csv", b"a\n1\n")).json()["added"][0]["id"]
-    assert api.post(f"/api/projects/{pid}/sources/{sid}/describe").status_code == 400
+    assert api.post(f"/api/datasets/{pid}/sources/{sid}/describe").status_code == 400
 
 
 def test_reprofile_clears_the_ai_description(tmp_path):
     api, pid, sid = setup_source(tmp_path, FakeAI(ANSWER), {"tools": True})
-    api.post(f"/api/projects/{pid}/sources/{sid}/describe")
-    assert api.post(f"/api/projects/{pid}/sources/{sid}/profile").json()["ai"] is None
+    api.post(f"/api/datasets/{pid}/sources/{sid}/describe")
+    assert api.post(f"/api/datasets/{pid}/sources/{sid}/profile").json()["ai"] is None
 
 
 def test_sql_cannot_reach_outside_files(tmp_path):

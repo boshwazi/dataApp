@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, type AddResult, type ColumnProfile, type Preview, type Source, type SourceSummary } from "../api";
-import { useProject } from "./Project";
+import { useDataset } from "./Dataset";
 
 const ACCEPT = ".csv,.tsv,.txt,.xlsx,.xlsm";
 const PAGE_SIZE = 100;
@@ -9,7 +9,7 @@ const PAGE_SIZE = 100;
 const ORIGIN_LABEL = { csv: "CSV", excel: "Excel", gsheet: "Google Sheets" } as const;
 
 export function GetData() {
-  const { project, refresh } = useProject();
+  const { project, refresh } = useDataset();
   const [params, setParams] = useSearchParams();
   const [hasKey, setHasKey] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);

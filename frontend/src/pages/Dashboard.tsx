@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import type { EChartsCoreOption } from "echarts/core";
 import {
   api,
+  dashboardsApi,
   formatCompact,
   formatMeasure,
   reportApi,
@@ -14,21 +15,32 @@ import {
   type Visual,
 } from "../api";
 import { Chart, SERIES, TOKENS } from "../components/Chart";
-import { useProject } from "./Project";
+import { PublishBadge } from "./Dataset";
 
-export function Report() {
-  const { project } = useProject();
+/** A dashboard: report pages on its dataset's published version. Creators edit the draft; viewers see what is published. */
+export function Dashboard() {
+  const { dashboardId = "" } = useParams();
   const [params, setParams] = useSearchParams();
+  const side = params.get("view") === "published" ? "published" : "draft";
   const [state, setState] = useState<ReportState | null>(null);
   const [hasKey, setHasKey] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [building, setBuilding] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [run, setRun] = useState<ReportRun | { error: string } | null>(null);
 
+  const load = useCallback(() => {
+    reportApi.state(dashboardId, side).then(setState).catch((e) => setError(e.message));
+  }, [dashboardId, side]);
+
   useEffect(() => {
-    reportApi.state(project.id).then(setState).catch((e) => setError(e.message));
+    load();
     api.getSettings().then((s) => setHasKey(s.has_api_key)).catch(() => setHasKey(false));
-  }, [project.id]);
+  }, [load]);
+
+  const go = (next: Record<string, string>) => {
+    setParams({ ...Object.fromEntries(params), ...next }, { replace: true });
+  };
 
   async function change(action: () => Promise<ReportState>) {
     setError(null);
@@ -44,10 +56,10 @@ export function Report() {
     setRun(null);
     setError(null);
     try {
-      const result = await reportApi.ai(project.id);
+      const result = await reportApi.ai(dashboardId);
       setRun(result);
       setState(result);
-      if (result.new_pages[0]) setParams({ page: result.new_pages[0] }, { replace: true });
+      if (result.new_pages[0]) go({ page: result.new_pages[0] });
     } catch (e) {
       setRun({ error: (e as Error).message });
     } finally {
@@ -55,50 +67,113 @@ export function Report() {
     }
   }
 
+  async function publish() {
+    setPublishing(true);
+    await change(() => dashboardsApi.publish(dashboardId));
+    setPublishing(false);
+  }
+
+  async function rename() {
+    if (!state) return;
+    const name = prompt("Dashboard name", state.name);
+    if (name?.trim() && name !== state.name) await change(() => dashboardsApi.rename(dashboardId, name));
+  }
+
   if (!state) return <p className={error ? "bad" : "muted"}>{error ?? "Loading…"}</p>;
 
+  const editing = side === "draft";
   const page = state.pages.find((p) => p.id === params.get("page")) ?? state.pages[0];
   const pending = state.pages.reduce(
     (n, p) => n + (p.status === "AI" ? 1 : 0) + p.visuals.filter((v) => v.status === "AI").length,
     0,
   );
+  const dataset = state.dataset;
 
   return (
     <div className="report-view">
-      <div className="toolbar">
-        <button onClick={build} disabled={!hasKey || building}>
-          {building ? "AI is designing the report…" : state.pages.length ? "Add pages with AI" : "Build report with AI"}
-        </button>
-        <button className="secondary" onClick={() => change(() => reportApi.approve(project.id))} disabled={pending === 0}>
-          {pending ? `Approve all AI changes (${pending})` : "All approved"}
-        </button>
-        <button className="secondary" onClick={() => change(() => reportApi.undo(project.id))} disabled={!state.can_undo}>
-          Undo last change
-        </button>
-        {!hasKey && <span className="muted small">Add an API key in Settings so the AI can build the report.</span>}
-      </div>
+      <header className="project-header">
+        <span className="kind-label">Dashboard</span>
+        <h1>{state.name}</h1>
+        {editing && (
+          <button className="link" onClick={rename}>
+            Rename
+          </button>
+        )}
+        <span className="spacer" />
+        <span className="segmented">
+          <button className={editing ? "on" : ""} onClick={() => go({ view: "draft" })}>
+            Draft
+          </button>
+          <button className={editing ? "" : "on"} onClick={() => go({ view: "published" })} disabled={!state.published}>
+            Published
+          </button>
+        </span>
+        {editing && (
+          <button onClick={publish} disabled={publishing || (state.published && !state.unpublished_changes) || !state.pages.length}>
+            {publishing ? "Publishing…" : state.published ? "Publish changes" : "Publish dashboard"}
+          </button>
+        )}
+      </header>
+      <p className="muted small used-by">
+        {dataset ? (
+          <>
+            Data: <Link to={`/datasets/${dataset.id}/model`}>{dataset.name}</Link>{" "}
+            <PublishBadge published={dataset.published} version={dataset.version} changes={dataset.unpublished_changes} />
+          </>
+        ) : (
+          <span className="bad">The dataset of this dashboard was removed.</span>
+        )}{" "}
+        ·{" "}
+        {state.published
+          ? state.unpublished_changes
+            ? "The draft has changes viewers don't see yet"
+            : "Viewers see this version"
+          : "Not published to viewers yet"}
+      </p>
+
+      {dataset && !dataset.published && (
+        <div className="notice small">
+          This dashboard is waiting for its data.{" "}
+          <Link to={`/datasets/${dataset.id}/get-data?for=${dashboardId}`}>Open {dataset.name}</Link>, load and model the
+          data, then publish it.
+        </div>
+      )}
+
+      {editing && dataset?.published && (
+        <div className="toolbar">
+          <button onClick={build} disabled={!hasKey || building}>
+            {building ? "AI is designing the report…" : state.pages.length ? "Add pages with AI" : "Build report with AI"}
+          </button>
+          <button className="secondary" onClick={() => change(() => reportApi.approve(dashboardId))} disabled={pending === 0}>
+            {pending ? `Approve all AI changes (${pending})` : "All approved"}
+          </button>
+          <button className="secondary" onClick={() => change(() => reportApi.undo(dashboardId))} disabled={!state.can_undo}>
+            Undo last change
+          </button>
+          {!hasKey && <span className="muted small">Add an API key in Settings so the AI can build the report.</span>}
+        </div>
+      )}
       {error && <p className="bad">{error}</p>}
       {run && <RunResult run={run} />}
 
-      {state.pages.length === 0 ? (
-        <div className="empty-state">
-          <h2>Report</h2>
-          <p className="muted">
-            The AI designs report pages from the model's measures: KPI cards with comparisons, sorted bar charts, trends and
-            detail tables, each with an insight. Build the model first, then click "Build report with AI".
-          </p>
-        </div>
+      {!page ? (
+        dataset?.published && (
+          <div className="empty-state">
+            <h2>{editing ? "No pages yet" : "Nothing published yet"}</h2>
+            <p className="muted">
+              {editing
+                ? "The AI designs report pages from the dataset's measures: KPI cards with comparisons, sorted bar charts, trends and detail tables, each with an insight."
+                : "Publish the draft to show it here."}
+            </p>
+          </div>
+        )
       ) : (
         <>
           <nav className="page-tabs" aria-label="Report pages">
             {state.pages.map((p) => (
-              <button
-                key={p.id}
-                className={p.id === page.id ? "on" : ""}
-                onClick={() => setParams({ page: p.id }, { replace: true })}
-              >
+              <button key={p.id} className={p.id === page.id ? "on" : ""} onClick={() => go({ page: p.id })}>
                 {p.title}
-                {p.status === "AI" && <span className="badge ai">AI</span>}
+                {editing && p.status === "AI" && <span className="badge ai">AI</span>}
               </button>
             ))}
           </nav>
@@ -115,16 +190,21 @@ export function Report() {
               </div>
               <div className="report-meta">
                 <span>Data as of {state.as_of ?? "unknown"}</span>
-                <span className="step-tools">
-                  {page.status === "AI" && (
-                    <button className="link small" onClick={() => change(() => reportApi.approve(project.id, page.id))}>
-                      Approve page
+                {editing && (
+                  <span className="step-tools">
+                    {page.status === "AI" && (
+                      <button className="link small" onClick={() => change(() => reportApi.approve(dashboardId, page.id))}>
+                        Approve page
+                      </button>
+                    )}
+                    <button
+                      className="link small danger"
+                      onClick={() => change(() => reportApi.removePage(dashboardId, page.id))}
+                    >
+                      Remove page
                     </button>
-                  )}
-                  <button className="link small danger" onClick={() => change(() => reportApi.removePage(project.id, page.id))}>
-                    Remove page
-                  </button>
-                </span>
+                  </span>
+                )}
               </div>
             </header>
 
@@ -132,7 +212,7 @@ export function Report() {
               {page.visuals
                 .filter((v) => v.type === "kpi")
                 .map((v) => (
-                  <VisualFrame key={v.id} visual={v} projectId={project.id} onChange={change}>
+                  <VisualFrame key={v.id} visual={v} dashboardId={dashboardId} editing={editing} onChange={change}>
                     <KpiCard visual={v} format={state.formats[v.measures[0]]} />
                   </VisualFrame>
                 ))}
@@ -141,7 +221,7 @@ export function Report() {
               {page.visuals
                 .filter((v) => v.type !== "kpi")
                 .map((v) => (
-                  <VisualFrame key={v.id} visual={v} projectId={project.id} onChange={change}>
+                  <VisualFrame key={v.id} visual={v} dashboardId={dashboardId} editing={editing} onChange={change}>
                     <ChartVisual visual={v} formats={state.formats} />
                   </VisualFrame>
                 ))}
@@ -176,23 +256,24 @@ function RunResult({ run }: { run: ReportRun | { error: string } }) {
 
 function VisualFrame(props: {
   visual: Visual;
-  projectId: string;
+  dashboardId: string;
+  editing: boolean;
   onChange: (action: () => Promise<ReportState>) => void;
   children: React.ReactNode;
 }) {
-  const { visual, projectId, onChange } = props;
+  const { visual, dashboardId, editing, onChange } = props;
   return (
     <article className={`visual visual-${visual.type} ${visual.width === "full" ? "full" : ""}`}>
       <header className="visual-head">
         <h3>{visual.title}</h3>
-        <span className="visual-tools">
+        <span className="visual-tools" hidden={!editing}>
           {visual.status === "AI" && <span className="badge ai">AI</span>}
           {visual.status === "AI" && (
-            <button className="link small" onClick={() => onChange(() => reportApi.approve(projectId, visual.id))}>
+            <button className="link small" onClick={() => onChange(() => reportApi.approve(dashboardId, visual.id))}>
               Approve
             </button>
           )}
-          <button className="icon danger" title="Remove visual" onClick={() => onChange(() => reportApi.removeVisual(projectId, visual.id))}>
+          <button className="icon danger" title="Remove visual" onClick={() => onChange(() => reportApi.removeVisual(dashboardId, visual.id))}>
             ×
           </button>
         </span>

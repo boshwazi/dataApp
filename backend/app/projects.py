@@ -1,13 +1,15 @@
-"""Projects and their data sources, stored on local disk.
+"""Datasets ("projects" in the code) and their data sources, stored on local disk.
 
-One folder per project:
-  <root>/<project id>/project.json   name, sources and their profiles
-  <root>/<project id>/data.duckdb    one table per source, loaded as raw text
+A dataset is the Get Data → Transform → Model half of the app, reused by any number of
+dashboards. One folder per dataset:
+  <root>/<id>/project.json              name, sources, transform steps, model, published snapshot
+  <root>/<id>/data.duckdb               the draft: raw tables, the clean schema, the model schema
+  <root>/<id>/published-v<n>.duckdb     a frozen copy that dashboards read
 
 Sources are loaded exactly as read (every column VARCHAR, blanks as NULL). Choosing
 types and cleaning values are Transform steps, so they stay visible and undoable.
 
-Everything goes through ProjectStore so the hosted phase can swap in Postgres and
+Everything goes through these stores so the hosted phase can swap in Postgres and
 object storage. Every record carries a workspace_id from day one.
 """
 
@@ -56,66 +58,79 @@ def quote(identifier: str) -> str:
     return '"' + identifier.replace('"', '""') + '"'
 
 
-class ProjectStore:
+class FolderStore:
+    """JSON records kept one per folder, with a lock so concurrent requests don't overwrite each other."""
+
+    filename = "record.json"
+    label = "Record"
+
     def __init__(self, root: Path):
         self.root = root
         self._lock = threading.RLock()
 
-    # Projects
-
     def all(self) -> list[dict]:
         if not self.root.exists():
             return []
-        projects = []
-        for path in self.root.glob("*/project.json"):
-            projects.append(json.loads(path.read_text(encoding="utf-8")))
-        return sorted(projects, key=lambda p: p["updated_at"], reverse=True)
+        records = [json.loads(path.read_text(encoding="utf-8")) for path in self.root.glob(f"*/{self.filename}")]
+        return sorted(records, key=lambda r: r["updated_at"], reverse=True)
+
+    def get(self, record_id: str) -> dict:
+        path = self._folder(record_id) / self.filename
+        if not path.exists():
+            raise NotFound(f"{self.label} not found.")
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    def save(self, record: dict) -> None:
+        record["updated_at"] = now()
+        folder = self._folder(record["id"])
+        folder.mkdir(parents=True, exist_ok=True)
+        tmp = folder / f"{self.filename}.tmp"
+        with self._lock:
+            tmp.write_text(json.dumps(record, indent=2), encoding="utf-8")
+            tmp.replace(folder / self.filename)
+
+    @contextmanager
+    def edit(self, record_id: str):
+        """Load, change and save a record as one step."""
+        with self._lock:
+            record = self.get(record_id)
+            yield record
+            self.save(record)
+
+    def rename(self, record_id: str, name: str) -> dict:
+        with self.edit(record_id) as record:
+            record["name"] = name.strip() or record["name"]
+        return record
+
+    def delete(self, record_id: str) -> None:
+        folder = self._folder(record_id)
+        if not folder.exists():
+            raise NotFound(f"{self.label} not found.")
+        with self._lock:
+            shutil.rmtree(folder)
+
+    def _folder(self, record_id: str) -> Path:
+        if not isinstance(record_id, str) or not ID_PATTERN.match(record_id):
+            raise NotFound(f"{self.label} not found.")
+        return self.root / record_id
+
+
+class ProjectStore(FolderStore):
+    filename = "project.json"
+    label = "Dataset"
 
     def create(self, name: str) -> dict:
         project = {
             "id": new_id(),
             "workspace_id": LOCAL_WORKSPACE,
-            "name": name.strip() or "Untitled project",
+            "name": name.strip() or "Untitled dataset",
             "created_at": now(),
             "updated_at": now(),
             "sources": [],
+            "published": None,
         }
         self.save(project)
         return project
-
-    def get(self, project_id: str) -> dict:
-        path = self._folder(project_id) / "project.json"
-        if not path.exists():
-            raise NotFound("Project not found.")
-        return json.loads(path.read_text(encoding="utf-8"))
-
-    def save(self, project: dict) -> None:
-        project["updated_at"] = now()
-        folder = self._folder(project["id"])
-        folder.mkdir(parents=True, exist_ok=True)
-        tmp = folder / "project.json.tmp"
-        with self._lock:
-            tmp.write_text(json.dumps(project, indent=2), encoding="utf-8")
-            tmp.replace(folder / "project.json")
-
-    @contextmanager
-    def edit(self, project_id: str):
-        """Load, change and save a project as one step, so concurrent requests don't overwrite each other."""
-        with self._lock:
-            project = self.get(project_id)
-            yield project
-            self.save(project)
-
-    def rename(self, project_id: str, name: str) -> dict:
-        with self.edit(project_id) as project:
-            project["name"] = name.strip() or project["name"]
-        return project
-
-    def delete(self, project_id: str) -> None:
-        folder = self._folder(project_id)
-        if not folder.exists():
-            raise NotFound("Project not found.")
-        shutil.rmtree(folder)
 
     # Sources
 
@@ -197,10 +212,37 @@ class ProjectStore:
         finally:
             con.close()
 
-    def _folder(self, project_id: str) -> Path:
-        if not ID_PATTERN.match(project_id):
-            raise NotFound("Project not found.")
-        return self.root / project_id
+    # Published copies
+
+    def copy_for_publishing(self, project_id: str, version: int) -> str:
+        """Freeze the draft data file as version `version`. Call while holding the dataset's edit lock."""
+        folder = self._folder(project_id)
+        with self.connect(project_id) as con:
+            con.execute("CHECKPOINT")  # everything into the main file before copying it
+        name = f"published-v{version}.duckdb"
+        shutil.copyfile(folder / "data.duckdb", folder / name)
+        return name
+
+    def remove_old_copies(self, project_id: str, keep: str) -> None:
+        for path in self._folder(project_id).glob("published-v*.duckdb"):
+            if path.name != keep:
+                try:
+                    path.unlink()
+                except OSError:
+                    pass  # still open by a dashboard request; removed next time
+
+    @contextmanager
+    def connect_published(self, project_id: str, filename: str):
+        if not re.fullmatch(r"published-v\d+\.duckdb", filename or ""):
+            raise NotFound("This dataset has no published version.")
+        path = self._folder(project_id) / filename
+        if not path.exists():
+            raise NotFound("The published copy of this dataset is missing; publish it again.")
+        con = duckdb.connect(str(path), read_only=True, config={"enable_external_access": False})
+        try:
+            yield con
+        finally:
+            con.close()
 
 
 def unique(name: str, taken: set[str]) -> str:

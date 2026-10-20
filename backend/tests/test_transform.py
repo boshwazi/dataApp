@@ -48,11 +48,11 @@ PRODUCTS = "code,name\nA,Apple\nB,Banana\n"
 class Project:
     def __init__(self, tmp_path, ai=None):
         self.api = TestClient(create_app(data_dir=tmp_path, client_factory=lambda s: ai))
-        self.id = self.api.post("/api/projects", json={"name": "T"}).json()["id"]
-        self.base = f"/api/projects/{self.id}/transform"
+        self.id = self.api.post("/api/datasets", json={"name": "T"}).json()["id"]
+        self.base = f"/api/datasets/{self.id}/transform"
 
     def upload(self, name, text):
-        return self.api.post(f"/api/projects/{self.id}/sources/upload", files=[("files", (name, text.encode()))])
+        return self.api.post(f"/api/datasets/{self.id}/sources/upload", files=[("files", (name, text.encode()))])
 
     def state(self):
         return self.api.get(self.base).json()
@@ -98,8 +98,8 @@ def test_every_source_gets_a_query_with_its_raw_output(p):
 
 def test_removing_a_source_removes_its_query(p):
     p.upload("products.csv", PRODUCTS)
-    source = next(s for s in p.api.get(f"/api/projects/{p.id}").json()["sources"] if s["table"] == "products")
-    p.api.delete(f"/api/projects/{p.id}/sources/{source['id']}")
+    source = next(s for s in p.api.get(f"/api/datasets/{p.id}").json()["sources"] if s["table"] == "products")
+    p.api.delete(f"/api/datasets/{p.id}/sources/{source['id']}")
     assert [q["name"] for q in p.state()["queries"]] == ["sales"]
 
 
@@ -330,8 +330,8 @@ def test_dates_with_times_and_the_other_order_still_parse(tmp_path):
 def test_profile_recognises_dates_with_times(tmp_path):
     p = Project(tmp_path)
     p.upload("trips.csv", TRIPS)
-    source = p.api.get(f"/api/projects/{p.id}").json()["sources"][0]
-    profile = p.api.get(f"/api/projects/{p.id}/sources/{source['id']}").json()["profile"]
+    source = p.api.get(f"/api/datasets/{p.id}").json()["sources"][0]
+    profile = p.api.get(f"/api/datasets/{p.id}/sources/{source['id']}").json()["profile"]
     assert profile["columns"][0]["detected_type"] == "date"
 
 

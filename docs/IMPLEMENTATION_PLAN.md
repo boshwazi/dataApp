@@ -47,6 +47,7 @@ it on DuckDB.
 | M2 | Transform: operation catalogue, Applied Steps, undo, AI cleaning, lookup-table splits | Done |
 | M3 | Model: relationships with checks, date table, measures, diagram | Done |
 | M4 | Report: KPI cards, charts, checked insights (house style) | Done (first draft) |
+| M5 | Datasets + Dashboards, draft and publish, new or existing data on Home, migration | Done |
 
 ## Product structure
 
@@ -234,7 +235,6 @@ in the app.
 
 | # | Delivers | You can test |
 | --- | --- | --- |
-| M5 | Datasets + Dashboards structure, draft and publish, "new data / existing data" on Home | Two dashboards sharing one dataset |
 | M6 | Stage chat agents on every stage, Full AI and Review modes, stale markers, activity log | Steering each stage in English |
 | M7 | Ask chat on dashboards (with "how this was calculated") and PDF export | The end-to-end flow |
 | M8 | Supabase: sign-in, workspaces, roles, invites, Postgres metadata with RLS, file storage | Two companies, fully isolated |

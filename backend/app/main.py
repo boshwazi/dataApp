@@ -17,7 +17,8 @@ from .projects import ProjectStore
 from .projects_api import build_router
 from .transform_api import build_router as build_transform_router
 from .model_api import build_router as build_model_router
-from .report_api import build_router as build_report_router
+from .dashboards import DashboardStore, migrate
+from .dashboards_api import build_router as build_dashboards_router
 from .settings import ProviderSettings, SettingsStore, public_view
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -39,11 +40,13 @@ def create_app(
 ) -> FastAPI:
     store = SettingsStore(data_dir / "settings.json")
     app = FastAPI(title="AI Data Analytics")
-    projects = ProjectStore(data_dir / "projects")
-    app.include_router(build_router(projects, store, client_factory, fetch_url, SAMPLES_DIR))
+    boards = DashboardStore(data_dir / "dashboards")
+    projects = ProjectStore(data_dir / "datasets")
+    migrate(data_dir, projects, boards)
+    app.include_router(build_router(projects, boards, store, client_factory, fetch_url, SAMPLES_DIR))
     app.include_router(build_transform_router(projects, store, client_factory))
     app.include_router(build_model_router(projects, store, client_factory))
-    app.include_router(build_report_router(projects, store, client_factory))
+    app.include_router(build_dashboards_router(projects, boards, store, client_factory))
 
     @app.get("/api/health")
     def health():

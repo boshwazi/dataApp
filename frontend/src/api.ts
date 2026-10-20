@@ -35,14 +35,25 @@ export type SourceSummary = {
   has_ai: boolean;
 };
 
-export type Project = {
+export type PublishStatus = {
+  published: boolean;
+  version: number | null;
+  published_at: string | null;
+  unpublished_changes: boolean;
+};
+
+export type Dataset = {
   id: string;
   workspace_id: string;
   name: string;
   created_at: string;
   updated_at: string;
   sources: SourceSummary[];
+  status: PublishStatus;
+  dashboards: { id: string; name: string }[];
 };
+
+export type BrokenVisual = { dashboard: string; dashboard_id: string; version: string; page: string; visual: string; error: string };
 
 export type ColumnProfile = {
   name: string;
@@ -106,13 +117,22 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    throw new Error(typeof body.detail === "string" ? body.detail : `Request failed (${response.status})`);
+    const detail = body.detail;
+    const message = typeof detail === "string" ? detail : detail?.message ?? `Request failed (${response.status})`;
+    throw new ApiError(message, response.status, typeof detail === "object" ? detail : null);
   }
   return response.json();
 }
 
+/** An API error; `detail` carries structured information such as visuals a publish would break. */
+export class ApiError extends Error {
+  constructor(message: string, public status: number, public detail: { problems?: BrokenVisual[] } | null) {
+    super(message);
+  }
+}
+
 const json = (method: string, body?: unknown): RequestInit => ({ method, body: JSON.stringify(body ?? {}) });
-const project = (id: string) => `/api/projects/${id}`;
+const project = (id: string) => `/api/datasets/${id}`;
 const source = (pid: string, sid: string) => `${project(pid)}/sources/${sid}`;
 
 export const api = {
@@ -121,11 +141,15 @@ export const api = {
     request<ProviderSettings>("/api/settings", { method: "PUT", body: JSON.stringify(update) }),
   testConnection: () => request<ConnectionReport>("/api/settings/test", { method: "POST" }),
 
-  listProjects: () => request<Project[]>("/api/projects"),
-  createProject: (name: string) => request<Project>("/api/projects", json("POST", { name })),
-  getProject: (id: string) => request<Project>(project(id)),
-  renameProject: (id: string, name: string) => request<Project>(project(id), json("PATCH", { name })),
-  deleteProject: (id: string) => request<unknown>(project(id), { method: "DELETE" }),
+  listDatasets: () => request<Dataset[]>("/api/datasets"),
+  createDataset: (name: string) => request<Dataset>("/api/datasets", json("POST", { name })),
+  getDataset: (id: string) => request<Dataset>(project(id)),
+  renameDataset: (id: string, name: string) => request<Dataset>(project(id), json("PATCH", { name })),
+  deleteDataset: (id: string) => request<unknown>(project(id), { method: "DELETE" }),
+  publishDataset: (id: string, confirm = false) =>
+    request<Dataset & { broken_visuals: BrokenVisual[] }>(`${project(id)}/publish${confirm ? "?confirm=true" : ""}`, {
+      method: "POST",
+    }),
 
   uploadFiles: (pid: string, files: File[]) => {
     const form = new FormData();
@@ -206,7 +230,7 @@ export type AIRun = TransformState & {
   rejected: { op: string; reason: string; error: string }[];
 };
 
-const tf = (pid: string) => `/api/projects/${pid}/transform`;
+const tf = (pid: string) => `/api/datasets/${pid}/transform`;
 const tq = (pid: string, qid: string) => `${tf(pid)}/queries/${qid}`;
 
 export const transformApi = {
@@ -301,7 +325,7 @@ export type ModelRun = ModelState & {
   refused: { kind: string; label: string; error: string }[];
 };
 
-const md = (pid: string) => `/api/projects/${pid}/model`;
+const md = (pid: string) => `/api/datasets/${pid}/model`;
 
 export const modelApi = {
   state: (pid: string) => request<ModelState>(md(pid)),
@@ -375,7 +399,19 @@ export type ReportPage = {
   visuals: Visual[];
 };
 
-export type ReportState = {
+export type DashboardSummary = {
+  id: string;
+  name: string;
+  updated_at: string;
+  pages: number;
+  dataset: ({ id: string; name: string } & PublishStatus) | null;
+  published: boolean;
+  published_at: string | null;
+  unpublished_changes: boolean;
+};
+
+export type ReportState = Omit<DashboardSummary, "pages"> & {
+  side: "draft" | "published";
   pages: ReportPage[];
   formats: Record<string, MeasureFormat>;
   as_of: string | null;
@@ -389,10 +425,19 @@ export type ReportRun = ReportState & {
   new_pages: string[];
 };
 
-const rp = (pid: string) => `/api/projects/${pid}/report`;
+const rp = (id: string) => `/api/dashboards/${id}`;
+
+export const dashboardsApi = {
+  list: () => request<DashboardSummary[]>("/api/dashboards"),
+  create: (name: string, datasetId: string) =>
+    request<DashboardSummary>("/api/dashboards", json("POST", { name, dataset_id: datasetId })),
+  rename: (id: string, name: string) => request<ReportState>(rp(id), json("PATCH", { name })),
+  remove: (id: string) => request<unknown>(rp(id), { method: "DELETE" }),
+  publish: (id: string) => request<ReportState>(`${rp(id)}/publish`, { method: "POST" }),
+};
 
 export const reportApi = {
-  state: (pid: string) => request<ReportState>(rp(pid)),
+  state: (id: string, side: "draft" | "published" = "draft") => request<ReportState>(`${rp(id)}?side=${side}`),
   ai: (pid: string) => request<ReportRun>(`${rp(pid)}/ai`, { method: "POST" }),
   approve: (pid: string, itemId?: string) =>
     request<ReportState>(`${rp(pid)}/approve${itemId ? `?item_id=${itemId}` : ""}`, { method: "POST" }),

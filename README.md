@@ -4,7 +4,7 @@ An AI-powered take on Power BI Desktop: Get Data → Transform → Model → Rep
 doing every step and each stage steered by a plain-English chat. See
 [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md).
 
-**Status:** M4 — Report: AI-designed pages with KPI cards, charts and checked insights, on top of Get Data, Transform and Model.
+**Status:** M5 — reusable datasets and dashboards with draft and publish. Get Data, Transform, Model and Report all work.
 
 ## Requirements
 
@@ -53,9 +53,24 @@ cd backend && ../.venv/bin/uvicorn app.main:app --port 8000   # open http://loca
 Then open **Settings** and click **Test connection**. It checks the key and model, and
 whether the provider supports tool calling and JSON mode (used by the stage agents).
 
+## Datasets and dashboards
+
+The app follows Power BI's shared-model practice: data is prepared once and reused.
+
+- A **dataset** holds Get Data, Transform and Model. **Publish** it to freeze a version for dashboards.
+  - Before publishing, the app lists any dashboard visuals the change would break, and you confirm first.
+- A **dashboard** holds report pages built on one dataset's published version. It has a draft that
+  creators edit and a published version that viewers see.
+  - Editing the dataset never changes a live dashboard until you publish the dataset again.
+- On Home, **New dashboard** offers **Use existing data** (pick a published dataset) or
+  **Bring new data** (create a dataset first; publishing it leads back to the dashboard).
+
+Projects from earlier versions are moved over automatically. Each becomes a dataset, plus a
+dashboard if it had report pages.
+
 ## Get Data
 
-Create a project on the Home page, then add data on its **Get Data** tab:
+Create a dataset on the Home page, then add data on its **Get Data** tab:
 
 - **Files:** drop CSV (any delimiter) or Excel `.xlsx` files. Each Excel sheet with data becomes a table.
 - **Google Sheets:** paste the sheet's link. It must be shared as "Anyone with the link can view".
@@ -64,8 +79,8 @@ Create a project on the Home page, then add data on its **Get Data** tab:
 Every table is loaded as raw text (types and cleaning are Transform steps) and profiled:
 detected type, blanks, distinct values, ranges, common values and data quality issues. With
 an API key set, the AI then describes the table and each column. It sees only the profile and
-5 sample rows, never the full data. Project data is stored in `data/projects/` (one DuckDB
-file per project).
+5 sample rows, never the full data. Datasets are stored in `data/datasets/` (one DuckDB file
+per dataset, plus a frozen copy per published version) and dashboards in `data/dashboards/`.
 
 ## Transform
 

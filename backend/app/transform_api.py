@@ -82,7 +82,7 @@ def build_router(
     settings_store: SettingsStore,
     client_factory: Callable[[ProviderSettings], object],
 ) -> APIRouter:
-    router = APIRouter(prefix="/api/projects/{project_id}/transform")
+    router = APIRouter(prefix="/api/datasets/{project_id}/transform")
 
     @contextmanager
     def editing(project_id: str):

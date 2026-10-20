@@ -115,7 +115,7 @@ def build_router(
     settings_store: SettingsStore,
     client_factory: Callable[[ProviderSettings], object],
 ) -> APIRouter:
-    router = APIRouter(prefix="/api/projects/{project_id}/model")
+    router = APIRouter(prefix="/api/datasets/{project_id}/model")
 
     def respond(project_id: str, change=None) -> dict:
         """Apply `change(project, con)` (if any) as one locked edit, re-check the model and return it."""

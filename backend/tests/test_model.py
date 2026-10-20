@@ -43,11 +43,11 @@ PRODUCTS = "product,category\nP1,Food\nP2,Drink\nP2,Drink again\n"
 class Project:
     def __init__(self, tmp_path, ai=None):
         self.api = TestClient(create_app(data_dir=tmp_path, client_factory=lambda s: ai))
-        self.id = self.api.post("/api/projects", json={"name": "M"}).json()["id"]
-        self.model = f"/api/projects/{self.id}/model"
+        self.id = self.api.post("/api/datasets", json={"name": "M"}).json()["id"]
+        self.model = f"/api/datasets/{self.id}/model"
         for name, text in (("sales.csv", SALES), ("customers.csv", CUSTOMERS), ("products.csv", PRODUCTS)):
-            self.api.post(f"/api/projects/{self.id}/sources/upload", files=[("files", (name, text.encode()))])
-        tf = f"/api/projects/{self.id}/transform"
+            self.api.post(f"/api/datasets/{self.id}/sources/upload", files=[("files", (name, text.encode()))])
+        tf = f"/api/datasets/{self.id}/transform"
         queries = {q["name"]: q["id"] for q in self.api.get(tf).json()["queries"]}
         for column, to in (("day", "date"), ("qty", "integer"), ("price", "decimal")):
             self.api.post(f"{tf}/queries/{queries['sales']}/steps", json={"op": "change_type", "params": {"column": column, "to": to}})
