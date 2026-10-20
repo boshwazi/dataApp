@@ -1,10 +1,9 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { BadgeCheck, Database, LayoutDashboard, Plus, Trash2 } from "lucide-react";
+import { BadgeCheck, Database, LayoutDashboard, Plus, Search, Trash2 } from "lucide-react";
 import { api, dashboardsApi, type DashboardSummary, type Dataset, type ProviderSettings } from "../api";
 import { EmptyState, Skeleton, useCrumbs, useDialogs, useToast } from "../components/ui";
 import { useAccount } from "../components/account";
-import { PublishBadge } from "./Dataset";
 
 type Choice = "existing" | "new";
 type Show = "all" | "datasets" | "dashboards";
@@ -19,6 +18,7 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
   const [datasets, setDatasets] = useState<Dataset[] | null>(null);
   const [params, setParams] = useSearchParams();
   const [creating, setCreating] = useState<Choice | null>(null);
+  const [filter, setFilter] = useState("");
   const navigate = useNavigate();
   const toast = useToast();
   const dialogs = useDialogs();
@@ -94,6 +94,9 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
   }
 
   const connected = settings?.capabilities.tools !== undefined;
+  const match = (name: string) => name.toLowerCase().includes(filter.trim().toLowerCase());
+  const shownDashboards = (dashboards ?? []).filter((d) => match(d.name));
+  const shownDatasets = (datasets ?? []).filter((d) => match(d.name));
   const title = wanted === "all" ? "Home" : show === "datasets" ? "Datasets" : "Dashboards";
 
   return (
@@ -101,6 +104,10 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
       <div className="home-head">
         <h1>{title}</h1>
         <span className="spacer" />
+        <label className="filter-box">
+          <Search size={15} aria-hidden="true" />
+          <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter by name" aria-label="Filter by name" />
+        </label>
         {creator && show !== "dashboards" && (
           <button className="secondary" onClick={newDataset}>
             <Database size={16} aria-hidden="true" /> New dataset
@@ -146,30 +153,56 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
                 : "Dashboards show up here once someone in your team publishes them."}
             </EmptyState>
           ) : (
-            <ul className="project-list">
-              {dashboards.map((d) => (
-                <li key={d.id}>
-                  <LayoutDashboard size={18} className="row-icon" aria-hidden="true" />
-                  <Link to={`/dashboards/${d.id}`} className="project-link">
-                    <strong>{d.name}</strong>
-                    <span className="muted small">
-                      {d.dataset ? `On ${d.dataset.name}` : "Its dataset was removed"}, {d.pages} {d.pages === 1 ? "page" : "pages"}, updated{" "}
-                      {new Date(d.updated_at).toLocaleDateString()}
-                    </span>
-                  </Link>
-                  {creator && (
-                    <>
-                      <span className={`badge ${d.published ? (d.unpublished_changes ? "warn" : "ok-badge") : ""}`}>
-                        {d.published ? (d.unpublished_changes ? "Draft changes" : "Published") : "Draft"}
-                      </span>
-                      <button className="icon danger" aria-label={`Delete ${d.name}`} onClick={() => removeDashboard(d)}>
-                        <Trash2 size={16} />
-                      </button>
-                    </>
-                  )}
-                </li>
-              ))}
-            </ul>
+            <table className="catalog">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Dataset</th>
+                  <th className="num">Pages</th>
+                  {creator && <th>Status</th>}
+                  <th>Updated</th>
+                  {creator && <th aria-label="Actions" />}
+                </tr>
+              </thead>
+              <tbody>
+                {shownDashboards.map((d) => (
+                  <tr key={d.id} onClick={() => navigate(`/dashboards/${d.id}`)}>
+                    <td className="catalog-name">
+                      <LayoutDashboard size={16} className="row-icon" aria-hidden="true" />
+                      <Link to={`/dashboards/${d.id}`} onClick={(e) => e.stopPropagation()}>
+                        {d.name}
+                      </Link>
+                    </td>
+                    <td className="muted">{d.dataset ? <span className="ident">{d.dataset.name}</span> : <span className="bad">Removed</span>}</td>
+                    <td className="num">{d.pages}</td>
+                    {creator && (
+                      <td>
+                        <span className={`status-dot ${d.published ? (d.unpublished_changes ? "warn" : "ok") : ""}`}>
+                          {d.published ? (d.unpublished_changes ? "Draft changes" : "Published") : "Draft"}
+                        </span>
+                      </td>
+                    )}
+                    <td className="muted" title={new Date(d.updated_at).toLocaleString()}>
+                      {ago(d.updated_at)}
+                    </td>
+                    {creator && (
+                      <td className="catalog-actions">
+                        <button
+                          className="icon danger"
+                          aria-label={`Delete ${d.name}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void removeDashboard(d);
+                          }}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </section>
       )}
@@ -193,27 +226,57 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
               Start with a CSV, an Excel file, a Google Sheet or the sample data.
             </EmptyState>
           ) : (
-            <ul className="project-list">
-              {datasets.map((d) => (
-                <li key={d.id}>
-                  <Database size={18} className="row-icon" aria-hidden="true" />
-                  <Link to={`/datasets/${d.id}/get-data`} className="project-link">
-                    <strong>
-                      {d.name}
-                      {d.certified && <BadgeCheck size={15} className="certified-icon" aria-label="Certified" />}
-                    </strong>
-                    <span className="muted small">
-                      {d.sources.length} {d.sources.length === 1 ? "source" : "sources"}, used by {d.dashboards.length}{" "}
-                      {d.dashboards.length === 1 ? "dashboard" : "dashboards"}
-                    </span>
-                  </Link>
-                  <PublishBadge published={d.status.published} version={d.status.version} changes={d.status.unpublished_changes} />
-                  <button className="icon danger" aria-label={`Delete ${d.name}`} onClick={() => removeDataset(d)}>
-                    <Trash2 size={16} />
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <table className="catalog">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th className="num">Tables</th>
+                  <th className="num">Steps</th>
+                  <th className="num">Measures</th>
+                  <th>Status</th>
+                  <th className="num">Used by</th>
+                  <th>Updated</th>
+                  <th aria-label="Actions" />
+                </tr>
+              </thead>
+              <tbody>
+                {shownDatasets.map((d) => (
+                  <tr key={d.id} onClick={() => navigate(`/datasets/${d.id}/get-data`)}>
+                    <td className="catalog-name">
+                      <Database size={16} className="row-icon" aria-hidden="true" />
+                      <Link to={`/datasets/${d.id}/get-data`} onClick={(e) => e.stopPropagation()}>
+                        {d.name}
+                      </Link>
+                      {d.certified && <BadgeCheck size={14} className="certified-icon" aria-label="Certified" />}
+                    </td>
+                    <td className="num">{d.progress.sources}</td>
+                    <td className="num">{d.progress.steps}</td>
+                    <td className="num">{d.progress.measures}</td>
+                    <td>
+                      <span className={`status-dot ${d.status.published ? (d.status.unpublished_changes ? "warn" : "ok") : ""}`}>
+                        {d.status.published ? (d.status.unpublished_changes ? `Draft changes, v${d.status.version} live` : `Published v${d.status.version}`) : "Not published"}
+                      </span>
+                    </td>
+                    <td className="num">{d.dashboards.length}</td>
+                    <td className="muted" title={new Date(d.updated_at).toLocaleString()}>
+                      {ago(d.updated_at)}
+                    </td>
+                    <td className="catalog-actions">
+                      <button
+                        className="icon danger"
+                        aria-label={`Delete ${d.name}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void removeDataset(d);
+                        }}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </section>
       )}
@@ -305,4 +368,15 @@ function NewDashboard(props: {
       </div>
     </form>
   );
+}
+
+/** "3 hours ago", "yesterday", "12 Mar": how long ago, as a data catalog shows it. */
+function ago(iso: string): string {
+  const seconds = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (seconds < 60) return "Just now";
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} h ago`;
+  if (seconds < 172800) return "Yesterday";
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)} days ago`;
+  return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }

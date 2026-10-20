@@ -56,6 +56,7 @@ it on DuckDB.
 | M9 | Linked tables from other datasets, certified datasets, multiple fact tables, lineage view | Done |
 | M10a | Sign-in (Supabase Auth tokens checked on every request), workspaces, admin/creator/viewer roles, invite links, a folder per workspace, isolation tests across every endpoint | Done (needs a Supabase project to sign in for real) |
 | UX | Direction A "Clear Analyst": new tokens and font, sidebar shell, breadcrumbs, Ctrl+K search, dialogs and toasts, pipeline stepper with a next step, Present mode, formatted chat replies with Stop, phone and tablet layouts | Done |
+| UX2 | Data-platform look (Databricks/Snowflake-like): dark console sidebar with sections, Inter and JetBrains Mono, dense catalog tables with filter, compact controls; more chart types (pie, stacked, area, scatter) with house-style tips instead of refusals; Removed rows per Transform step | Done |
 
 ## Product structure
 

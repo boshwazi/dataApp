@@ -5,14 +5,23 @@ import { accountApi, api, dashboardsApi, type DashboardSummary, type Dataset, ty
 import { useAccount } from "./components/account";
 import { BrandMark, useCurrentCrumbs, useDialogs, useToast } from "./components/ui";
 
-type NavItem = { to: string; label: string; icon: typeof House; end: boolean; role?: Role; platform?: boolean; hosted?: boolean };
+type NavItem = {
+  to: string;
+  label: string;
+  icon: typeof House;
+  end: boolean;
+  section: "Workspace" | "Admin";
+  role?: Role;
+  platform?: boolean;
+  hosted?: boolean;
+};
 
 const NAV: NavItem[] = [
-  { to: "/", label: "Home", icon: House, end: true },
-  { to: "/datasets", label: "Datasets", icon: Database, end: false, role: "creator" },
-  { to: "/dashboards", label: "Dashboards", icon: LayoutDashboard, end: false },
-  { to: "/members", label: "Members", icon: Users, end: false, role: "admin", hosted: true },
-  { to: "/settings", label: "Settings", icon: SettingsIcon, end: false, platform: true },
+  { to: "/", label: "Home", icon: House, end: true, section: "Workspace" },
+  { to: "/datasets", label: "Datasets", icon: Database, end: false, section: "Workspace", role: "creator" },
+  { to: "/dashboards", label: "Dashboards", icon: LayoutDashboard, end: false, section: "Workspace" },
+  { to: "/members", label: "Members", icon: Users, end: false, section: "Admin", role: "admin", hosted: true },
+  { to: "/settings", label: "Settings", icon: SettingsIcon, end: false, section: "Admin", platform: true },
 ];
 
 export function Layout() {
@@ -44,12 +53,21 @@ export function Layout() {
           <BrandMark /> datawazi
         </Link>
         <nav aria-label="Main">
-          {nav.map(({ to, label, icon: Icon, end }) => (
-            <NavLink key={to} to={to} end={end} title={label}>
-              <Icon size={17} aria-hidden="true" />
-              <span className="nav-label">{label}</span>
-            </NavLink>
-          ))}
+          {(["Workspace", "Admin"] as const).map((section) => {
+            const items = nav.filter((n) => n.section === section);
+            if (!items.length) return null;
+            return (
+              <div key={section} className="nav-section">
+                <span className="nav-heading">{section}</span>
+                {items.map(({ to, label, icon: Icon, end }) => (
+                  <NavLink key={to} to={to} end={end} title={label}>
+                    <Icon size={16} aria-hidden="true" />
+                    <span className="nav-label">{label}</span>
+                  </NavLink>
+                ))}
+              </div>
+            );
+          })}
         </nav>
         <WorkspaceMenu />
       </aside>
