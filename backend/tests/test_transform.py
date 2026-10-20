@@ -439,3 +439,35 @@ def test_ai_splits_after_cleaning_and_removes_moved_columns_last(tmp_path):
     ok(p.api.post(f"{p.base}/undo"))  # the approval
     ok(p.api.post(f"{p.base}/undo"))  # the whole AI run: steps and the lookup table
     assert [q["name"] for q in p.state()["queries"]] == ["orders"] and p.query("orders")["steps"] == []
+
+
+# Seeing what a step removed
+
+
+def test_a_step_shows_exactly_the_rows_it_removed(p):
+    ok(p.add("sales", "trim", columns=["region"]))
+    ok(p.add("sales", "remove_duplicates"))
+    query = p.query("sales")
+    removed = ok(p.api.get(f"{p.base}/queries/{query['id']}/steps/2/removed"))
+    assert removed["comparable"] and removed["total"] == 1
+    assert removed["rows"] == [["3", "2024-03-01", "N/A", "N/A", "x"]]  # the second copy of order 3
+    nothing = ok(p.api.get(f"{p.base}/queries/{query['id']}/steps/1/removed"))
+    assert nothing["total"] == 0  # trimming keeps every row
+    assert p.api.get(f"{p.base}/queries/{query['id']}/steps/9/removed").status_code == 400
+
+    ok(p.add("sales", "rename_column", column="qty", to="quantity"))  # changes columns, so no row diff
+    assert ok(p.api.get(f"{p.base}/queries/{query['id']}/steps/3/removed"))["comparable"] is False
+
+
+def test_the_transform_chat_sees_removed_rows(p):
+    from app import chat, workspaces
+    ok(p.add("sales", "remove_duplicates"))
+    store = p.api.app.state.refresh_job[0]
+    with workspaces.use("local"):
+        project = store.get(p.id)
+        with store.connect(p.id) as con:
+            context = chat.tf_context(chat.Ctx(project=project, con=con))
+    table = next(t for t in context["tables"] if t["table"] == "sales")
+    assert table["rows_removed_by_steps"] == [
+        {"step": 1, "rows_removed": 1, "examples": [{"id": "3", "day": "2024-03-01", "price": "N/A", "region": "N/A", "qty": "x"}]}
+    ]

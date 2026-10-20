@@ -218,13 +218,17 @@ def tf_context(ctx: Ctx) -> dict:
             "error": q["error"],
             "rows": profile.get("rows"),
             "steps": [f"{i}. {describe(s['op'], s['params'], names)} [{s['status']}]" for i, s in enumerate(q["steps"], 1)],
+            # Which rows each step dropped, so the agent can show a removed duplicate or a filtered row.
+            "rows_removed_by_steps": transform.removals(ctx.con, ctx.project, q),
             "columns": [
                 {"name": c["name"], "type": t["type"], "issues": c["issues"], "distinct": c["distinct"],
                  "top_values": [v["value"] for v in c["top_values"][:3]]}
                 for c, t in zip(profile.get("columns", []), (q["output"] or {}).get("columns", []))
             ],
         })
-    return {"tables": tables, "operation_catalogue": catalogue()}
+    return {"tables": tables, "operation_catalogue": catalogue(),
+            "note": "rows_removed_by_steps lists real rows each step dropped (up to 5 examples). When asked which "
+                    "rows a step removed, quote them, and say the step's preview has a Removed rows tab with all of them."}
 
 
 def tf_begin(ctx: Ctx):
@@ -503,8 +507,12 @@ def rp_context(ctx: Ctx) -> dict:
         "active_relationships": [f"{names.get(r['from_table'])}[{r['from_column']}] -> {names.get(r['to_table'])}[{r['to_column']}]"
                                  for r in current["relationships"] if r.get("active") and not r.get("error")],
         "visual_rules": "types: kpi (one measure, no split), bar (sorted, one split), column (ordered categories), "
-                        "line (trend over Date[Year Month]), donut (3 slices or fewer), table (1-3 splits). "
-                        "group_by is [{table, column}]. At most 7 KPI cards per page. No gauges or dual axes.",
+                        "stacked_bar / stacked_column (one measure; group_by = [category, stacks]), "
+                        "line and area (trend over Date[Year Month]), pie and donut (one measure, one split), "
+                        "scatter (two measures, one split), table (1-3 splits). group_by is [{table, column}]. "
+                        "At most 7 KPI cards per page. No gauges or dual axes. Style: sorted bars compare best and "
+                        "pies/donuts suit 3 slices or fewer, but when the user explicitly asks for a chart type, "
+                        "make it; the app attaches a tip if the style would differ. You may mention the tip once.",
     }
 
 

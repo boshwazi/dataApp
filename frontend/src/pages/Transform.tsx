@@ -346,11 +346,13 @@ function RunResult({ run }: { run: AIRun | { error: string } }) {
 
 function StepPreviewView({ projectId, queryId, step }: { projectId: string; queryId: string; step: number }) {
   const [preview, setPreview] = useState<StepPreview | null>(null);
-  const [side, setSide] = useState<"after" | "before">("after");
+  const [side, setSide] = useState<"after" | "before" | "removed">("after");
+  const [removed, setRemoved] = useState<(StepRows & { comparable: boolean }) | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setPreview(null);
+    setRemoved(null);
     setSide("after");
     transformApi.preview(projectId, queryId, step).then(setPreview).catch((e) => setError(e.message));
   }, [projectId, queryId, step]);
@@ -359,7 +361,14 @@ function StepPreviewView({ projectId, queryId, step }: { projectId: string; quer
   if (!preview) return <p className="muted">Loading…</p>;
 
   const impact = preview.impact;
-  const rows: StepRows = side === "before" && preview.before ? preview.before : preview.after;
+  const dropped = impact ? impact.rows_before - impact.rows_after : 0;
+  const rows: StepRows =
+    side === "removed" && removed ? removed : side === "before" && preview.before ? preview.before : preview.after;
+
+  function showRemoved() {
+    setSide("removed");
+    if (!removed) transformApi.removed(projectId, queryId, step).then(setRemoved).catch((e) => setError(e.message));
+  }
 
   return (
     <>
@@ -388,11 +397,20 @@ function StepPreviewView({ projectId, queryId, step }: { projectId: string; quer
             <button className={side === "after" ? "on" : ""} onClick={() => setSide("after")}>
               After
             </button>
+            {dropped > 0 && (
+              <button className={side === "removed" ? "on" : ""} onClick={showRemoved}>
+                Removed rows ({dropped.toLocaleString()})
+              </button>
+            )}
           </span>
         </div>
       )}
+      {side === "removed" && !removed && <p className="muted">Finding the removed rows…</p>}
+      {side === "removed" && removed && !removed.comparable && (
+        <p className="muted small">This step also changed values, so its removed rows can't be told apart from changed ones.</p>
+      )}
       <div className="table-wrap">
-        <table className="grid preview">
+        <table className={`grid preview ${side === "removed" ? "removed-rows" : ""}`}>
           <thead>
             <tr>
               <th className="num muted">#</th>
@@ -418,7 +436,8 @@ function StepPreviewView({ projectId, queryId, step }: { projectId: string; quer
         </table>
       </div>
       <p className="muted small">
-        Showing {rows.rows.length.toLocaleString()} of {rows.total.toLocaleString()} rows
+        {side === "removed" ? "Rows this step removed: " : "Showing "}
+        {rows.rows.length.toLocaleString()} of {rows.total.toLocaleString()} rows
       </p>
     </>
   );

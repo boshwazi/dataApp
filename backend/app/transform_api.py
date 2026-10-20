@@ -136,6 +136,17 @@ def build_router(
         except StepError as exc:
             raise HTTPException(400, str(exc)) from exc
 
+    @router.get("/queries/{query_id}/steps/{step}/removed")
+    def removed(project_id: str, query_id: str, step: int):
+        """The rows a step dropped: removed duplicates, rows a filter left out, blank keys."""
+        project = current(project_id)
+        query = query_of(project, query_id)
+        try:
+            with store.connect(project_id) as con:
+                return transform.removed_rows(con, project, query["id"], step, PREVIEW_ROWS)
+        except StepError as exc:
+            raise HTTPException(400, str(exc)) from exc
+
     @router.post("/queries/{query_id}/steps")
     def add_step(project_id: str, query_id: str, body: StepBody):
         with editing(project_id) as (project, con):

@@ -114,6 +114,7 @@ def build_router(
                     if with_data:
                         try:
                             entry["data"], entry["error"] = report.visual_data(con, project, visual), None
+                            entry["advice"] = report.advice(visual, entry["data"])
                         except (report.ReportError, model.ModelError) as exc:
                             entry["data"], entry["error"] = None, str(exc)
                         if entry["data"] and visual.get("insight"):

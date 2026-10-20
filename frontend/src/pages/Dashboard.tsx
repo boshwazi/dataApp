@@ -419,6 +419,11 @@ function VisualFrame(props: {
         </span>
       </header>
       {visual.error ? <p className="bad small">{visual.error}</p> : props.children}
+      {editing && visual.advice?.map((tip) => (
+        <p key={tip} className="visual-tip">
+          Tip: {tip}
+        </p>
+      ))}
       {visual.insight && (
         <p className="insight">
           {visual.insight.text}
@@ -503,7 +508,8 @@ export function ChartVisual({ visual, formats }: { visual: Visual; formats: Reco
 
   if (visual.type === "table") return <DetailTable visual={visual} data={data} formats={formats} />;
   const rows = data.rows.length;
-  const height = visual.type === "bar" ? Math.max(160, rows * 32 + 40) : 260;
+  const bars = visual.type === "stacked_bar" ? new Set(data.rows.map((r) => r[0])).size : rows;
+  const height = visual.type === "bar" || visual.type === "stacked_bar" ? Math.max(160, bars * 32 + 56) : 260;
   return (
     <>
       {option && <Chart option={option} height={height} label={`${visual.title} chart`} />}
@@ -533,7 +539,7 @@ function chartOption(visual: Visual, data: ChartData, formats: Record<string, Me
   const single = visual.measures.length === 1;
   const colour = (i: number) => (single ? TOKENS.accent : SERIES[i % SERIES.length]);
   const tooltip = {
-    trigger: visual.type === "donut" ? "item" : "axis",
+    trigger: ["donut", "pie", "scatter"].includes(visual.type) ? "item" : "axis",
     valueFormatter: (v: number) => formatCompact(v, first),
   };
   const legend = single ? undefined : { top: 0, textStyle: { color: TOKENS.muted } };
@@ -577,13 +583,59 @@ function chartOption(visual: Visual, data: ChartData, formats: Record<string, Me
       series: series("bar", true),
     };
   }
-  if (visual.type === "donut") {
+  if (visual.type === "stacked_bar" || visual.type === "stacked_column") {
+    // Rows are (category, stack, value); one series per stack, in the order they first appear.
+    const horizontal = visual.type === "stacked_bar";
+    const name = (v: unknown) => (v === null ? "(blank)" : String(v));
+    const categories = [...new Set(data.rows.map((r) => name(r[0])))];
+    const stacks = [...new Set(data.rows.map((r) => name(r[1])))];
+    const value = new Map(data.rows.map((r) => [`${name(r[0])}\u0000${name(r[1])}`, r[2] as number | null]));
+    const ordered = horizontal ? [...categories].reverse() : categories;
+    const axis = { ...categoryAxis(false), data: ordered };
+    return {
+      tooltip,
+      legend: { top: 0, textStyle: { color: TOKENS.muted }, type: "scroll" },
+      grid: { left: 8, right: 16, top: 32, bottom: 8, containLabel: true },
+      xAxis: horizontal ? valueAxis : axis,
+      yAxis: horizontal ? axis : valueAxis,
+      series: stacks.map((stack, i) => ({
+        name: stack,
+        type: "bar",
+        stack: "total",
+        barMaxWidth: 28,
+        itemStyle: { color: SERIES[i % SERIES.length] },
+        data: ordered.map((c) => value.get(`${c}\u0000${stack}`) ?? null),
+      })),
+    };
+  }
+  if (visual.type === "scatter") {
+    const [across, up] = visual.measures;
+    return {
+      tooltip: {
+        trigger: "item",
+        formatter: (p: { data: [number, number, string] }) =>
+          `${p.data[2]}<br/>${across}: ${formatCompact(p.data[0], formats[across])}<br/>${up}: ${formatCompact(p.data[1], formats[up])}`,
+      },
+      grid: { left: 8, right: 24, top: 16, bottom: 28, containLabel: true },
+      xAxis: { ...valueAxis, name: across, nameLocation: "middle", nameGap: 26, axisLabel: { color: TOKENS.muted, formatter: axisValue(formats[across]) } },
+      yAxis: { ...valueAxis, name: up, axisLabel: { color: TOKENS.muted, formatter: axisValue(formats[up]) } },
+      series: [
+        {
+          type: "scatter",
+          symbolSize: 10,
+          itemStyle: { color: TOKENS.accent, opacity: 0.8 },
+          data: data.rows.map((r) => [r[1], r[2], r[0] === null ? "(blank)" : String(r[0])]),
+        },
+      ],
+    };
+  }
+  if (visual.type === "donut" || visual.type === "pie") {
     return {
       tooltip,
       series: [
         {
           type: "pie",
-          radius: ["48%", "72%"],
+          radius: visual.type === "pie" ? ["0%", "72%"] : ["48%", "72%"],
           data: data.rows.map((r, i) => ({
             name: r[0] === null ? "(blank)" : String(r[0]),
             value: r[1],
@@ -600,7 +652,9 @@ function chartOption(visual: Visual, data: ChartData, formats: Record<string, Me
     grid: { left: 8, right: 16, top: single ? 16 : 32, bottom: 8, containLabel: true },
     xAxis: categoryAxis(false),
     yAxis: valueAxis,
-    series: series(visual.type === "line" ? "line" : "bar"),
+    series: series(visual.type === "line" || visual.type === "area" ? "line" : "bar").map((s, i) =>
+      visual.type === "area" ? { ...s, areaStyle: { color: colour(i), opacity: 0.18 } } : s,
+    ),
   };
 }
 

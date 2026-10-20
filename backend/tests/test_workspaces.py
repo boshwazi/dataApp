@@ -142,7 +142,7 @@ def test_one_company_never_reaches_another_companys_data(api):
     ids = {"project_id": a["dataset"], "dashboard_id": a["dashboard"], "source_id": a["source"],
            "page_id": a["page"], "stage": "model", "query_id": "000000000000", "step_id": "000000000000",
            "visual_id": "000000000000", "rel_id": "000000000000", "measure_id": "000000000000",
-           "change_id": "000000000000", "decision": "approve"}
+           "change_id": "000000000000", "decision": "approve", "step": 1}
     checked = 0
     for template, operations in api.app.openapi()["paths"].items():
         if not re.search(r"\{(project_id|dashboard_id)\}", template):

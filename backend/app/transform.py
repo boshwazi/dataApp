@@ -480,6 +480,50 @@ def preview(con, project: dict, query_id: str, step: int, limit: int = 100) -> d
     return {"step": step, "before": before, "after": after, "impact": impact(con, compiled, step) if before else None}
 
 
+def removed_rows(con, project: dict, query_id: str, step: int, limit: int = 100) -> dict:
+    """The rows step `step` (1-based) dropped, such as the second copy of a duplicate or rows a filter left out.
+
+    Worked out as the difference between the table before and after the step, so it shows exactly what
+    went, whichever operation it was. Steps that change columns don't drop rows this way and return none."""
+    query = find_query(project, query_id)
+    compiled = compile_query(con, project, query)
+    if not 1 <= step <= len(query["steps"]):
+        raise StepError("Step not found.")
+    before, after = compiled.columns[step - 1], compiled.columns[step]
+    columns = [{"name": c.name, "type": c.type} for c in before]
+    if [(c.name, c.type) for c in before] != [(c.name, c.type) for c in after]:
+        return {"step": step, "columns": columns, "rows": [], "total": 0, "comparable": False}
+    count = lambda k: con.execute(f"SELECT count(*) FROM ({compiled.sql(k)})").fetchone()[0]  # noqa: E731
+    dropped = count(step - 1) - count(step)
+    if dropped <= 0:  # the step kept every row (it may have changed values)
+        return {"step": step, "columns": columns, "rows": [], "total": 0, "comparable": True}
+    diff = f"SELECT * FROM ({compiled.sql(step - 1)}) EXCEPT ALL SELECT * FROM ({compiled.sql(step)})"
+    total = con.execute(f"SELECT count(*) FROM ({diff})").fetchone()[0]
+    if total != dropped:  # it also changed values, so the difference would mix both
+        return {"step": step, "columns": columns, "rows": [], "total": dropped, "comparable": False}
+    rows = con.execute(f"SELECT * FROM ({diff}) LIMIT {limit}").fetchall()
+    return {"step": step, "columns": columns, "total": total, "comparable": True,
+            "rows": [[None if v is None else str(v) for v in row] for row in rows]}
+
+
+def removals(con, project: dict, query: dict, sample: int = 5) -> list[dict]:
+    """For each step that dropped rows: how many, and a few of them (for the chat agent)."""
+    try:
+        compiled = compile_query(con, project, query)
+    except (StepError, duckdb.Error):
+        return []
+    counts = [con.execute(f"SELECT count(*) FROM ({compiled.sql(k)})").fetchone()[0] for k in range(len(compiled.ctes))]
+    found = []
+    for step in range(1, len(counts)):
+        if counts[step] < counts[step - 1]:
+            dropped = removed_rows(con, project, query["id"], step, limit=sample)
+            if dropped["comparable"] and dropped["total"]:
+                names = [c["name"] for c in dropped["columns"]]
+                found.append({"step": step, "rows_removed": dropped["total"],
+                              "examples": [dict(zip(names, row)) for row in dropped["rows"]]})
+    return found
+
+
 def impact(con, compiled: Compiled, step: int) -> dict:
     before_cols = {c.name: c for c in compiled.columns[step - 1]}
     after_cols = {c.name: c for c in compiled.columns[step]}

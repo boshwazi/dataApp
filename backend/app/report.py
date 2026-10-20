@@ -1,9 +1,13 @@
 """The Report stage: pages of visuals computed from the model's measures.
 
-Visual types follow the house style for business users: KPI cards (value, change vs the
-same period last year, 12-month sparkline, top driver), sorted horizontal bars, columns
-for ordered categories, lines for trends, donuts only up to 3 slices, and detail tables.
-No gauges and no dual axes. A page holds at most 7 KPI cards.
+Visual types: KPI cards (value, change vs the same period last year, 12-month sparkline,
+top driver), sorted horizontal bars, columns for ordered categories, stacked bars and
+columns, lines and areas for trends, pies and donuts, scatter plots and detail tables.
+
+The house style (sorted bars for comparisons, pies and donuts only for a few slices) is
+advice, not a gate: when a user asks for a chart the style would not pick, it is built and
+carries a short tip. Only charts the data cannot support are refused. No gauges and no dual
+axes. A page holds at most 7 KPI cards.
 
 Every number comes from model.evaluate. Breakdowns of additive measures are checked to
 add up to the total, and numbers quoted in AI insights are checked against the visual's
@@ -19,13 +23,16 @@ from . import model
 from .projects import new_id, now
 
 HISTORY_LIMIT = 30
-VISUAL_TYPES = ("kpi", "bar", "column", "line", "donut", "table")
+VISUAL_TYPES = ("kpi", "bar", "column", "stacked_bar", "stacked_column", "line", "area", "pie", "donut", "scatter", "table")
+SHARE = ("pie", "donut")
+STACKED = ("stacked_bar", "stacked_column")
 MAX_KPIS = 7
 MAX_VISUALS = 10
 MAX_BARS = 10
 MAX_TABLE_ROWS = 50
 MAX_LINES = 5
-MAX_SLICES = 3
+MAX_SLICES = 3  # the house style's limit; more is allowed with a tip
+MAX_SHARE_ROWS = 12  # beyond this a pie or donut is unreadable, so the smallest slices are cut
 ADDITIVE = ("sum", "count")
 
 
@@ -120,16 +127,22 @@ def check_visual(con, project: dict, page: dict, visual: dict) -> None:
         kpi.setdefault("direction", "higher_is_better")
         if kpi.get("driver"):
             kpi["driver"] = column_ref(found, kpi["driver"])
-    elif kind in ("bar", "column", "donut"):
+    elif kind in ("bar", "column") + SHARE:
         if n_groups != 1:
             raise ReportError(f"A {kind} chart splits by exactly one column.")
-        if kind == "donut" and n_measures != 1:
-            raise ReportError("A donut shows one measure.")
-        if kind != "donut" and n_measures > 2:
+        if kind in SHARE and n_measures != 1:
+            raise ReportError(f"A {kind} chart shows one measure.")
+        if kind not in SHARE and n_measures > 2:
             raise ReportError("Use at most two measures per bar or column chart.")
-    elif kind == "line":
+    elif kind in STACKED:
+        if n_groups != 2 or n_measures != 1:
+            raise ReportError("A stacked chart shows one measure, split by a category column and a column for the stacks.")
+    elif kind in ("line", "area"):
         if n_groups != 1 or n_measures > MAX_LINES:
-            raise ReportError(f"A line chart has one x-axis column and at most {MAX_LINES} measures.")
+            raise ReportError(f"A {kind} chart has one x-axis column and at most {MAX_LINES} measures.")
+    elif kind == "scatter":
+        if n_groups != 1 or n_measures != 2:
+            raise ReportError("A scatter plot shows two measures (across and up), one dot per value of one column.")
     elif kind == "table":
         if not 1 <= n_groups <= 3:
             raise ReportError("A table groups by one to three columns.")
@@ -137,8 +150,18 @@ def check_visual(con, project: dict, page: dict, visual: dict) -> None:
         raise ReportError(f"A page holds at most {MAX_VISUALS} visuals; one page should answer one question.")
 
     data = visual_data(con, project, visual)  # raises if the measures cannot be split this way
-    if kind == "donut" and len(data["rows"]) > MAX_SLICES:
-        raise ReportError(f"A donut is only used for {MAX_SLICES} slices or fewer; use a sorted bar chart for {len(data['rows'])}.")
+    visual["advice"] = advice(visual, data)
+
+
+def advice(visual: dict, data: dict) -> list[str]:
+    """House-style tips for a chart the style would not pick. Shown to creators; never blocks."""
+    kind, slices = visual["type"], data.get("total_rows", 0)
+    tips = []
+    if kind in SHARE and slices > MAX_SLICES:
+        tips.append(f"{slices} slices are hard to compare in a {kind}; a sorted bar chart shows the order at a glance.")
+    if kind == "column" and slices > MAX_BARS:
+        tips.append("Many columns crowd their labels; a horizontal bar chart reads more easily.")
+    return tips
 
 
 def add_page(project: dict, title: str, question: str = "", status: str = "Approved", reason: str = "") -> dict:
@@ -191,10 +214,10 @@ def visual_data(con, project: dict, visual: dict) -> dict:
     rows = result["rows"]
     groups = len(visual["group_by"])
     kind = visual["type"]
-    if kind in ("bar", "donut", "table"):
+    if kind in ("bar", "table", "scatter") + SHARE:
         # Largest first; ordered categories (columns, lines) keep their natural order.
         rows = sorted(rows, key=lambda r: (r[groups] is None, -(r[groups] or 0)))
-    limit = {"bar": MAX_BARS, "table": MAX_TABLE_ROWS}.get(kind)
+    limit = {"bar": MAX_BARS, "table": MAX_TABLE_ROWS, "pie": MAX_SHARE_ROWS, "donut": MAX_SHARE_ROWS}.get(kind)
     shown = rows[:limit] if limit else rows
     data = {
         "columns": result["columns"],

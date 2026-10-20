@@ -2168,7 +2168,7 @@ button.link {
   display: flex;
   align-items: center;
   gap: 16px;
-  height: 52px;
+  height: var(--topbar-height);
   padding: 0 32px;
   background: rgba(244, 246, 249, 0.92);
   backdrop-filter: blur(6px);
@@ -3451,4 +3451,49 @@ button.workspace:hover {
   letter-spacing: 0.3em;
   text-align: center;
   font-variant-numeric: tabular-nums;
+}
+
+/* Side panels stick below the top bar, not under it. */
+:root {
+  --topbar-height: 52px;
+}
+
+.chat-panel {
+  top: calc(var(--topbar-height) + 16px);
+  max-height: calc(100vh - var(--topbar-height) - 32px);
+}
+
+@media (max-width: 1200px) {
+  .chat-panel {
+    top: auto;
+  }
+}
+
+.visual-tip {
+  margin: 8px 0 0;
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  background: var(--notice);
+  color: var(--sidebar-text);
+  font-size: 12px;
+}
+
+/* Rows a step removed: shown struck through on a faint red, so it reads as "these went". */
+.removed-rows tbody td {
+  background: #fdf1f0;
+  color: var(--bad);
+  text-decoration: line-through;
+  text-decoration-color: rgba(180, 35, 24, 0.45);
+}
+
+/* Segmented controls keep their own light hover. */
+.segmented button:hover:not(:disabled) {
+  background: var(--bg) !important;
+  color: var(--text) !important;
+}
+
+.segmented button.on,
+.segmented button.on:hover:not(:disabled) {
+  background: var(--selected) !important;
+  color: var(--accent) !important;
 }

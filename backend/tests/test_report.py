@@ -177,12 +177,29 @@ def test_bad_visuals_are_refused(p, body, message):
     assert response.status_code == 400 and message in response.json()["detail"]
 
 
-def test_donut_only_for_three_slices_or_fewer(p):
+def test_the_house_style_advises_but_does_not_block(p):
     page = p.page()
     ok(p.visual(page, type="donut", title="Revenue share", measures=["Revenue"], group_by=SEGMENT))
-    response = p.visual(page, type="donut", title="By month", measures=["Revenue"],
-                        group_by=[{"table": "Date", "column": "Year Month"}])
-    assert response.status_code == 400 and "sorted bar chart" in response.json()["detail"]
+    # A pie with more slices than the style likes is built, with a tip for the creator.
+    ok(p.visual(page, type="pie", title="By month", measures=["Revenue"], group_by=[{"table": "Date", "column": "Year Month"}]))
+    by_title = {v["title"]: v for v in p.visuals()}
+    assert by_title["Revenue share"]["advice"] == []
+    assert "sorted bar chart" in by_title["By month"]["advice"][0]
+    assert by_title["By month"]["data"]["rows"]  # data is computed as for any chart
+
+
+def test_stacked_area_and_scatter_charts(p):
+    page = p.page()
+    month = {"table": "Date", "column": "Year Month"}
+    ok(p.visual(page, type="stacked_column", title="Revenue by month and segment", measures=["Revenue"], group_by=[month, SEGMENT[0]]))
+    ok(p.visual(page, type="area", title="Revenue over time", measures=["Revenue"], group_by=[month]))
+    ok(p.visual(page, type="scatter", title="Orders against revenue", measures=["Orders", "Revenue"], group_by=SEGMENT))
+    stacked = next(v for v in p.visuals() if v["type"] == "stacked_column")
+    assert len(stacked["data"]["columns"]) == 3  # category, stack, value
+    bad = p.visual(page, type="stacked_bar", title="x", measures=["Revenue"], group_by=SEGMENT)
+    assert bad.status_code == 400 and "stacked chart" in bad.json()["detail"]
+    bad = p.visual(page, type="scatter", title="x", measures=["Revenue"], group_by=SEGMENT)
+    assert bad.status_code == 400 and "two measures" in bad.json()["detail"]
 
 
 def test_measures_that_cannot_reach_a_column_are_refused(p):

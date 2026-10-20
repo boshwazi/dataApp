@@ -305,6 +305,8 @@ export const transformApi = {
   state: (pid: string) => request<TransformState>(tf(pid)),
   query: (pid: string, qid: string) => request<QueryDetail>(tq(pid, qid)),
   preview: (pid: string, qid: string, step: number) => request<StepPreview>(`${tq(pid, qid)}/preview?step=${step}`),
+  removed: (pid: string, qid: string, step: number) =>
+    request<StepRows & { comparable: boolean }>(`${tq(pid, qid)}/steps/${step}/removed`),
   approve: (pid: string, qid: string, sid: string) =>
     request<TransformState>(`${tq(pid, qid)}/steps/${sid}/approve`, { method: "POST" }),
   remove: (pid: string, qid: string, sid: string) =>
@@ -421,7 +423,7 @@ export function formatMeasure(value: number | null, format: MeasureFormat): stri
 
 // Report
 
-export type VisualType = "kpi" | "bar" | "column" | "line" | "donut" | "table";
+export type VisualType = "kpi" | "bar" | "column" | "stacked_bar" | "stacked_column" | "line" | "area" | "pie" | "donut" | "scatter" | "table";
 
 export type KpiData = {
   value: number | null;
@@ -456,6 +458,7 @@ export type Visual = {
   reason: string;
   data: KpiData | ChartData | null;
   error: string | null;
+  advice?: string[];
 };
 
 export type ReportPage = {
