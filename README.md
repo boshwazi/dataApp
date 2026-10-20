@@ -4,7 +4,7 @@ datalemon is an AI-powered take on Power BI Desktop: Get Data → Transform → 
 doing every step and each stage steered by a plain-English chat. See
 [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md).
 
-**Status:** M8 — datasets, dashboards, stage chats, Ask on published dashboards, and data refresh.
+**Status:** M8 — datasets, dashboards, stage chats, Ask, PDF export and data refresh.
 
 ## Requirements
 
@@ -88,6 +88,16 @@ makes changes to that stage only. Each change goes through the same checks as th
 - **Review** shows the checked plan for approval first.
 - When an earlier stage changes, later stages show "needs re-run". An **Activity** log lists
   every change.
+
+## PDF export
+
+**Export PDF** on a published dashboard opens a print-ready copy:
+- a cover with the dashboard name, the data's "as of" date, the dataset version and the export date
+- one A4 landscape sheet per page, with KPI cards, charts, tables and insights
+- an optional **AI executive summary**, with every number checked against the dashboard's data
+
+Click **Save as PDF** and choose "Save as PDF" in the print dialog. Charts are SVG, so the PDF
+stays sharp.
 
 ## Refresh
 

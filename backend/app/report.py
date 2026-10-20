@@ -351,6 +351,19 @@ def check_insight(text: str, data: dict) -> dict:
             for i, v in enumerate(row):
                 if isinstance(v, (int, float)) and column_totals.get(i):
                     percents.append(v / column_totals[i] * 100)
+        # "The top five together make RM 71,500 (47%)": running totals of the first rows (shown largest first).
+        columns = {}
+        for row in data["rows"]:
+            for i, v in enumerate(row):
+                if isinstance(v, (int, float)) and not isinstance(v, bool):
+                    columns.setdefault(i, []).append(v)
+        for i, column in columns.items():
+            running = 0
+            for v in column[:10]:
+                running += v
+                values.append(running)
+                if column_totals.get(i):
+                    percents.append(running / column_totals[i] * 100)
         flat = [v for row in numeric for v in row]
         for a in flat:
             for b in flat:

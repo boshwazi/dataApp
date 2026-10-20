@@ -277,3 +277,9 @@ def test_ai_report_needs_measures(tmp_path):
     dash = api.post("/api/dashboards", json={"name": "Empty", "dataset_id": pid}).json()
     response = api.post(f"/api/dashboards/{dash['id']}/ai")
     assert response.status_code == 400 and "model first" in response.json()["detail"]
+
+
+def test_running_totals_of_the_top_rows_are_recognised():
+    data = {"rows": [["A", 50.0], ["B", 30.0], ["C", 15.0], ["D", 5.0]], "check": None}
+    assert report.check_insight("The top three bring in 95 (95% of the total).", data)["verified"]
+    assert not report.check_insight("The top three bring in 120.", data)["verified"]

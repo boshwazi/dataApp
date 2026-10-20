@@ -9,7 +9,7 @@ from typing import Callable
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from . import activity, ai_report, ask, dashboards, llm, model, publishing, report
+from . import activity, ai_report, ask, dashboards, export, llm, model, publishing, report
 from .dashboards import DashboardStore
 from .projects import NotFound, ProjectStore
 from .settings import ProviderSettings, SettingsStore
@@ -319,6 +319,36 @@ def build_router(
         body = respond(dashboard_id)
         return {"summary": result["summary"], "added": result["added"], "refused": result["refused"],
                 "new_pages": page_ids, **body}
+
+    @router.post("/{dashboard_id}/export/summary")
+    def export_summary(dashboard_id: str):
+        """An AI executive summary of the published dashboard, with every number checked against its data."""
+        settings = settings_store.load()
+        if not settings.api_key:
+            raise HTTPException(400, "The AI is not set up yet. Ask an admin to add an API key in Settings.")
+        try:
+            dash = boards.get(dashboard_id)
+        except NotFound as exc:
+            raise HTTPException(404, str(exc)) from exc
+        pages = (dash.get("published") or {}).get("pages") or []
+        if not pages:
+            raise HTTPException(400, "Publish the dashboard first.")
+        with opened(dash) as (dataset, frozen, con):
+            if frozen is None:
+                raise HTTPException(400, "This dashboard's data isn't published yet.")
+            project = publishing.bind(frozen, {"pages": pages, "history": []})
+            data = {}
+            for page in pages:
+                for visual in page["visuals"]:
+                    try:
+                        data[visual["id"]] = report.visual_data(con, project, visual)
+                    except (report.ReportError, model.ModelError):
+                        continue
+            try:
+                bullets = export.summarise(client_factory(settings), settings.model, settings.capabilities, pages, data)
+            except llm.AIError as exc:
+                raise HTTPException(502, f"The AI did not answer: {exc}") from exc
+        return {"bullets": bullets}
 
     @router.post("/{dashboard_id}/ask")
     def ask_question(dashboard_id: str, body: AskBody):

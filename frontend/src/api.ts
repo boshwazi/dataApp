@@ -586,3 +586,10 @@ export const refreshApi = {
     return request<RefreshState>(`${rf(id)}/sources/${sourceId}/replace`, { method: "POST", body: form });
   },
 };
+
+export const exportApi = {
+  summary: (dashboardId: string) =>
+    request<{ bullets: { text: string; unmatched: number[] }[] }>(`/api/dashboards/${dashboardId}/export/summary`, {
+      method: "POST",
+    }),
+};

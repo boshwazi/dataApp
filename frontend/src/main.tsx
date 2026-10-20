@@ -13,6 +13,7 @@ import "./styles.css";
 
 // Dashboards carry the chart library, so they load only when opened.
 const Dashboard = lazy(() => import("./pages/Dashboard").then((m) => ({ default: m.Dashboard })));
+const ExportView = lazy(() => import("./pages/ExportView").then((m) => ({ default: m.ExportView })));
 
 // Links from before datasets and dashboards were split.
 function OldProjectLink() {
@@ -25,6 +26,15 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>
       <Routes>
+        {/* The PDF export is a page of its own, without the app's sidebar. */}
+        <Route
+          path="dashboards/:dashboardId/export"
+          element={
+            <Suspense fallback={<p className="muted">Preparing the export…</p>}>
+              <ExportView />
+            </Suspense>
+          }
+        />
         <Route element={<Layout />}>
           <Route index element={<Home />} />
           <Route path="settings" element={<Settings />} />

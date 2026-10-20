@@ -1750,3 +1750,161 @@ tr.inactive td {
 .check-info {
   color: var(--muted);
 }
+
+a.button {
+  display: inline-block;
+  font: inherit;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  text-decoration: none;
+}
+
+a.button.secondary {
+  background: transparent;
+  color: var(--accent);
+}
+
+/* PDF export: one A4 landscape sheet per page, laid out at its printed width so charts don't resize. */
+
+@page {
+  size: A4 landscape;
+  margin: 10mm;
+}
+
+.export {
+  width: 1047px;
+  margin: 0 auto;
+  padding: 16px 0 40px;
+}
+
+.export-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  background: var(--bg);
+}
+
+.export-sheet {
+  background: #fff;
+  border: 1px solid var(--border);
+  padding: 24px 28px;
+  margin-bottom: 20px;
+  min-height: 700px;
+}
+
+.export-cover h1 {
+  font-size: 30px;
+  margin: 24px 0 16px;
+}
+
+.brand-line {
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.export-cover dl {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 4px 12px;
+  margin: 0 0 24px;
+  font-size: 14px;
+}
+
+.export-cover dt {
+  color: var(--muted);
+}
+
+.export-cover dd {
+  margin: 0;
+}
+
+.export-summary,
+.export-contents {
+  margin-top: 18px;
+}
+
+.export-summary h2,
+.export-contents h2 {
+  font-size: 16px;
+  margin: 0 0 8px;
+}
+
+.export-summary li,
+.export-contents li {
+  margin-bottom: 6px;
+}
+
+.export-contents p {
+  margin: 2px 0 0;
+  font-size: 13px;
+}
+
+.export-page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  border-bottom: 2px solid #005a9c;
+  padding-bottom: 6px;
+  margin-bottom: 10px;
+}
+
+.export-page-head h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.export-visual-title {
+  margin: 0 0 6px;
+  font-size: 14px;
+}
+
+.export .visual-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.export .report-table {
+  max-height: none;
+}
+
+.export-empty {
+  padding: 40px;
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .export {
+    padding: 0;
+  }
+  .export-sheet {
+    border: none;
+    padding: 0;
+    margin: 0;
+    min-height: 0;
+    break-after: page;
+  }
+  .export-sheet:last-child {
+    break-after: auto;
+  }
+  .export .visual,
+  .export .kpi,
+  .export-summary li {
+    break-inside: avoid;
+  }
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

@@ -51,6 +51,7 @@ it on DuckDB.
 | M5 | Datasets + Dashboards, draft and publish, new or existing data on Home, migration | Done |
 | M6 | Stage chat agents, Full AI and Review modes, stale markers, activity log | Done |
 | M7a | Ask on published dashboards: answers from the model's measures with "how this was calculated" | Done |
+| M7b | PDF export: print-ready pages, cover, AI executive summary with checked numbers (browser "Save as PDF") | Done |
 | M8 | Data refresh: replace files, scheduled Google Sheets pulls, checks on refresh, auto-publish, refresh history | Done |
 
 ## Product structure
@@ -299,13 +300,12 @@ in the app.
 
 | # | Delivers | You can test |
 | --- | --- | --- |
-| M7b | PDF export of published dashboards | Sending a dashboard as a PDF |
 | M9 | Multi-dataset: linked tables from other datasets, certified datasets, multiple fact tables, lineage view | One dashboard over sales, targets and HR data |
 | M10 | Supabase: sign-in, workspaces, roles, invites, Postgres metadata with RLS, file storage | Two companies, fully isolated |
 | M11 | Landing page, sign-in and onboarding (datalemon brand) | A new company signing up |
 | M12 | Billing: plans, seats, AI credits ledger, CHIP checkout and renewals | Paying for Pro, topping up credits |
 | M13 | Launch hardening: isolation tests, security review, rate limits, monitoring, backups, PDPA documents | Launch checklist complete |
-| Later | Alerts and digests, sharing and embeds, row-level security, data quality monitors, connectors, templates, Bahasa Malaysia, comments, forecasts, version history, usage analytics, mobile view | See the feature roadmap |
+| Later | Server-rendered PDFs for scheduled emails, alerts and digests, sharing and embeds, row-level security, data quality monitors, connectors, templates, Bahasa Malaysia, comments, forecasts, version history, usage analytics, mobile view | See the feature roadmap |
 
 ## Stack (today)
 

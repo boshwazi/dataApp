@@ -114,6 +114,11 @@ export function Dashboard() {
         <button className="secondary" onClick={() => setShowActivity(true)}>
           Activity
         </button>
+        {state.published && (
+          <Link className="button secondary" to={`/dashboards/${dashboardId}/export`}>
+            Export PDF
+          </Link>
+        )}
         <button className="secondary" onClick={() => setChatOpen(!chatOpen)} aria-pressed={chatOpen}>
           {chatOpen ? "Hide chat" : editing ? "AI chat" : "Ask"}
         </button>
@@ -373,7 +378,7 @@ function VisualFrame(props: {
 
 // KPI card: label + period, value, change line (arrow + sign + amount + % + comparison), sparkline, top driver.
 
-function KpiCard({ visual, format }: { visual: Visual; format: MeasureFormat | undefined }) {
+export function KpiCard({ visual, format }: { visual: Visual; format: MeasureFormat | undefined }) {
   const data = visual.data as KpiData;
   const lowerIsBetter = visual.kpi?.direction === "lower_is_better";
   const good = data.delta !== null && (lowerIsBetter ? data.delta <= 0 : data.delta >= 0);
@@ -431,7 +436,7 @@ function axisValue(format: MeasureFormat | undefined) {
   return (v: number) => formatCompact(v, format);
 }
 
-function ChartVisual({ visual, formats }: { visual: Visual; formats: Record<string, MeasureFormat> }) {
+export function ChartVisual({ visual, formats }: { visual: Visual; formats: Record<string, MeasureFormat> }) {
   const data = visual.data as ChartData;
   const groups = visual.group_by.length;
   const option = useMemo(() => chartOption(visual, data, formats), [visual, data, formats]);
