@@ -119,7 +119,7 @@ export function Model() {
         <h3 className="section-title">Date table</h3>
         {state.date_table ? (
           <div className="ai-card">
-            <span className={`badge ${state.date_table.status === "AI" ? "ai" : "ok-badge"}`}>{state.date_table.status}</span>
+            {state.date_table.status === "AI" && <span className="badge ai" title="Suggested by the AI, waiting for your review">AI</span>}
             <div className="grow">
               {state.date_table.error ? (
                 <p className="bad small">{state.date_table.error}</p>
@@ -157,7 +157,7 @@ export function Model() {
               <div key={m.id} className={`measure ${m.error ? "broken" : ""}`}>
                 <div className="measure-head">
                   <span className="measure-name">{m.name}</span>
-                  <span className={`badge ${m.status === "AI" ? "ai" : "ok-badge"}`}>{m.status}</span>
+                  {m.status === "AI" && <span className="badge ai" title="Suggested by the AI, waiting for your review">AI</span>}
                 </div>
                 <div className="measure-value">{m.error ? "—" : formatMeasure(m.value, m.format)}</div>
                 <code className="measure-def">{m.label}</code>
@@ -227,7 +227,7 @@ function RelationshipRow({ rel, onApprove, onRemove }: { rel: Relationship; onAp
       </td>
       <td>
         <span className="step-tools">
-          <span className={`badge ${rel.status === "AI" ? "ai" : "ok-badge"}`}>{rel.status}</span>
+          {rel.status === "AI" && <span className="badge ai" title="Suggested by the AI, waiting for your review">AI</span>}
           {rel.status === "AI" && (
             <button className="link small" onClick={onApprove}>
               Approve

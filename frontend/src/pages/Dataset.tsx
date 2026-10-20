@@ -9,10 +9,10 @@ import {
   type Dataset as DatasetData,
   type DatasetStage,
 } from "../api";
-import { BadgeCheck, Check, GitBranch, History, MessageSquare, Pencil, RefreshCw } from "lucide-react";
+import { BadgeCheck, Check, GitBranch, History, MessageSquare, MoreHorizontal, Pencil, RefreshCw } from "lucide-react";
 import { ActivityDrawer } from "../components/ActivityDrawer";
 import { ChatPanel, type ChatHandle } from "../components/ChatPanel";
-import { useCrumbs, useDialogs, useToast } from "../components/ui";
+import { Menu, useCrumbs, useDialogs, useToast } from "../components/ui";
 
 // The dataset half of the pipeline, in Power BI order. Dashboards build on what is published here.
 const STAGES: { path: string; key: DatasetStage; name: string; suggestions: string[] }[] = [
@@ -189,50 +189,58 @@ export function Dataset() {
           </button>
         </div>
         <span className="spacer" />
-        <button className="secondary" onClick={() => setShowActivity(true)}>
-          <History size={16} aria-hidden="true" /> Activity
-        </button>
         {!onRefresh && (
           <button className="secondary" onClick={toggleChat} aria-pressed={chatOpen}>
-            <MessageSquare size={16} aria-hidden="true" /> {chatOpen ? "Hide chat" : "AI chat"}
+            <MessageSquare size={16} aria-hidden="true" /> AI chat
           </button>
         )}
-        <button className="secondary" onClick={toggleCertified} title="Certified datasets are marked as trusted when others link to them">
-          <BadgeCheck size={16} aria-hidden="true" /> {dataset.certified ? "Uncertify" : "Certify"}
-        </button>
-        <PublishBadge published={status.published} version={status.version} changes={status.unpublished_changes} />
+        <Menu
+          label="More actions"
+          icon={<MoreHorizontal size={18} />}
+          items={[
+            { label: "Activity", icon: <History size={16} aria-hidden="true" />, onSelect: () => setShowActivity(true) },
+            {
+              label: dataset.certified ? "Remove certification" : "Certify as trusted",
+              icon: <BadgeCheck size={16} aria-hidden="true" />,
+              onSelect: toggleCertified,
+            },
+          ]}
+        />
         <button onClick={() => publish(false)} disabled={publishing || !dataset.sources.length || (status.published && !status.unpublished_changes)}>
-          {publishing ? "Publishing…" : status.published ? "Publish changes" : "Publish dataset"}
+          {publishing ? "Publishing…" : status.published ? "Publish changes" : "Publish"}
         </button>
       </header>
-      {(dataset.linked_by.length > 0 || dataset.dashboards.length > 0) && (
-        <p className="muted small used-by">
-          {dataset.dashboards.length > 0 && (
-            <span>
-              Used by{" "}
-              {dataset.dashboards.map((d, i) => (
-                <span key={d.id}>
-                  {i > 0 && ", "}
-                  <Link to={`/dashboards/${d.id}`}>{d.name}</Link>
-                </span>
-              ))}
-              .{" "}
-            </span>
-          )}
-          {dataset.linked_by.length > 0 && (
-            <span>
-              Linked by{" "}
-              {dataset.linked_by.map((d, i) => (
-                <span key={d.id}>
-                  {i > 0 && ", "}
-                  <Link to={`/datasets/${d.id}/get-data`}>{d.name}</Link> ({d.tables.join(", ")})
-                </span>
-              ))}
-              .
-            </span>
-          )}
-        </p>
-      )}
+      <p className="meta-line">
+        <span className={`status-dot ${status.published ? (status.unpublished_changes ? "warn" : "ok") : ""}`}>
+          {status.published
+            ? status.unpublished_changes
+              ? `Draft changes, v${status.version} is live`
+              : `Published v${status.version}`
+            : "Not published yet"}
+        </span>
+        {dataset.dashboards.length > 0 && (
+          <span>
+            Used by{" "}
+            {dataset.dashboards.map((d, i) => (
+              <span key={d.id}>
+                {i > 0 && ", "}
+                <Link to={`/dashboards/${d.id}`}>{d.name}</Link>
+              </span>
+            ))}
+          </span>
+        )}
+        {dataset.linked_by.length > 0 && (
+          <span>
+            Linked by{" "}
+            {dataset.linked_by.map((d, i) => (
+              <span key={d.id}>
+                {i > 0 && ", "}
+                <Link to={`/datasets/${d.id}/get-data`}>{d.name}</Link> ({d.tables.join(", ")})
+              </span>
+            ))}
+          </span>
+        )}
+      </p>
 
       <Pipeline
         dataset={dataset}
@@ -296,6 +304,7 @@ export function Dataset() {
             title={`${stage.name} AI`}
             thread={thread}
             suggestions={stage.suggestions}
+            onClose={toggleChat}
             onApplied={() => {
               setVersion((v) => v + 1); // reload the stage view with the AI's changes
               void refresh();
@@ -331,7 +340,7 @@ function Pipeline(props: {
       name: "Publish",
       to: null,
       done: live,
-      detail: status.published ? `v${status.version}${status.unpublished_changes ? ", changes waiting" : ""}` : "Not yet",
+      detail: status.published ? (status.unpublished_changes ? "Changes waiting" : `v${status.version} live`) : "Not yet",
     },
     {
       key: "dashboard",

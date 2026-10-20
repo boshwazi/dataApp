@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import type { EChartsCoreOption } from "echarts/core";
-import { FileDown, History, Maximize2, MessageSquare, Minimize2, Pencil } from "lucide-react";
+import { Check, FileDown, History, LayoutDashboard, Maximize2, MessageSquare, Minimize2, MoreHorizontal, Pencil, Sparkles, Undo2 } from "lucide-react";
 import {
   activityApi,
   api,
@@ -21,10 +21,9 @@ import { ActivityDrawer } from "../components/ActivityDrawer";
 import { AskPanel } from "../components/AskPanel";
 import { Chart, SERIES, TOKENS } from "../components/Chart";
 import { ChatPanel, type ChatHandle } from "../components/ChatPanel";
-import { useCrumbs, useDialogs, useToast } from "../components/ui";
+import { EmptyState, Menu, useCrumbs, useDialogs, useToast } from "../components/ui";
 
 const SUGGESTIONS = ["Add a page about customers", "Swap the donut for a bar chart", "Which visual shows the biggest change?"];
-import { PublishBadge } from "./Dataset";
 
 /** A dashboard: report pages on its dataset's published version. Creators edit the draft; viewers see what is published. */
 export function Dashboard() {
@@ -45,6 +44,7 @@ export function Dashboard() {
   const thread = useMemo(() => dashboardChat(dashboardId), [dashboardId]);
   const dialogs = useDialogs();
   const toast = useToast();
+  const navigate = useNavigate();
 
   useCrumbs(state && [{ label: "Dashboards", to: "/dashboards" }, { label: state.name }]);
 
@@ -131,62 +131,79 @@ export function Dashboard() {
   );
   const dataset = state.dataset;
 
+  const showSide = chatOpen && (editing || state.published);
+  const tabs = page && (
+    <nav className="page-tabs" aria-label="Report pages">
+      {state.pages.map((p, i) => (
+        <button key={p.id} className={p.id === page.id ? "on" : ""} onClick={() => go({ page: p.id })} title={p.title} aria-current={p.id === page.id ? "page" : undefined}>
+          <span className="tab-number" aria-hidden="true">
+            {i + 1}
+          </span>
+          <span className="tab-title">{p.title}</span>
+          {editing && !presenting && p.status === "AI" && <span className="badge ai">AI</span>}
+        </button>
+      ))}
+    </nav>
+  );
+
   return (
     <div className="report-view">
       <header className="project-header">
-        <span className="kind-label">Dashboard</span>
-        <h1>{state.name}</h1>
-        {editing && (
-          <button className="icon" onClick={rename} aria-label="Rename dashboard" title="Rename">
-            <Pencil size={15} />
-          </button>
-        )}
+        <div className="title-block">
+          <span className="kind-label">Dashboard</span>
+          <h1>{state.name}</h1>
+          {editing && (
+            <button className="icon" onClick={rename} aria-label="Rename dashboard" title="Rename">
+              <Pencil size={15} />
+            </button>
+          )}
+        </div>
         <span className="spacer" />
-        <button className="secondary" onClick={() => setShowActivity(true)}>
-          <History size={16} aria-hidden="true" /> Activity
-        </button>
-        {state.published && (
-          <Link className="button secondary" to={`/dashboards/${dashboardId}/export`}>
-            <FileDown size={16} aria-hidden="true" /> Export PDF
-          </Link>
-        )}
+        <span className="segmented" role="radiogroup" aria-label="Version">
+          <button role="radio" aria-checked={editing} className={editing ? "on" : ""} onClick={() => go({ view: "draft" })}>
+            Draft
+          </button>
+          <button role="radio" aria-checked={!editing} className={editing ? "" : "on"} onClick={() => go({ view: "published" })} disabled={!state.published}>
+            Published
+          </button>
+        </span>
         {state.pages.length > 0 && (
           <button className="secondary" onClick={() => setPresenting(true)}>
             <Maximize2 size={16} aria-hidden="true" /> Present
           </button>
         )}
         <button className="secondary" onClick={() => setChatOpen(!chatOpen)} aria-pressed={chatOpen}>
-          <MessageSquare size={16} aria-hidden="true" /> {chatOpen ? "Hide chat" : editing ? "AI chat" : "Ask"}
+          <MessageSquare size={16} aria-hidden="true" /> {editing ? "AI chat" : "Ask"}
         </button>
-        <span className="segmented">
-          <button className={editing ? "on" : ""} onClick={() => go({ view: "draft" })}>
-            Draft
-          </button>
-          <button className={editing ? "" : "on"} onClick={() => go({ view: "published" })} disabled={!state.published}>
-            Published
-          </button>
-        </span>
+        <Menu
+          label="More actions"
+          icon={<MoreHorizontal size={18} />}
+          items={[
+            { label: "Activity", icon: <History size={16} aria-hidden="true" />, onSelect: () => setShowActivity(true) },
+            ...(state.published
+              ? [{ label: "Export PDF", icon: <FileDown size={16} aria-hidden="true" />, onSelect: () => navigate(`/dashboards/${dashboardId}/export`) }]
+              : []),
+          ]}
+        />
         {editing && (
           <button onClick={publish} disabled={publishing || (state.published && !state.unpublished_changes) || !state.pages.length}>
-            {publishing ? "Publishing…" : state.published ? "Publish changes" : "Publish dashboard"}
+            {publishing ? "Publishing…" : state.published ? "Publish changes" : "Publish"}
           </button>
         )}
       </header>
-      <p className="muted small used-by">
+      <p className="meta-line">
         {dataset ? (
-          <>
-            Data: <Link to={`/datasets/${dataset.id}/model`}>{dataset.name}</Link>{" "}
-            <PublishBadge published={dataset.published} version={dataset.version} changes={dataset.unpublished_changes} />
-          </>
+          <span>
+            Built on <Link to={`/datasets/${dataset.id}/model`}>{dataset.name}</Link>
+            {dataset.version ? ` v${dataset.version}` : ""}
+          </span>
         ) : (
           <span className="bad">The dataset of this dashboard was removed.</span>
-        )}{" "}
-        ·{" "}
-        {state.published
-          ? state.unpublished_changes
-            ? "The draft has changes viewers don't see yet"
-            : "Viewers see this version"
-          : "Not published to viewers yet"}
+        )}
+        <span className={`status-dot ${state.published ? (state.unpublished_changes ? "warn" : "ok") : ""}`}>
+          {state.published ? (state.unpublished_changes ? "Draft has unpublished changes" : "Published, viewers see this version") : "Draft, not published yet"}
+        </span>
+        {state.as_of && <span>Data as of {state.as_of}</span>}
       </p>
 
       {dataset && !dataset.published && (
@@ -226,119 +243,110 @@ export function Dashboard() {
         </div>
       )}
 
-      <div className={chatOpen && (editing || state.published) ? "with-chat" : ""}>
-      <div className="dashboard-main">
       {editing && dataset?.published && (
         <div className="toolbar">
           <button onClick={build} disabled={!hasKey || building}>
+            <Sparkles size={16} aria-hidden="true" />
             {building ? "AI is designing the report…" : state.pages.length ? "Add pages with AI" : "Build report with AI"}
           </button>
           <button className="secondary" onClick={() => change(() => reportApi.approve(dashboardId))} disabled={pending === 0}>
-            {pending ? `Approve all AI changes (${pending})` : "All approved"}
+            <Check size={16} aria-hidden="true" /> {pending ? `Approve all (${pending})` : "All approved"}
           </button>
           <button className="secondary" onClick={() => change(() => reportApi.undo(dashboardId))} disabled={!state.can_undo}>
-            Undo last change
+            <Undo2 size={16} aria-hidden="true" /> Undo
           </button>
           {!hasKey && <span className="muted small">Add an API key in Settings so the AI can build the report.</span>}
         </div>
       )}
       {error && <p className="bad">{error}</p>}
       {run && <RunResult run={run} />}
+      {!presenting && tabs}
 
-      {!page ? (
-        dataset?.published && (
-          <div className="empty-state">
-            <h2>{editing ? "No pages yet" : "Nothing published yet"}</h2>
-            <p className="muted">
-              {editing
-                ? "The AI designs report pages from the dataset's measures: KPI cards with comparisons, sorted bar charts, trends and detail tables, each with an insight."
-                : "Publish the draft to show it here."}
-            </p>
-          </div>
-        )
-      ) : (
-        <div ref={stageRef} className={presenting ? "presenting" : undefined}>
-          {presenting && (
-            <div className="present-bar">
-              <strong>{state.name}</strong>
-              <span className="muted small">{editing ? "Draft" : "Published"}, data as of {state.as_of ?? "unknown"}</span>
-              <span className="spacer" />
-              <button className="secondary" onClick={() => setPresenting(false)}>
-                <Minimize2 size={16} aria-hidden="true" /> Exit
-              </button>
+      <div className={showSide ? "with-chat" : ""}>
+        <div className="dashboard-main">
+          {!page ? (
+            dataset?.published && (
+              <EmptyState icon={<LayoutDashboard size={28} />} title={editing ? "No pages yet" : "Nothing published yet"}>
+                {editing
+                  ? "The AI designs report pages from the dataset's measures: KPI cards with comparisons, sorted bar charts, trends and detail tables, each with an insight."
+                  : "Publish the draft to show it here."}
+              </EmptyState>
+            )
+          ) : (
+            <div ref={stageRef} className={presenting ? "presenting" : undefined}>
+              {presenting && (
+                <>
+                  <div className="present-bar">
+                    <strong>{state.name}</strong>
+                    <span className="muted small">
+                      {editing ? "Draft" : "Published"}
+                      {state.as_of ? `, data as of ${state.as_of}` : ""}
+                    </span>
+                    <span className="spacer" />
+                    <button className="secondary" onClick={() => setPresenting(false)}>
+                      <Minimize2 size={16} aria-hidden="true" /> Exit
+                    </button>
+                  </div>
+                  {tabs}
+                </>
+              )}
+
+              <section className="report-page" aria-label={page.title}>
+                <header className="report-head">
+                  <div>
+                    <h2>{page.title}</h2>
+                    {page.summary && (
+                      <p className="page-summary">
+                        <span className="badge ai">AI</span> {page.summary}
+                      </p>
+                    )}
+                  </div>
+                  {editing && !presenting && (
+                    <span className="step-tools">
+                      {page.status === "AI" && (
+                        <button className="link small" onClick={() => change(() => reportApi.approve(dashboardId, page.id))}>
+                          Approve page
+                        </button>
+                      )}
+                      <button className="link small danger" onClick={() => change(() => reportApi.removePage(dashboardId, page.id))}>
+                        Remove page
+                      </button>
+                    </span>
+                  )}
+                </header>
+
+                <div className="kpi-strip" data-count={page.visuals.filter((v) => v.type === "kpi").length}>
+                  {page.visuals
+                    .filter((v) => v.type === "kpi")
+                    .map((v) => (
+                      <VisualFrame key={v.id} visual={v} dashboardId={dashboardId} editing={editing && !presenting} onChange={change}>
+                        <KpiCard visual={v} format={state.formats[v.measures[0]]} />
+                      </VisualFrame>
+                    ))}
+                </div>
+                <div className="visual-grid">
+                  {fillRows(page.visuals.filter((v) => v.type !== "kpi")).map((v) => (
+                    <VisualFrame key={v.id} visual={v} dashboardId={dashboardId} editing={editing && !presenting} onChange={change}>
+                      <ChartVisual visual={v} formats={state.formats} />
+                    </VisualFrame>
+                  ))}
+                </div>
+              </section>
             </div>
           )}
-          <nav className="page-tabs" aria-label="Report pages">
-            {state.pages.map((p) => (
-              <button key={p.id} className={p.id === page.id ? "on" : ""} onClick={() => go({ page: p.id })}>
-                {p.title}
-                {editing && !presenting && p.status === "AI" && <span className="badge ai">AI</span>}
-              </button>
-            ))}
-          </nav>
-
-          <section className="report-page">
-            <header className="report-head">
-              <div>
-                <h2>{page.title}</h2>
-                {page.summary && (
-                  <p className="page-summary">
-                    <span className="badge ai">AI</span> {page.summary}
-                  </p>
-                )}
-              </div>
-              <div className="report-meta">
-                <span>Data as of {state.as_of ?? "unknown"}</span>
-                {editing && !presenting && (
-                  <span className="step-tools">
-                    {page.status === "AI" && (
-                      <button className="link small" onClick={() => change(() => reportApi.approve(dashboardId, page.id))}>
-                        Approve page
-                      </button>
-                    )}
-                    <button
-                      className="link small danger"
-                      onClick={() => change(() => reportApi.removePage(dashboardId, page.id))}
-                    >
-                      Remove page
-                    </button>
-                  </span>
-                )}
-              </div>
-            </header>
-
-            <div className="kpi-strip">
-              {page.visuals
-                .filter((v) => v.type === "kpi")
-                .map((v) => (
-                  <VisualFrame key={v.id} visual={v} dashboardId={dashboardId} editing={editing && !presenting} onChange={change}>
-                    <KpiCard visual={v} format={state.formats[v.measures[0]]} />
-                  </VisualFrame>
-                ))}
-            </div>
-            <div className="visual-grid">
-              {fillRows(page.visuals.filter((v) => v.type !== "kpi"))
-                .map((v) => (
-                  <VisualFrame key={v.id} visual={v} dashboardId={dashboardId} editing={editing && !presenting} onChange={change}>
-                    <ChartVisual visual={v} formats={state.formats} />
-                  </VisualFrame>
-                ))}
-            </div>
-          </section>
         </div>
-      )}
-      </div>
-      {editing && chatOpen && (
-        <ChatPanel
-          title="Report AI"
-          thread={thread}
-          suggestions={SUGGESTIONS}
-          disabled={dataset?.published ? null : "Publish the dataset first; then the AI can design pages."}
-          onApplied={load}
-          handle={(h) => (chat.current = h)}
-        />
-      )}
-      {!editing && chatOpen && state.published && <AskPanel dashboardId={dashboardId} side="published" />}
+        {editing && chatOpen && (
+          <ChatPanel
+            title="Report AI"
+            thread={thread}
+            suggestions={SUGGESTIONS}
+            disabled={dataset?.published ? null : "Publish the dataset first; then the AI can design pages."}
+            onApplied={load}
+            onClose={() => setChatOpen(false)}
+            handle={(h) => (chat.current = h)}
+          />
+        )}
+        {!editing && chatOpen && state.published && <AskPanel dashboardId={dashboardId} side="published" onClose={() => setChatOpen(false)} />}
       </div>
       {showActivity && <ActivityDrawer load={() => activityApi.dashboard(dashboardId)} onClose={() => setShowActivity(false)} />}
     </div>
@@ -390,10 +398,12 @@ function VisualFrame(props: {
   children: React.ReactNode;
 }) {
   const { visual, dashboardId, editing, onChange } = props;
+  // The AI sometimes titles a card just "KPI"; the measure name says more.
+  const title = visual.type === "kpi" && /^\s*kpi\s*$/i.test(visual.title) ? visual.measures[0] ?? visual.title : visual.title;
   return (
     <article className={`visual visual-${visual.type} ${visual.width === "full" ? "full" : ""}`}>
       <header className="visual-head">
-        <h3>{visual.title}</h3>
+        <h3>{title}</h3>
         <span className="visual-tools" hidden={!editing}>
           {visual.status === "AI" && <span className="badge ai">AI</span>}
           {visual.status === "AI" && (
@@ -445,7 +455,9 @@ export function KpiCard({ visual, format }: { visual: Visual; format: MeasureFor
           {change}
         </div>
       ) : (
-        <div className="kpi-note">{data.note}</div>
+        <div className="kpi-note" title={data.note ?? undefined}>
+          No comparison
+        </div>
       )}
       {data.sparkline.length > 1 && <Sparkline points={data.sparkline.map((p) => p.value)} months={data.sparkline.length} />}
       {data.driver && (

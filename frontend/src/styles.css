@@ -2869,3 +2869,358 @@ a.pipe-step:hover {
     font-size: 13px;
   }
 }
+
+/* ---------- Polish pass: calmer headers, one-row tabs, frameless report canvas ---------- */
+
+.project-header .segmented {
+  margin-left: 0;
+}
+
+.segmented {
+  border-color: var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.segmented button {
+  padding: 7px 14px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.segmented button.on {
+  font-weight: 700;
+}
+
+.icon-button {
+  padding: 7px 9px !important;
+}
+
+.meta-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 20px;
+  margin: 4px 0 20px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.meta-line a {
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.meta-line a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.status-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.status-dot::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+
+.status-dot.ok::before {
+  background: var(--ok);
+}
+
+.status-dot.warn::before {
+  background: #f59e0b;
+}
+
+/* Menu */
+
+.menu {
+  position: relative;
+}
+
+.menu-list {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 40;
+  min-width: 210px;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14);
+  animation: menu-in 0.12s ease-out;
+}
+
+.menu-list > button,
+.menu-list > a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: var(--radius);
+  background: none !important;
+  color: var(--text) !important;
+  font-weight: 500;
+  font-size: 14px;
+  text-align: left;
+  text-decoration: none;
+}
+
+.menu-list > button:hover,
+.menu-list > a:hover,
+.menu-list > button:focus-visible {
+  background: var(--bg) !important;
+}
+
+.menu-list .danger {
+  color: var(--bad) !important;
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+/* Report pages: one row of tabs, numbered, long titles truncated (the full title heads the page). */
+
+.page-tabs {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  gap: 2px;
+  margin: 0 0 20px;
+}
+
+.page-tabs button {
+  flex-shrink: 0;
+  max-width: 280px;
+  padding: 10px 14px 10px 4px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.page-tabs button:first-child {
+  padding-left: 0;
+}
+
+.tab-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab-number {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  color: var(--muted);
+}
+
+.page-tabs button.on .tab-number {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.report-page {
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+}
+
+.report-head {
+  margin-bottom: 18px;
+}
+
+.report-head h2 {
+  font-size: 19px;
+  letter-spacing: -0.01em;
+}
+
+.page-summary {
+  margin-top: 8px;
+  line-height: 1.55;
+  color: var(--sidebar-text);
+}
+
+.kpi-strip {
+  grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+}
+
+.visual {
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  padding: 16px 18px;
+}
+
+.report-view .with-chat {
+  gap: 24px;
+}
+
+.chat-panel {
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.chat-head {
+  padding: 12px 14px;
+}
+
+.toolbar {
+  margin-bottom: 16px;
+}
+
+.title-block h1 {
+  font-size: 24px;
+}
+
+.kind-label {
+  background: var(--panel);
+}
+
+@media (max-width: 600px) {
+  .title-block h1 {
+    font-size: 21px;
+  }
+  .page-tabs button {
+    max-width: 200px;
+  }
+}
+
+.page-tabs {
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+}
+
+.page-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+/* Chat header: one tidy row */
+
+.chat-head {
+  flex-wrap: nowrap;
+}
+
+.chat-head strong {
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.chat-head .segmented {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.chat-head .segmented button {
+  padding: 4px 10px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.ask-panel .chat-head > div {
+  min-width: 0;
+}
+
+/* The step bar drops its details when space is short (for example with the chat open). */
+
+.pipeline-bar {
+  container-type: inline-size;
+}
+
+@container (max-width: 1020px) {
+  .pipe-detail {
+    display: none;
+  }
+  .pipeline li + li::before {
+    width: 14px;
+  }
+}
+
+/* Opaque top bar: content no longer shows through behind the breadcrumbs. */
+.topbar {
+  background: var(--bg);
+  backdrop-filter: none;
+}
+
+.menu-list.align-left {
+  right: auto;
+  left: 0;
+}
+
+/* Visual headers: edit controls wrap under a long title instead of spilling out of the card. */
+.visual-head {
+  flex-wrap: wrap;
+}
+
+.visual-head h3 {
+  flex: 1 1 120px;
+  min-width: 0;
+}
+
+.visual-tools {
+  flex-wrap: wrap;
+}
+
+/* KPI rows: columns follow the number of cards, so four cards never leave one alone on a row. */
+.report-page {
+  container-type: inline-size;
+}
+
+.kpi-strip[data-count="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.kpi-strip[data-count="4"],
+.kpi-strip[data-count="7"],
+.kpi-strip[data-count="8"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.kpi-strip[data-count="5"] { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.kpi-strip[data-count="6"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+@container (max-width: 820px) {
+  .kpi-strip[data-count="4"],
+  .kpi-strip[data-count="8"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpi-strip[data-count="5"],
+  .kpi-strip[data-count="7"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .kpi-value { font-size: 28px; }
+}
+
+@container (max-width: 520px) {
+  .kpi-strip[data-count] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@container (max-width: 340px) {
+  .kpi-strip[data-count] { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Secondary buttons keep a light hover; the generic primary hover rule outranks them otherwise. */
+button.secondary:hover:not(:disabled),
+a.button.secondary:hover,
+.menu > button[aria-expanded="true"] {
+  background: var(--selected) !important;
+  color: var(--accent) !important;
+  border-color: var(--accent) !important;
+}

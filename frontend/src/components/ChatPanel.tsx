@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
-import { Send, Square } from "lucide-react";
+import { Send, Square, X } from "lucide-react";
 import type { ChatMessage, ChatMode, ChatThread } from "../api";
 import { Markdown } from "./Markdown";
 
@@ -25,6 +25,7 @@ export function ChatPanel(props: {
   suggestions: string[];
   disabled?: string | null;
   onApplied: () => void;
+  onClose?: () => void;
   handle?: (handle: ChatHandle) => void;
 }) {
   const { thread, onApplied } = props;
@@ -107,7 +108,6 @@ export function ChatPanel(props: {
       <header className="chat-head">
         <div>
           <strong>{props.title}</strong>
-          <span className="muted small">Ask or tell the AI what to change</span>
         </div>
         <span className="segmented" role="radiogroup" aria-label="Chat mode">
           <button
@@ -129,6 +129,11 @@ export function ChatPanel(props: {
             Review
           </button>
         </span>
+        {props.onClose && (
+          <button className="icon" onClick={props.onClose} aria-label="Close chat" title="Close">
+            <X size={16} />
+          </button>
+        )}
       </header>
 
       <div className="chat-messages" ref={list}>

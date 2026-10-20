@@ -179,6 +179,75 @@ export function useCurrentCrumbs() {
   return useContext(CrumbContext).crumbs;
 }
 
+// Menus: secondary actions behind one "More" button.
+
+export type MenuItem = { label: string; icon?: ReactNode; onSelect?: () => void; to?: string; danger?: boolean };
+
+export function Menu({ label, icon, items }: { label: string; icon: ReactNode; items: MenuItem[] }) {
+  const [open, setOpen] = useState(false);
+  const [alignLeft, setAlignLeft] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const first = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    // Open towards the side with room, so the list never leaves the screen.
+    setAlignLeft((root.current?.getBoundingClientRect().right ?? 999) < 240);
+    first.current?.focus();
+    const onDown = (e: MouseEvent) => {
+      if (!root.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="menu" ref={root}>
+      <button className="secondary icon-button" aria-label={label} title={label} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
+        {icon}
+      </button>
+      {open && (
+        <div className={`menu-list ${alignLeft ? "align-left" : ""}`} role="menu">
+          {items.map((item, i) => {
+            const content = (
+              <>
+                {item.icon}
+                {item.label}
+              </>
+            );
+            const ref = i === 0 ? (el: HTMLElement | null) => void (first.current = el) : undefined;
+            return item.to ? (
+              <a key={item.label} ref={ref} role="menuitem" href={item.to} className={item.danger ? "danger" : ""} onClick={() => setOpen(false)}>
+                {content}
+              </a>
+            ) : (
+              <button
+                key={item.label}
+                ref={ref}
+                role="menuitem"
+                className={item.danger ? "danger" : ""}
+                onClick={() => {
+                  setOpen(false);
+                  item.onSelect?.();
+                }}
+              >
+                {content}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Empty states and loading placeholders
 
 export function EmptyState(props: { icon?: ReactNode; title: string; children?: ReactNode; action?: ReactNode }) {

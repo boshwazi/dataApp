@@ -260,7 +260,7 @@ function QueryDetailView({ projectId, query, hasKey, cleaning, run, onClean, onC
               </span>
             </button>
             <span className="step-tools">
-              <span className={`badge ${s.status === "AI" ? "ai" : "ok-badge"}`}>{s.status}</span>
+              {s.status === "AI" && <span className="badge ai" title="Suggested by the AI, waiting for your review">AI</span>}
               {s.status === "AI" && (
                 <button className="link small" onClick={() => onChange(() => transformApi.approve(projectId, query.id, s.id))}>
                   Approve

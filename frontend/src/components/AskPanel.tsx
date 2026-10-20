@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { EChartsCoreOption } from "echarts/core";
 import { askApi, formatCompact, formatMeasure, type AskResponse, type AskResult, type MeasureFormat } from "../api";
-import { Send, Square } from "lucide-react";
+import { Send, Square, X } from "lucide-react";
 import { Chart, TOKENS } from "./Chart";
 import { Markdown } from "./Markdown";
 
@@ -13,7 +13,7 @@ const STARTERS = ["What stands out on this dashboard?", "Which category is growi
  * Ask questions about a dashboard's data. Read-only: answers come from the same measures the
  * dashboard uses, each with "how this was calculated". The conversation lives in this browser tab.
  */
-export function AskPanel({ dashboardId, side }: { dashboardId: string; side: "draft" | "published" }) {
+export function AskPanel({ dashboardId, side, onClose }: { dashboardId: string; side: "draft" | "published"; onClose?: () => void }) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -60,6 +60,11 @@ export function AskPanel({ dashboardId, side }: { dashboardId: string; side: "dr
           <strong>Ask about this data</strong>
           <span className="muted small">Answers show how each number was calculated</span>
         </div>
+        {onClose && (
+          <button className="icon" onClick={onClose} aria-label="Close" title="Close">
+            <X size={16} />
+          </button>
+        )}
       </header>
       <div className="chat-messages" ref={list}>
         {turns.length === 0 && (
