@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
-from . import activity, ai_profile, ingest, llm, model, publishing, transform
+from . import activity, ai_profile, ingest, llm, model, publishing, refresh, transform
 from .dashboards import DashboardStore
 from .projects import NotFound, ProjectStore
 from .settings import ProviderSettings, SettingsStore
@@ -18,6 +18,11 @@ PREVIEW_LIMIT = 500
 
 class NameBody(BaseModel):
     name: str
+
+
+class RefreshSettingsBody(BaseModel):
+    schedule: str | None = None
+    auto_publish: bool | None = None
 
 
 class SheetBody(BaseModel):
@@ -77,7 +82,7 @@ def build_router(
     def add_tables(project_id: str, tables: list[ingest.LoadedTable], origin: dict) -> list[dict]:
         added = []
         for table in tables:
-            where = {**origin, "label": table.name}
+            where = {**origin, "label": table.name, **({"sheet": table.sheet} if table.sheet else {})}
             added.append(store.add_source(project_id, table.frame, table.name, where, table.warnings))
         if added:
             with store.edit(project_id) as project:
@@ -127,6 +132,57 @@ def build_router(
         with store.edit(project_id) as project:
             activity.reviewed(project, stage)
         return project_view(project, boards.using(project_id))
+
+    # Refresh
+
+    def refreshed(project_id: str, entry: dict) -> dict:
+        return {"entry": entry, **refresh.history_view(load(project_id))}
+
+    @router.get("/{project_id}/refresh")
+    def refresh_state(project_id: str):
+        return refresh.history_view(load(project_id))
+
+    @router.put("/{project_id}/refresh")
+    def refresh_settings(project_id: str, body: RefreshSettingsBody):
+        load(project_id)
+        try:
+            with store.edit(project_id) as project:
+                refresh.configure(project, body.schedule, body.auto_publish)
+                activity.log(project, "refresh", "Changed refresh settings")
+        except refresh.RefreshError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        return refresh.history_view(load(project_id))
+
+    @router.post("/{project_id}/refresh")
+    def refresh_now(project_id: str):
+        """Pull every Google Sheet again, re-run the steps and model, and check the result."""
+        load(project_id)
+        try:
+            return refreshed(project_id, refresh.pull_sheets(store, boards, project_id, fetch_url))
+        except refresh.RefreshError as exc:
+            raise HTTPException(400, str(exc)) from exc
+
+    @router.post("/{project_id}/sources/{source_id}/pull")
+    def pull_one(project_id: str, source_id: str):
+        find_source(load(project_id), source_id)
+        try:
+            return refreshed(project_id, refresh.pull_sheets(store, boards, project_id, fetch_url, only=source_id))
+        except refresh.RefreshError as exc:
+            raise HTTPException(400, str(exc)) from exc
+
+    @router.post("/{project_id}/sources/{source_id}/replace")
+    async def replace(project_id: str, source_id: str, file: UploadFile):
+        """New rows for a loaded table from a newer file. Steps, model and dashboards stay attached."""
+        find_source(load(project_id), source_id)
+        data = await file.read(MAX_UPLOAD_BYTES + 1)
+        if len(data) > MAX_UPLOAD_BYTES:
+            raise HTTPException(400, "The file is larger than 200 MB.")
+        try:
+            entry = await run_in_threadpool(refresh.replace_file, store, boards, project_id, source_id,
+                                            file.filename or "upload", data)
+        except (refresh.RefreshError, ingest.IngestError) as exc:
+            raise HTTPException(400, str(exc)) from exc
+        return refreshed(project_id, entry)
 
     @router.post("/{project_id}/publish")
     def publish(project_id: str, confirm: bool = False):

@@ -549,3 +549,40 @@ export const askApi = {
   ask: (dashboardId: string, question: string, history: { role: string; content: string }[], side: "draft" | "published") =>
     request<AskResponse>(`/api/dashboards/${dashboardId}/ask`, json("POST", { question, history, side })),
 };
+
+// Refresh
+
+export type RefreshCheck = { level: "error" | "warning" | "info"; text: string };
+
+export type RefreshEntry = {
+  at: string;
+  trigger: "manual" | "replace" | "schedule";
+  status: "ok" | "warnings" | "failed";
+  sources: { table: string; rows_before: number; rows_after: number }[];
+  failed_sources: string[];
+  checks: RefreshCheck[];
+  published_version: number | null;
+};
+
+export type RefreshState = {
+  settings: { schedule: string; auto_publish: boolean; last_run: string | null; next_run: string | null };
+  schedules: string[];
+  history: RefreshEntry[];
+  sources: { id: string; table: string; kind: string; file?: string; url?: string; rows: number; refreshed_at: string }[];
+  entry?: RefreshEntry;
+};
+
+const rf = (id: string) => `/api/datasets/${id}`;
+
+export const refreshApi = {
+  state: (id: string) => request<RefreshState>(`${rf(id)}/refresh`),
+  configure: (id: string, update: { schedule?: string; auto_publish?: boolean }) =>
+    request<RefreshState>(`${rf(id)}/refresh`, json("PUT", update)),
+  pullAll: (id: string) => request<RefreshState>(`${rf(id)}/refresh`, { method: "POST" }),
+  pull: (id: string, sourceId: string) => request<RefreshState>(`${rf(id)}/sources/${sourceId}/pull`, { method: "POST" }),
+  replace: (id: string, sourceId: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request<RefreshState>(`${rf(id)}/sources/${sourceId}/replace`, { method: "POST", body: form });
+  },
+};

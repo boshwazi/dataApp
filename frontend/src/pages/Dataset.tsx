@@ -65,6 +65,8 @@ export function Dataset() {
   const chat = useRef<ChatHandle | null>(null);
   const location = useLocation();
   const stage = STAGES.find((s) => location.pathname.endsWith(`/${s.path}`)) ?? STAGES[0];
+  const onRefresh = location.pathname.endsWith("/refresh");
+  const showChat = chatOpen && !onRefresh;
   const thread = useMemo(() => datasetChat(datasetId, stage.key), [datasetId, stage.key]);
 
   const refresh = useCallback(async () => {
@@ -210,7 +212,7 @@ export function Dataset() {
         </p>
       )}
 
-      <div className={`project-body ${chatOpen ? "with-chat" : ""}`}>
+      <div className={`project-body ${showChat ? "with-chat" : ""}`}>
         <nav className="stage-rail" aria-label="Stages">
           {STAGES.map((s, i) => (
             <NavLink key={s.path} to={s.path}>
@@ -223,10 +225,14 @@ export function Dataset() {
               )}
             </NavLink>
           ))}
+          <NavLink to="refresh" className="rail-extra">
+            <span className="step">↻</span>
+            Refresh
+          </NavLink>
           <p className="rail-hint muted small">Publish when the model is ready. Dashboards read the published version.</p>
         </nav>
         <section className="stage">
-          {dataset.stale[stage.key] && (
+          {!onRefresh && dataset.stale[stage.key] && (
             <div className="notice stale-banner small">
               <span>
                 <strong>{dataset.stale[stage.key]}</strong> changed since {stage.name} was last updated.
@@ -243,7 +249,7 @@ export function Dataset() {
           )}
           <Outlet key={version} context={{ project: dataset, refresh } satisfies DatasetContext} />
         </section>
-        {chatOpen && (
+        {showChat && (
           <ChatPanel
             title={`${stage.name} AI`}
             thread={thread}

@@ -6,6 +6,7 @@ import { Dataset } from "./pages/Dataset";
 import { GetData } from "./pages/GetData";
 import { Home } from "./pages/Home";
 import { Model } from "./pages/Model";
+import { Refresh } from "./pages/Refresh";
 import { Settings } from "./pages/Settings";
 import { Transform } from "./pages/Transform";
 import "./styles.css";
@@ -32,6 +33,7 @@ createRoot(document.getElementById("root")!).render(
             <Route path="get-data" element={<GetData />} />
             <Route path="transform" element={<Transform />} />
             <Route path="model" element={<Model />} />
+            <Route path="refresh" element={<Refresh />} />
           </Route>
           <Route
             path="dashboards/:dashboardId"

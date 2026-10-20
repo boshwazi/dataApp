@@ -1654,3 +1654,99 @@ tr.inactive td {
 .with-chat .add-data {
   max-width: 560px;
 }
+
+/* Refresh */
+
+.rail-extra {
+  margin-top: 8px;
+  border-top: 1px solid var(--border);
+  border-radius: 0 !important;
+  padding-top: 12px !important;
+}
+
+.refresh {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.refresh-settings h2 {
+  margin-bottom: 4px;
+}
+
+.refresh-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+  margin: 12px 0 6px;
+}
+
+.refresh-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.refresh-controls label.check {
+  flex-direction: row;
+  align-items: center;
+  font-weight: 400;
+}
+
+.refresh-controls select {
+  font: inherit;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.refresh-history {
+  display: grid;
+  gap: 8px;
+}
+
+.refresh-entry {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+
+.refresh-entry.highlight {
+  border-color: var(--accent);
+}
+
+.refresh-entry header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.refresh-entry p {
+  margin: 6px 0 0;
+}
+
+.refresh-checks {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0 0;
+  font-size: 13px;
+  display: grid;
+  gap: 2px;
+}
+
+.check-error {
+  color: var(--bad);
+}
+
+.check-warning {
+  color: var(--warn);
+}
+
+.check-info {
+  color: var(--muted);
+}

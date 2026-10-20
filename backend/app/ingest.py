@@ -30,6 +30,7 @@ class LoadedTable:
     name: str
     frame: pd.DataFrame
     warnings: list[str] = field(default_factory=list)
+    sheet: str | None = None  # the Excel sheet it came from, so a replacement file can be matched to it
 
 
 def read_file(filename: str, data: bytes) -> list[LoadedTable]:
@@ -82,7 +83,8 @@ def read_excel(name: str, data: bytes) -> list[LoadedTable]:
         raise IngestError(f"{name}: could not read the workbook ({exc}).") from exc
     # Sheets without data rows (a notes or cover sheet) are skipped.
     frames = {sheet: frame for sheet, frame in ((s, tidy(f)) for s, f in sheets.items()) if not frame.empty}
-    tables = [LoadedTable(name if len(frames) == 1 else f"{name} {sheet}", frame) for sheet, frame in frames.items()]
+    tables = [LoadedTable(name if len(frames) == 1 else f"{name} {sheet}", frame, sheet=str(sheet))
+              for sheet, frame in frames.items()]
     if not tables:
         raise IngestError(f"{name}: every sheet is empty.")
     return tables

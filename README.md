@@ -4,7 +4,7 @@ datalemon is an AI-powered take on Power BI Desktop: Get Data → Transform → 
 doing every step and each stage steered by a plain-English chat. See
 [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md).
 
-**Status:** M7a — datasets, dashboards, stage chats and Ask on published dashboards.
+**Status:** M8 — datasets, dashboards, stage chats, Ask on published dashboards, and data refresh.
 
 ## Requirements
 
@@ -88,6 +88,22 @@ makes changes to that stage only. Each change goes through the same checks as th
 - **Review** shows the checked plan for approval first.
 - When an earlier stage changes, later stages show "needs re-run". An **Activity** log lists
   every change.
+
+## Refresh
+
+Each dataset has a **Refresh** tab. **Replace file** loads newer data for an uploaded table, and
+**Pull now** re-downloads a Google Sheet; sheets can also be pulled every hour, every 6 hours,
+daily or weekly. Tables keep their names, so Applied Steps, the model and dashboards stay
+attached.
+
+Every refresh is checked against the data before it:
+- row counts, and columns that disappeared
+- tables whose steps now fail
+- broken relationships or measures, and relationship match rates that dropped
+- dashboard visuals that would break
+
+With **Publish automatically** on, a refresh that passes goes live. A failed one never does,
+so dashboards keep the last good version. Every run is kept in the refresh history.
 
 ## Get Data
 
