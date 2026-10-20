@@ -266,8 +266,7 @@ export function Dashboard() {
                 ))}
             </div>
             <div className="visual-grid">
-              {page.visuals
-                .filter((v) => v.type !== "kpi")
+              {fillRows(page.visuals.filter((v) => v.type !== "kpi"))
                 .map((v) => (
                   <VisualFrame key={v.id} visual={v} dashboardId={dashboardId} editing={editing} onChange={change}>
                     <ChartVisual visual={v} formats={state.formats} />
@@ -293,6 +292,22 @@ export function Dashboard() {
       {showActivity && <ActivityDrawer load={() => activityApi.dashboard(dashboardId)} onClose={() => setShowActivity(false)} />}
     </div>
   );
+}
+
+/** A half-width visual left alone on its row (before a full-width one, or last) takes the whole row. */
+function fillRows(visuals: Visual[]): Visual[] {
+  const out = visuals.map((v) => ({ ...v }));
+  let run: Visual[] = [];
+  const close = () => {
+    if (run.length % 2 === 1) run[run.length - 1].width = "full";
+    run = [];
+  };
+  for (const v of out) {
+    if (v.width === "full") close();
+    else run.push(v);
+  }
+  close();
+  return out;
 }
 
 function RunResult({ run }: { run: ReportRun | { error: string } }) {

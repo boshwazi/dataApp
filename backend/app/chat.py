@@ -556,8 +556,13 @@ def schema(stage: Stage) -> dict:
     }
 
 
-def system_prompt(stage: Stage) -> str:
-    return (
+def system_prompt(stage: Stage, mode: str = "full") -> str:
+    timing = (
+        "Changes wait for the user's approval, so describe them as proposals (\"I'll add X once you approve\"), "
+        "never as done. " if mode == "review" else
+        "Changes apply right after your reply unless the app refuses them, so say what you are doing. "
+    )
+    return timing + (
         f"You are {stage.role}, inside an AI data analytics app like Power BI. You can only change this stage, "
         "using the listed actions; earlier stages are shown read-only for context. If the user asks a question, "
         "answer it from the state you are given (never invent numbers) and return no actions. If they ask for a "
@@ -581,8 +586,8 @@ def build_prompt(stage: Stage, state: dict, upstream: dict, history: list[dict],
 
 
 def ask(client, model_name: str, capabilities: dict, stage: Stage, state: dict, upstream: dict,
-        history: list[dict], message: str) -> dict:
-    raw = llm.ask_json(client, model_name, capabilities, system_prompt(stage),
+        history: list[dict], message: str, mode: str = "full") -> dict:
+    raw = llm.ask_json(client, model_name, capabilities, system_prompt(stage, mode),
                        build_prompt(stage, state, upstream, history, message), "respond", schema(stage))
     actions = [a for a in raw.get("actions") or [] if isinstance(a, dict) and a.get("action") in stage.actions]
     return {"reply": str(raw.get("reply") or "").strip(), "actions": actions}

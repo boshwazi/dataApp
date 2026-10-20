@@ -87,7 +87,8 @@ def create_app(
             file = (FRONTEND_DIST / path).resolve()
             if path and file.is_file() and FRONTEND_DIST in file.parents:
                 return FileResponse(file)
-            return FileResponse(FRONTEND_DIST / "index.html")
+            # Always revalidate the page itself so a new build shows at once; its assets are fingerprinted.
+            return FileResponse(FRONTEND_DIST / "index.html", headers={"Cache-Control": "no-cache"})
 
     return app
 

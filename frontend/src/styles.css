@@ -1172,7 +1172,8 @@ tr.inactive td {
 
 .kpi-strip {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  /* auto-fill keeps empty tracks, so one or two cards keep a card's width instead of stretching */
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 16px;
   margin-bottom: 16px;
 }
@@ -1629,4 +1630,27 @@ tr.inactive td {
   margin: 4px 0 0;
   padding-left: 16px;
   color: var(--muted);
+}
+
+/* With the chat open there is less room: stack the source/table list above the detail. */
+.with-chat .get-data {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.with-chat .sources {
+  width: 100%;
+}
+
+.with-chat .source-list {
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+
+.with-chat .side-actions {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.with-chat .add-data {
+  max-width: 560px;
 }

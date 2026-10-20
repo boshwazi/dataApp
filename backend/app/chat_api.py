@@ -112,7 +112,8 @@ def build_router(
         state, upstream = read_context(project_id, current)
         history = messages(project_id, stage)
         try:
-            answer = chat.ask(client_factory(config), config.model, config.capabilities, current, state, upstream, history, text)
+            answer = chat.ask(client_factory(config), config.model, config.capabilities, current, state, upstream, history, text,
+                              body.mode)
         except llm.AIError as exc:
             raise HTTPException(502, f"The AI did not answer: {exc}") from exc
         user = chat.message("user", text)
@@ -201,7 +202,7 @@ def build_router(
             state = chat.REPORT.context(ctx)
             try:
                 answer = chat.ask(client_factory(config), config.model, config.capabilities, chat.REPORT, state, {},
-                                  dash.get("chat", []), text)
+                                  dash.get("chat", []), text, body.mode)
             except llm.AIError as exc:
                 raise HTTPException(502, f"The AI did not answer: {exc}") from exc
             if answer["actions"] and chat.needs_approval(chat.REPORT, answer["actions"], body.mode):
