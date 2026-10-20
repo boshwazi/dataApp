@@ -63,7 +63,7 @@ export function Settings() {
     : "Paste your API key";
 
   return (
-    <>
+    <div className="page">
       <h1>Settings</h1>
       <p className="muted">
         The AI provider used by every stage. Any OpenAI-compatible API works. Your key stays on this machine and is
@@ -131,6 +131,6 @@ export function Settings() {
           )}
         </section>
       )}
-    </>
+    </div>
   );
 }

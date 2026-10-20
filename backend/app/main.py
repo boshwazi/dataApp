@@ -12,12 +12,15 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import llm
+from . import ingest, llm
+from .projects import ProjectStore
+from .projects_api import build_router
 from .settings import ProviderSettings, SettingsStore, public_view
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DATA_DIR = REPO_ROOT / "data"
 FRONTEND_DIST = REPO_ROOT / "frontend" / "dist"
+SAMPLES_DIR = REPO_ROOT / "samples"
 
 
 class SettingsUpdate(BaseModel):
@@ -29,9 +32,11 @@ class SettingsUpdate(BaseModel):
 def create_app(
     data_dir: Path = DEFAULT_DATA_DIR,
     client_factory: Callable[[ProviderSettings], object] = llm.make_client,
+    fetch_url: Callable[[str], tuple[bytes, str, str]] = ingest.http_get,
 ) -> FastAPI:
     store = SettingsStore(data_dir / "settings.json")
     app = FastAPI(title="AI Data Analytics")
+    app.include_router(build_router(ProjectStore(data_dir / "projects"), store, client_factory, fetch_url, SAMPLES_DIR))
 
     @app.get("/api/health")
     def health():

@@ -1,8 +1,10 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Layout } from "./Layout";
+import { GetData } from "./pages/GetData";
 import { Home } from "./pages/Home";
+import { Project } from "./pages/Project";
 import { Settings } from "./pages/Settings";
 import "./styles.css";
 
@@ -13,6 +15,10 @@ createRoot(document.getElementById("root")!).render(
         <Route element={<Layout />}>
           <Route index element={<Home />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="projects/:projectId" element={<Project />}>
+            <Route index element={<Navigate to="get-data" replace />} />
+            <Route path="get-data" element={<GetData />} />
+          </Route>
         </Route>
       </Routes>
     </BrowserRouter>

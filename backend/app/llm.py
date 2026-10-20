@@ -119,3 +119,56 @@ def _check_json_mode(client: openai.OpenAI, model: str) -> bool:
         return isinstance(json.loads(response.choices[0].message.content or ""), dict)
     except json.JSONDecodeError:
         return False
+
+
+class AIError(Exception):
+    pass
+
+
+def ask_json(
+    client: openai.OpenAI,
+    model: str,
+    capabilities: dict,
+    system: str,
+    prompt: str,
+    tool_name: str,
+    schema: dict,
+    max_tokens: int = 8000,
+) -> dict:
+    """Ask for one JSON object matching `schema`, using the best protocol the provider supports.
+
+    Tool calling first, then JSON mode, then plain text with the JSON pulled out of the reply.
+    """
+    messages = [{"role": "system", "content": system}, {"role": "user", "content": prompt}]
+    try:
+        if capabilities.get("tools"):
+            response = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                tools=[{"type": "function", "function": {"name": tool_name, "parameters": schema}}],
+                tool_choice={"type": "function", "function": {"name": tool_name}},
+                max_tokens=max_tokens,
+            )
+            calls = response.choices[0].message.tool_calls or []
+            if calls and calls[0].function.name == tool_name:
+                return _parse_object(calls[0].function.arguments)
+        schema_note = f"\n\nReply with only a JSON object matching this JSON Schema:\n{json.dumps(schema)}"
+        messages[-1] = {"role": "user", "content": prompt + schema_note}
+        extra = {"response_format": {"type": "json_object"}} if capabilities.get("json_mode") else {}
+        response = client.chat.completions.create(model=model, messages=messages, max_tokens=max_tokens, **extra)
+    except openai.APIError as exc:
+        raise AIError(describe_error(exc)) from exc
+    return _parse_object(response.choices[0].message.content or "")
+
+
+def _parse_object(text: str) -> dict:
+    start, end = text.find("{"), text.rfind("}")
+    if start < 0 or end < start:
+        raise AIError("The AI reply did not contain JSON.")
+    try:
+        value = json.loads(text[start : end + 1])
+    except json.JSONDecodeError as exc:
+        raise AIError("The AI reply was not valid JSON.") from exc
+    if not isinstance(value, dict):
+        raise AIError("The AI reply was not a JSON object.")
+    return value
