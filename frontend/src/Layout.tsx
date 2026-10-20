@@ -4,7 +4,9 @@ export function Layout() {
   return (
     <div className="shell">
       <aside className="sidebar">
-        <div className="brand">AI Data Analytics</div>
+        <div className="brand">
+          <span className="brand-mark" aria-hidden="true">●</span> datalemon
+        </div>
         <nav>
           <NavLink to="/" end>
             Home

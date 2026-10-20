@@ -1570,3 +1570,63 @@ tr.inactive td {
     max-height: 520px;
   }
 }
+
+.brand-mark {
+  color: #f5c518;
+}
+
+/* Ask */
+
+.ask-turn {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chat-msg.answer {
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ask-result {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.ask-title {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.small-kpi {
+  font-size: 22px;
+}
+
+.ask-table {
+  max-height: 220px;
+}
+
+.ask-table .grid {
+  font-size: 12px;
+}
+
+.how {
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.how summary {
+  cursor: pointer;
+  color: var(--accent);
+}
+
+.how ul {
+  margin: 4px 0 0;
+  padding-left: 16px;
+  color: var(--muted);
+}

@@ -40,7 +40,7 @@ def create_app(
     fetch_url: Callable[[str], tuple[bytes, str, str]] = ingest.http_get,
 ) -> FastAPI:
     store = SettingsStore(data_dir / "settings.json")
-    app = FastAPI(title="AI Data Analytics")
+    app = FastAPI(title="datalemon")
     boards = DashboardStore(data_dir / "dashboards")
     projects = ProjectStore(data_dir / "datasets")
     migrate(data_dir, projects, boards)

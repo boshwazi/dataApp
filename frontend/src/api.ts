@@ -520,3 +520,32 @@ export const activityApi = {
     request<Dataset>(`/api/datasets/${id}/stages/${stage}/reviewed`, { method: "POST" }),
   dashboardReviewed: (id: string) => request<ReportState>(`/api/dashboards/${id}/reviewed`, { method: "POST" }),
 };
+
+// Ask (questions about a dashboard's data)
+
+export type AskResult = {
+  title: string;
+  show_as: "number" | "bar" | "line" | "table";
+  columns: string[];
+  rows: (string | number | null)[][];
+  truncated: boolean;
+  error: string | null;
+  query: { measures: string[]; group_by: { table: string; column: string }[] };
+  how?: { measures: { name: string; definition: string }[]; split_by: string[]; filters: string[]; tables: string[] };
+};
+
+export type AskResponse = {
+  answer: string;
+  follow_ups: string[];
+  check: { verified: boolean; unmatched: number[] };
+  results: AskResult[];
+  cannot_answer: string;
+  formats: Record<string, MeasureFormat>;
+  dataset_version: number;
+  as_of: string | null;
+};
+
+export const askApi = {
+  ask: (dashboardId: string, question: string, history: { role: string; content: string }[], side: "draft" | "published") =>
+    request<AskResponse>(`/api/dashboards/${dashboardId}/ask`, json("POST", { question, history, side })),
+};

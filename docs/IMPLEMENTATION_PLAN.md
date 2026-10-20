@@ -1,6 +1,6 @@
-# Implementation Plan — AI Data Analytics Web App
+# Implementation Plan — datalemon
 
-An AI-powered take on Power BI: the same Get Data → Transform → Model → Report flow,
+**datalemon** is an AI-powered take on Power BI: the same Get Data → Transform → Model → Report flow,
 but the AI does every step. There are no manual tools. Users steer each stage in plain
 English through a chat panel whose powers are scoped to that stage (similar to Snowflake
 Cortex Code). It launches as a public, paid SaaS product.
@@ -11,6 +11,7 @@ Product requirements: [AI Data Analytics Web App — Product Requirements](https
 
 | Topic | Decision |
 | --- | --- |
+| Name | **datalemon** |
 | Market | Public SaaS from day one: any company signs up, gets a workspace and pays a subscription |
 | Structure | **Datasets** (Get Data, Transform, Model) are reusable; **Dashboards** (Report, Ask, Export) are built on a dataset |
 | Roles | Admin, Creator, Viewer per workspace |
@@ -48,6 +49,8 @@ it on DuckDB.
 | M3 | Model: relationships with checks, date table, measures, diagram | Done |
 | M4 | Report: KPI cards, charts, checked insights (house style) | Done (first draft) |
 | M5 | Datasets + Dashboards, draft and publish, new or existing data on Home, migration | Done |
+| M6 | Stage chat agents, Full AI and Review modes, stale markers, activity log | Done |
+| M7a | Ask on published dashboards: answers from the model's measures with "how this was calculated" | Done |
 
 ## Product structure
 
@@ -112,6 +115,66 @@ How a chat request works:
 
 The Ask agent answers from the model with `evaluate`. It shows each number with "how this was
 calculated" (the measure, its filters, the tables used), which builds trust.
+
+## Multi-dataset models
+
+People will want one dashboard over several sources, for example sales from the POS system,
+targets from a Google Sheet and headcount from HR. Power BI's guidance is to extend a governed
+model with a little extra data, rather than stitch many models together, and to share
+dimensions such as Date, Customer and Product across facts
+([Microsoft Learn](https://learn.microsoft.com/en-gb/power-BI/guidance/composite-model-guidance),
+[PowerBI.tips](https://powerbi.tips/2025/03/07/managing-multiple-datasets-ep-404/),
+[Tabular Editor](https://tabulareditor.com/blog/composite-models-in-power-bi-and-fabric)).
+datalemon follows the same idea in three levels:
+
+1. **Many sources in one dataset (works today).** A dataset can hold any number of files and
+   sheets, and the model can have several fact tables. For example, `sales` and `targets` can
+   both relate to shared `Date` and `Product` dimensions, which Power BI calls a galaxy schema.
+   Measures from different facts sit side by side in one visual because they share those dimensions.
+2. **Linked tables from other datasets (to build).** In Get Data, choose "From another
+   dataset" and pick clean tables from any published dataset, such as a certified `Customers`
+   table.
+   - The link is read-only and keeps its lineage ("from Customer Master v4").
+   - When the source dataset publishes a new version, the linked table shows "update available".
+   - Updating re-checks the relationships and dashboards that use it.
+   - Copies are made by the app, never by AI-written SQL.
+3. **Certified datasets (to build).** Admins mark core datasets, such as Customer Master and
+   Calendar, as certified. Certified datasets appear first when linking, and changes to them
+   list every dataset and dashboard downstream.
+
+The Model agent gets new actions: link a table from another dataset, and relate a second fact
+table through shared dimensions. It also warns about the classic many-facts traps: totals that
+don't add up across facts, and filters that can't reach a fact because there's no path. A
+lineage view shows source → steps → model → visuals for any number on a dashboard.
+
+## Feature roadmap (research summary)
+
+The 2026 consensus is that natural-language questions and AI-written insights are now
+expected. Trust comes from a governed semantic layer and "show your work". Text-to-SQL over raw
+tables is unreliable on real schemas, while answers that compile through defined measures are
+far more accurate
+([Cube](https://cube.dev/articles/what-is-conversational-bi),
+[Teradata](https://www.teradata.com/insights/data-analytics/what-is-conversational-analytics),
+[TDWI](https://tdwi.org/webcasts/2026/09/biz-all-expert-panel-semantic-layers-the-foundation-for-trusted-generative-bi.aspx),
+[Big Data Boutique](https://bigdataboutique.com/talk-to-your-data)).
+datalemon is built that way already. These are the features that would add the most for
+business users, in rough priority order:
+
+| Feature | Why it matters | Notes |
+| --- | --- | --- |
+| **Data refresh** | Dashboards go stale without it; this is the most common BI need after building | Re-pull Google Sheets on a schedule. Upload a new file to replace an old one, keeping its steps. The checks run on refresh, then auto-publish if they pass. Refresh history. |
+| **Alerts and digests** | People don't open dashboards daily; Tableau Pulse made this the expected default | "Tell me when Revenue drops 10% vs last month." Weekly AI digest of what changed, by email (WhatsApp later for Malaysia). |
+| **Sharing** | Viewers need an easy way in | Invite viewers by email, share links with expiry, embed in Notion or an intranet, scheduled PDF by email. |
+| **Row-level security** | One dashboard for every region or branch | Rules per role ("Region = viewer's region"). The Ask agent respects them too. |
+| **Data quality monitors** | Wrong numbers cost trust | After each refresh: row-count drops, new unknown categories, blanks rising, broken relationships. Alerts the creator. |
+| **Database and cloud connectors** | Companies keep data in systems, not files | Postgres, MySQL, SQL Server, BigQuery, Excel on OneDrive and SharePoint, Google Drive folders. Read-only credentials, kept encrypted. |
+| **Templates** | Faster first value | Starter dashboards (sales, finance, HR, inventory) that map onto your columns with AI help. |
+| **Bahasa Malaysia** | Home market | Interface and AI answers in BM or English, per user. |
+| **Comments and annotations** | Turns dashboards into a team conversation | Comment on a visual, @mention people, annotate a spike ("promo week"). |
+| **Forecast and what-if** | A common follow-up question | Simple, explained trend forecasts with ranges; "what if price +5%" on a measure. The method is always shown. |
+| **Version history** | Safety for creators | Every published version is kept; compare and roll back datasets and dashboards. |
+| **Usage analytics** | Admins see value | Most-viewed dashboards, popular questions, AI credit use per workspace. |
+| **Mobile view** | Managers read on phones | A single-column layout for published dashboards and Ask. |
 
 ## Platform architecture (hosted)
 
@@ -235,12 +298,14 @@ in the app.
 
 | # | Delivers | You can test |
 | --- | --- | --- |
-| M6 | Stage chat agents on every stage, Full AI and Review modes, stale markers, activity log | Steering each stage in English |
-| M7 | Ask chat on dashboards (with "how this was calculated") and PDF export | The end-to-end flow |
-| M8 | Supabase: sign-in, workspaces, roles, invites, Postgres metadata with RLS, file storage | Two companies, fully isolated |
-| M9 | Landing page, sign-in and onboarding | A new company signing up |
-| M10 | Billing: plans, seats, AI credits ledger, CHIP checkout and renewals | Paying for Pro, topping up credits |
-| M11 | Launch hardening: isolation tests, security review, rate limits, monitoring, backups, PDPA documents | Launch checklist complete |
+| M7b | PDF export of published dashboards | Sending a dashboard as a PDF |
+| M8 | Data refresh: replace files, scheduled Google Sheets pulls, checks on refresh, auto-publish, refresh history | Updating a dashboard with next month's data |
+| M9 | Multi-dataset: linked tables from other datasets, certified datasets, multiple fact tables, lineage view | One dashboard over sales, targets and HR data |
+| M10 | Supabase: sign-in, workspaces, roles, invites, Postgres metadata with RLS, file storage | Two companies, fully isolated |
+| M11 | Landing page, sign-in and onboarding (datalemon brand) | A new company signing up |
+| M12 | Billing: plans, seats, AI credits ledger, CHIP checkout and renewals | Paying for Pro, topping up credits |
+| M13 | Launch hardening: isolation tests, security review, rate limits, monitoring, backups, PDPA documents | Launch checklist complete |
+| Later | Alerts and digests, sharing and embeds, row-level security, data quality monitors, connectors, templates, Bahasa Malaysia, comments, forecasts, version history, usage analytics, mobile view | See the feature roadmap |
 
 ## Stack (today)
 

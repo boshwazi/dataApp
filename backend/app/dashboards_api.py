@@ -9,7 +9,7 @@ from typing import Callable
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from . import activity, ai_report, dashboards, llm, model, publishing, report
+from . import activity, ai_report, ask, dashboards, llm, model, publishing, report
 from .dashboards import DashboardStore
 from .projects import NotFound, ProjectStore
 from .settings import ProviderSettings, SettingsStore
@@ -27,6 +27,12 @@ class NameBody(BaseModel):
 class PageBody(BaseModel):
     title: str
     question: str = ""
+
+
+class AskBody(BaseModel):
+    question: str
+    history: list[dict] = []
+    side: str = "published"
 
 
 class VisualBody(BaseModel):
@@ -313,5 +319,34 @@ def build_router(
         body = respond(dashboard_id)
         return {"summary": result["summary"], "added": result["added"], "refused": result["refused"],
                 "new_pages": page_ids, **body}
+
+    @router.post("/{dashboard_id}/ask")
+    def ask_question(dashboard_id: str, body: AskBody):
+        """Answer a question about the dashboard's data. Read-only; anyone who can see the dashboard may ask.
+        The conversation is kept by the browser, not stored, so each viewer's questions stay their own."""
+        settings = settings_store.load()
+        if not settings.api_key:
+            raise HTTPException(400, "The AI is not set up yet. Ask an admin to add an API key in Settings.")
+        question = body.question.strip()
+        if not question:
+            raise HTTPException(400, "Type a question first.")
+        if len(question) > 1000:
+            raise HTTPException(400, "Keep questions under 1,000 characters.")
+        try:
+            dash = boards.get(dashboard_id)
+        except NotFound as exc:
+            raise HTTPException(404, str(exc)) from exc
+        pages = ((dash.get("published") or {}) if body.side == "published" else dash["draft"]).get("pages") or []
+        with opened(dash) as (dataset, frozen, con):
+            if frozen is None:
+                raise HTTPException(400, "This dashboard's data isn't published yet.")
+            try:
+                result = ask.ask(client_factory(settings), settings.model, settings.capabilities, con,
+                                 publishing.bind(frozen, {"pages": pages, "history": []}), pages, question, body.history)
+            except llm.AIError as exc:
+                raise HTTPException(502, f"The AI did not answer: {exc}") from exc
+            formats = {m["name"]: m["format"] for m in model.state(frozen)["measures"]}
+            return {**result, "formats": formats, "dataset_version": dataset["published"]["version"],
+                    "as_of": report.as_of(con, frozen)}
 
     return router

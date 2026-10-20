@@ -17,6 +17,7 @@ import {
   type Visual,
 } from "../api";
 import { ActivityDrawer } from "../components/ActivityDrawer";
+import { AskPanel } from "../components/AskPanel";
 import { Chart, SERIES, TOKENS } from "../components/Chart";
 import { ChatPanel, type ChatHandle } from "../components/ChatPanel";
 
@@ -113,11 +114,9 @@ export function Dashboard() {
         <button className="secondary" onClick={() => setShowActivity(true)}>
           Activity
         </button>
-        {editing && (
-          <button className="secondary" onClick={() => setChatOpen(!chatOpen)} aria-pressed={chatOpen}>
-            {chatOpen ? "Hide chat" : "AI chat"}
-          </button>
-        )}
+        <button className="secondary" onClick={() => setChatOpen(!chatOpen)} aria-pressed={chatOpen}>
+          {chatOpen ? "Hide chat" : editing ? "AI chat" : "Ask"}
+        </button>
         <span className="segmented">
           <button className={editing ? "on" : ""} onClick={() => go({ view: "draft" })}>
             Draft
@@ -186,7 +185,7 @@ export function Dashboard() {
         </div>
       )}
 
-      <div className={editing && chatOpen ? "with-chat" : ""}>
+      <div className={chatOpen && (editing || state.published) ? "with-chat" : ""}>
       <div className="dashboard-main">
       {editing && dataset?.published && (
         <div className="toolbar">
@@ -289,6 +288,7 @@ export function Dashboard() {
           handle={(h) => (chat.current = h)}
         />
       )}
+      {!editing && chatOpen && state.published && <AskPanel dashboardId={dashboardId} side="published" />}
       </div>
       {showActivity && <ActivityDrawer load={() => activityApi.dashboard(dashboardId)} onClose={() => setShowActivity(false)} />}
     </div>

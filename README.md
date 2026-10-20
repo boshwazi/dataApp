@@ -1,10 +1,10 @@
-# AI Data Analytics
+# datalemon
 
-An AI-powered take on Power BI Desktop: Get Data → Transform → Model → Report, with the AI
+datalemon is an AI-powered take on Power BI Desktop: Get Data → Transform → Model → Report, with the AI
 doing every step and each stage steered by a plain-English chat. See
 [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md).
 
-**Status:** M5 — reusable datasets and dashboards with draft and publish. Get Data, Transform, Model and Report all work.
+**Status:** M7a — datasets, dashboards, stage chats and Ask on published dashboards.
 
 ## Requirements
 
@@ -67,6 +67,27 @@ The app follows Power BI's shared-model practice: data is prepared once and reus
 
 Projects from earlier versions are moved over automatically. Each becomes a dataset, plus a
 dashboard if it had report pages.
+
+## Ask
+
+Every published dashboard has an **Ask** panel, open to anyone who can see the dashboard. It
+answers questions about the data in plain words.
+- The AI never writes SQL. It picks from the dataset's measures and columns, and datalemon
+  calculates the numbers with the same engine the dashboard uses.
+- Each answer shows **How this was calculated**: the measures and their definitions, what it
+  was split and filtered by, and which tables were used.
+- Numbers in the answer are checked against the results, and any that don't match are
+  flagged "Unverified".
+- The conversation stays in the viewer's browser tab.
+
+## Stage chat
+
+Every dataset stage and every dashboard draft has an AI chat that answers questions and
+makes changes to that stage only. Each change goes through the same checks as the buttons.
+- **Full AI** applies changes at once, and they can be undone.
+- **Review** shows the checked plan for approval first.
+- When an earlier stage changes, later stages show "needs re-run". An **Activity** log lists
+  every change.
 
 ## Get Data
 
