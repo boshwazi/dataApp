@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import type { EChartsCoreOption } from "echarts/core";
 import {
+  activityApi,
   api,
+  dashboardChat,
   dashboardsApi,
   formatCompact,
   formatMeasure,
@@ -14,7 +16,11 @@ import {
   type ReportState,
   type Visual,
 } from "../api";
+import { ActivityDrawer } from "../components/ActivityDrawer";
 import { Chart, SERIES, TOKENS } from "../components/Chart";
+import { ChatPanel, type ChatHandle } from "../components/ChatPanel";
+
+const SUGGESTIONS = ["Add a page about customers", "Swap the donut for a bar chart", "Which visual shows the biggest change?"];
 import { PublishBadge } from "./Dataset";
 
 /** A dashboard: report pages on its dataset's published version. Creators edit the draft; viewers see what is published. */
@@ -28,6 +34,10 @@ export function Dashboard() {
   const [building, setBuilding] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [run, setRun] = useState<ReportRun | { error: string } | null>(null);
+  const [chatOpen, setChatOpen] = useState(true);
+  const [showActivity, setShowActivity] = useState(false);
+  const chat = useRef<ChatHandle | null>(null);
+  const thread = useMemo(() => dashboardChat(dashboardId), [dashboardId]);
 
   const load = useCallback(() => {
     reportApi.state(dashboardId, side).then(setState).catch((e) => setError(e.message));
@@ -100,6 +110,14 @@ export function Dashboard() {
           </button>
         )}
         <span className="spacer" />
+        <button className="secondary" onClick={() => setShowActivity(true)}>
+          Activity
+        </button>
+        {editing && (
+          <button className="secondary" onClick={() => setChatOpen(!chatOpen)} aria-pressed={chatOpen}>
+            {chatOpen ? "Hide chat" : "AI chat"}
+          </button>
+        )}
         <span className="segmented">
           <button className={editing ? "on" : ""} onClick={() => go({ view: "draft" })}>
             Draft
@@ -139,6 +157,37 @@ export function Dashboard() {
         </div>
       )}
 
+      {editing && state.dataset_updated_to && (
+        <div className="notice stale-banner small">
+          <span>
+            <strong>{dataset?.name}</strong> was published again (v{state.dataset_updated_to}) since this report was last
+            reviewed.
+          </span>
+          <span className="actions">
+            <button
+              className="secondary"
+              onClick={() => {
+                setChatOpen(true);
+                setTimeout(
+                  () =>
+                    chat.current?.send(
+                      "The dataset was published again. Check every page against it and fix visuals that broke or no longer make sense.",
+                    ),
+                  0,
+                );
+              }}
+            >
+              Ask AI to check
+            </button>
+            <button className="link small" onClick={() => change(() => activityApi.dashboardReviewed(dashboardId))}>
+              Mark as reviewed
+            </button>
+          </span>
+        </div>
+      )}
+
+      <div className={editing && chatOpen ? "with-chat" : ""}>
+      <div className="dashboard-main">
       {editing && dataset?.published && (
         <div className="toolbar">
           <button onClick={build} disabled={!hasKey || building}>
@@ -229,6 +278,19 @@ export function Dashboard() {
           </section>
         </>
       )}
+      </div>
+      {editing && chatOpen && (
+        <ChatPanel
+          title="Report AI"
+          thread={thread}
+          suggestions={SUGGESTIONS}
+          disabled={dataset?.published ? null : "Publish the dataset first; then the AI can design pages."}
+          onApplied={load}
+          handle={(h) => (chat.current = h)}
+        />
+      )}
+      </div>
+      {showActivity && <ActivityDrawer load={() => activityApi.dashboard(dashboardId)} onClose={() => setShowActivity(false)} />}
     </div>
   );
 }

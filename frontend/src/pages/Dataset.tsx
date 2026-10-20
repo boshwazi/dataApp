@@ -1,13 +1,40 @@
-import { useCallback, useEffect, useState } from "react";
-import { Link, NavLink, Outlet, useOutletContext, useParams, useSearchParams } from "react-router-dom";
-import { api, ApiError, type BrokenVisual, type Dataset as DatasetData } from "../api";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, NavLink, Outlet, useLocation, useOutletContext, useParams, useSearchParams } from "react-router-dom";
+import {
+  activityApi,
+  api,
+  ApiError,
+  datasetChat,
+  type BrokenVisual,
+  type Dataset as DatasetData,
+  type DatasetStage,
+} from "../api";
+import { ActivityDrawer } from "../components/ActivityDrawer";
+import { ChatPanel, type ChatHandle } from "../components/ChatPanel";
 
 // The dataset half of the pipeline, in Power BI order. Dashboards build on what is published here.
-const STAGES = [
-  { path: "get-data", name: "Get Data" },
-  { path: "transform", name: "Transform" },
-  { path: "model", name: "Model" },
+const STAGES: { path: string; key: DatasetStage; name: string; suggestions: string[] }[] = [
+  {
+    path: "get-data",
+    key: "get_data",
+    name: "Get Data",
+    suggestions: ["What does each table contain?", "Which table has the most data quality issues?"],
+  },
+  {
+    path: "transform",
+    key: "transform",
+    name: "Transform",
+    suggestions: ["Treat blank regions as Unknown", "Which columns still have issues?", "Explain the steps on the main table"],
+  },
+  {
+    path: "model",
+    key: "model",
+    name: "Model",
+    suggestions: ["Add a profit margin measure", "How are the tables connected?", "Add a measure for average order value"],
+  },
 ];
+
+const CHAT_KEY = "chatOpen";
 
 export type DatasetContext = {
   project: DatasetData;
@@ -26,6 +53,19 @@ export function Dataset() {
   const [publishing, setPublishing] = useState(false);
   const [problems, setProblems] = useState<BrokenVisual[] | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [chatOpen, setChatOpen] = useState(() => {
+    try {
+      return localStorage.getItem(CHAT_KEY) !== "closed";
+    } catch {
+      return true;
+    }
+  });
+  const [showActivity, setShowActivity] = useState(false);
+  const [version, setVersion] = useState(0);
+  const chat = useRef<ChatHandle | null>(null);
+  const location = useLocation();
+  const stage = STAGES.find((s) => location.pathname.endsWith(`/${s.path}`)) ?? STAGES[0];
+  const thread = useMemo(() => datasetChat(datasetId, stage.key), [datasetId, stage.key]);
 
   const refresh = useCallback(async () => {
     const next = await api.getDataset(datasetId);
@@ -69,6 +109,37 @@ export function Dataset() {
     }
   }
 
+  function toggleChat() {
+    setChatOpen((open) => {
+      try {
+        localStorage.setItem(CHAT_KEY, open ? "closed" : "open");
+      } catch {
+        // private mode
+      }
+      return !open;
+    });
+  }
+
+  async function markReviewed() {
+    try {
+      setDataset(await activityApi.stageReviewed(datasetId, stage.key));
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  function askToCheck(changedStage: string) {
+    if (!chatOpen) toggleChat();
+    // The panel may only mount now, so send on the next tick.
+    setTimeout(
+      () =>
+        chat.current?.send(
+          `${changedStage} changed since this stage was last updated. Check this stage against it and fix anything that no longer fits.`,
+        ),
+      0,
+    );
+  }
+
   if (error && !dataset) return <p className="bad">{error}</p>;
   if (!dataset) return <p className="muted">Loading…</p>;
 
@@ -86,6 +157,12 @@ export function Dataset() {
           Rename
         </button>
         <span className="spacer" />
+        <button className="secondary" onClick={() => setShowActivity(true)}>
+          Activity
+        </button>
+        <button className="secondary" onClick={toggleChat} aria-pressed={chatOpen}>
+          {chatOpen ? "Hide chat" : "AI chat"}
+        </button>
         <PublishBadge published={status.published} version={status.version} changes={status.unpublished_changes} />
         <button onClick={() => publish(false)} disabled={publishing || (status.published && !status.unpublished_changes)}>
           {publishing ? "Publishing…" : status.published ? "Publish changes" : "Publish dataset"}
@@ -133,20 +210,53 @@ export function Dataset() {
         </p>
       )}
 
-      <div className="project-body">
+      <div className={`project-body ${chatOpen ? "with-chat" : ""}`}>
         <nav className="stage-rail" aria-label="Stages">
-          {STAGES.map((stage, i) => (
-            <NavLink key={stage.path} to={stage.path}>
+          {STAGES.map((s, i) => (
+            <NavLink key={s.path} to={s.path}>
               <span className="step">{i + 1}</span>
-              {stage.name}
+              {s.name}
+              {dataset.stale[s.key] && (
+                <span className="stale-dot" title={`${dataset.stale[s.key]} changed since this stage was updated`}>
+                  needs re-run
+                </span>
+              )}
             </NavLink>
           ))}
           <p className="rail-hint muted small">Publish when the model is ready. Dashboards read the published version.</p>
         </nav>
         <section className="stage">
-          <Outlet context={{ project: dataset, refresh } satisfies DatasetContext} />
+          {dataset.stale[stage.key] && (
+            <div className="notice stale-banner small">
+              <span>
+                <strong>{dataset.stale[stage.key]}</strong> changed since {stage.name} was last updated.
+              </span>
+              <span className="actions">
+                <button className="secondary" onClick={() => askToCheck(dataset.stale[stage.key]!)}>
+                  Ask AI to check
+                </button>
+                <button className="link small" onClick={markReviewed}>
+                  Mark as reviewed
+                </button>
+              </span>
+            </div>
+          )}
+          <Outlet key={version} context={{ project: dataset, refresh } satisfies DatasetContext} />
         </section>
+        {chatOpen && (
+          <ChatPanel
+            title={`${stage.name} AI`}
+            thread={thread}
+            suggestions={stage.suggestions}
+            onApplied={() => {
+              setVersion((v) => v + 1); // reload the stage view with the AI's changes
+              void refresh();
+            }}
+            handle={(h) => (chat.current = h)}
+          />
+        )}
       </div>
+      {showActivity && <ActivityDrawer load={() => activityApi.dataset(datasetId)} onClose={() => setShowActivity(false)} />}
     </div>
   );
 }

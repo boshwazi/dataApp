@@ -19,6 +19,7 @@ from .transform_api import build_router as build_transform_router
 from .model_api import build_router as build_model_router
 from .dashboards import DashboardStore, migrate
 from .dashboards_api import build_router as build_dashboards_router
+from .chat_api import build_router as build_chat_router
 from .settings import ProviderSettings, SettingsStore, public_view
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -47,6 +48,7 @@ def create_app(
     app.include_router(build_transform_router(projects, store, client_factory))
     app.include_router(build_model_router(projects, store, client_factory))
     app.include_router(build_dashboards_router(projects, boards, store, client_factory))
+    app.include_router(build_chat_router(projects, boards, store, client_factory, fetch_url))
 
     @app.get("/api/health")
     def health():

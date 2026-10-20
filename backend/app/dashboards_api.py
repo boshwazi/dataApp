@@ -9,7 +9,7 @@ from typing import Callable
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from . import ai_report, dashboards, llm, model, publishing, report
+from . import activity, ai_report, dashboards, llm, model, publishing, report
 from .dashboards import DashboardStore
 from .projects import NotFound, ProjectStore
 from .settings import ProviderSettings, SettingsStore
@@ -76,14 +76,20 @@ def build_router(
         with datasets.connect_published(dataset["id"], dataset["published"]["file"]) as con:
             yield dataset, frozen, con
 
-    def respond(dashboard_id: str, change=None, side: str = "draft", with_data: bool = True) -> dict:
-        """Apply `change(project, con)` to the draft (if any) as one locked edit, then return the dashboard."""
+    def respond(dashboard_id: str, change=None, side: str = "draft", with_data: bool = True,
+                summary: str | None = None, actor: str = "You") -> dict:
+        """Apply `change(project, con)` to the draft (if any) as one locked edit, log it, then return the dashboard."""
         try:
             with boards.edit(dashboard_id) as dash, opened(dash) as (dataset, frozen, con):
+                if dash.get("reviewed_version") is None:
+                    activity.dashboard_reviewed(dash, dataset)  # first sight of the data counts as reviewed
                 if change:
                     if frozen is None:
                         raise report.ReportError("Publish the dataset first: dashboards read its published version.")
                     change(publishing.bind(frozen, dash["draft"]), con)
+                    activity.dashboard_reviewed(dash, dataset)
+                    if summary:
+                        activity.log(dash, "report", summary, actor)
                 return view(dash, dataset, frozen, con, side, with_data)
         except NotFound as exc:
             raise HTTPException(404, str(exc)) from exc
@@ -113,6 +119,7 @@ def build_router(
         formats = {m["name"]: m["format"] for m in model.state(frozen)["measures"]} if frozen else {}
         return {
             **summary(dash, datasets),
+            "dataset_updated_to": activity.dashboard_stale(dash, dataset),
             "side": side,
             "pages": pages,
             "formats": formats,
@@ -184,6 +191,7 @@ def build_router(
                     raise report.ReportError("Add at least one page before publishing.")
                 check_and_publish(publishing.bind(frozen, dash["draft"]), con)
                 dashboards.publish(dash, dataset)
+                activity.log(dash, "publish", "Published the dashboard")
         except NotFound as exc:
             raise HTTPException(404, str(exc)) from exc
         except (report.ReportError, model.ModelError) as exc:
@@ -197,26 +205,43 @@ def build_router(
             return str(exc)
         return None
 
+    @router.get("/{dashboard_id}/activity")
+    def get_activity(dashboard_id: str):
+        try:
+            return {"entries": list(reversed(boards.get(dashboard_id).get("activity", [])))}
+        except NotFound as exc:
+            raise HTTPException(404, str(exc)) from exc
+
+    @router.post("/{dashboard_id}/reviewed")
+    def mark_reviewed(dashboard_id: str):
+        """The creator has checked the report against the newly published dataset."""
+        def change(p, con):
+            pass
+        return respond(dashboard_id, change, summary="Reviewed the report against the updated dataset")
+
     # Report pages (the draft)
 
     @router.post("/{dashboard_id}/pages")
     def add_page(dashboard_id: str, body: PageBody):
-        return respond(dashboard_id, undoable(lambda p, con: report.add_page(p, body.title, body.question)))
+        return respond(dashboard_id, undoable(lambda p, con: report.add_page(p, body.title, body.question)),
+                       summary=f"Added page '{body.title}'")
 
     @router.delete("/{dashboard_id}/pages/{page_id}")
     def remove_page(dashboard_id: str, page_id: str):
-        return respond(dashboard_id, undoable(lambda p, con: report.state(p)["pages"].remove(report.find_page(p, page_id))))
+        return respond(dashboard_id, undoable(lambda p, con: report.state(p)["pages"].remove(report.find_page(p, page_id))),
+                       summary="Removed a page")
 
     @router.post("/{dashboard_id}/pages/{page_id}/visuals")
     def add_visual(dashboard_id: str, page_id: str, body: VisualBody):
-        return respond(dashboard_id, undoable(lambda p, con: report.add_visual(con, p, page_id, body.model_dump(), "Approved")))
+        return respond(dashboard_id, undoable(lambda p, con: report.add_visual(con, p, page_id, body.model_dump(), "Approved")),
+                       summary=f"Added {body.type} '{body.title}'")
 
     @router.delete("/{dashboard_id}/visuals/{visual_id}")
     def remove_visual(dashboard_id: str, visual_id: str):
         def change(p, con):
             page, visual = report.find_visual(p, visual_id)
             page["visuals"].remove(visual)
-        return respond(dashboard_id, undoable(change))
+        return respond(dashboard_id, undoable(change), summary="Removed a visual")
 
     @router.post("/{dashboard_id}/approve")
     def approve(dashboard_id: str, item_id: str | None = None):
@@ -226,11 +251,11 @@ def build_router(
                 for entry in [page] + page["visuals"]:
                     if entry.get("status") == "AI" and (item_id is None or entry["id"] == item_id):
                         entry["status"] = "Approved"
-        return respond(dashboard_id, undoable(change))
+        return respond(dashboard_id, undoable(change), summary="Approved AI changes")
 
     @router.post("/{dashboard_id}/undo")
     def undo(dashboard_id: str):
-        return respond(dashboard_id, lambda p, con: report.undo(p))
+        return respond(dashboard_id, lambda p, con: report.undo(p), summary="Undid the last change")
 
     @router.post("/{dashboard_id}/ai")
     def ai_report_pass(dashboard_id: str):
@@ -259,7 +284,7 @@ def build_router(
         def add(p, con):
             result.update(ai_report.apply_design(con, p, proposal))
 
-        respond(dashboard_id, undoable(add), with_data=False)
+        respond(dashboard_id, undoable(add), with_data=False, summary="AI designed report pages", actor="AI")
         page_ids = [p["id"] for p in result["pages"]]
         if page_ids:
             dash = boards.get(dashboard_id)

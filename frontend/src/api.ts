@@ -50,8 +50,11 @@ export type Dataset = {
   updated_at: string;
   sources: SourceSummary[];
   status: PublishStatus;
+  stale: Record<DatasetStage, string | null>;
   dashboards: { id: string; name: string }[];
 };
+
+export type DatasetStage = "get_data" | "transform" | "model";
 
 export type BrokenVisual = { dashboard: string; dashboard_id: string; version: string; page: string; visual: string; error: string };
 
@@ -411,6 +414,7 @@ export type DashboardSummary = {
 };
 
 export type ReportState = Omit<DashboardSummary, "pages"> & {
+  dataset_updated_to: number | null;
   side: "draft" | "published";
   pages: ReportPage[];
   formats: Record<string, MeasureFormat>;
@@ -458,3 +462,61 @@ export function formatCompact(value: number | null | undefined, format: MeasureF
   const text = `${scaled.toLocaleString(undefined, { minimumFractionDigits: unit ? 1 : 0, maximumFractionDigits: digits })}${unit}`;
   return fmt.type === "currency" ? `${fmt.currency ?? "RM"} ${text}` : text;
 }
+
+// Chat and activity
+
+export type ChatMode = "full" | "review";
+
+export type ChatAction = {
+  action: string;
+  params: Record<string, unknown>;
+  reason: string;
+  label: string;
+  ok: boolean;
+  error: string | null;
+};
+
+export type ChatMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  at: string;
+  change?: { id: string; status: "pending" | "applied" | "rejected"; mode: ChatMode; actions: ChatAction[] };
+};
+
+export type ChatResult = { messages: ChatMessage[]; applied: boolean };
+
+export type ActivityEntry = { at: string; stage: string; summary: string; actor: "You" | "AI"; via: "button" | "chat" };
+
+/** One chat thread: a dataset stage or a dashboard. */
+export type ChatThread = {
+  load: () => Promise<{ messages: ChatMessage[] }>;
+  send: (message: string, mode: ChatMode) => Promise<ChatResult>;
+  decide: (changeId: string, decision: "approve" | "reject") => Promise<ChatResult>;
+};
+
+export function datasetChat(datasetId: string, stage: DatasetStage): ChatThread {
+  const base = `/api/datasets/${datasetId}/chat/${stage}`;
+  return {
+    load: () => request(base),
+    send: (message, mode) => request(base, json("POST", { message, mode })),
+    decide: (changeId, decision) => request(`${base}/changes/${changeId}/${decision}`, { method: "POST" }),
+  };
+}
+
+export function dashboardChat(dashboardId: string): ChatThread {
+  const base = `/api/dashboards/${dashboardId}/chat`;
+  return {
+    load: () => request(base),
+    send: (message, mode) => request(base, json("POST", { message, mode })),
+    decide: (changeId, decision) => request(`${base}/changes/${changeId}/${decision}`, { method: "POST" }),
+  };
+}
+
+export const activityApi = {
+  dataset: (id: string) => request<{ entries: ActivityEntry[] }>(`/api/datasets/${id}/activity`),
+  dashboard: (id: string) => request<{ entries: ActivityEntry[] }>(`/api/dashboards/${id}/activity`),
+  stageReviewed: (id: string, stage: DatasetStage) =>
+    request<Dataset>(`/api/datasets/${id}/stages/${stage}/reviewed`, { method: "POST" }),
+  dashboardReviewed: (id: string) => request<ReportState>(`/api/dashboards/${id}/reviewed`, { method: "POST" }),
+};

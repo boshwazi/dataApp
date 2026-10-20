@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
-from . import ai_profile, ingest, llm, model, publishing, transform
+from . import activity, ai_profile, ingest, llm, model, publishing, transform
 from .dashboards import DashboardStore
 from .projects import NotFound, ProjectStore
 from .settings import ProviderSettings, SettingsStore
@@ -25,7 +25,7 @@ class SheetBody(BaseModel):
     name: str = ""
 
 
-HIDDEN_KEYS = ("sources", "transform", "model", "published", "report")
+HIDDEN_KEYS = ("sources", "transform", "model", "published", "report", "activity", "stage_marks", "chats")
 
 
 def project_view(project: dict, dashboards: list[dict] | None = None) -> dict:
@@ -34,6 +34,7 @@ def project_view(project: dict, dashboards: list[dict] | None = None) -> dict:
         **{k: v for k, v in project.items() if k not in HIDDEN_KEYS},
         "sources": [source_summary(s) for s in project["sources"]],
         "status": publishing.draft_status(project),
+        "stale": activity.stale(project),
         "dashboards": [{"id": d["id"], "name": d["name"]} for d in dashboards or []],
     }
 
@@ -78,6 +79,9 @@ def build_router(
         for table in tables:
             where = {**origin, "label": table.name}
             added.append(store.add_source(project_id, table.frame, table.name, where, table.warnings))
+        if added:
+            with store.edit(project_id) as project:
+                activity.changed(project, "get_data", "Added " + ", ".join(s["table"] for s in added))
         return added
 
     # Projects
@@ -110,6 +114,20 @@ def build_router(
         store.delete(project_id)
         return {"deleted": project_id}
 
+    @router.get("/{project_id}/activity")
+    def get_activity(project_id: str):
+        project = load(project_id)
+        return {"entries": list(reversed(project.get("activity", []))), "stale": activity.stale(project)}
+
+    @router.post("/{project_id}/stages/{stage}/reviewed")
+    def mark_reviewed(project_id: str, stage: str):
+        if stage not in activity.STAGES:
+            raise HTTPException(404, "Unknown stage.")
+        load(project_id)
+        with store.edit(project_id) as project:
+            activity.reviewed(project, stage)
+        return project_view(project, boards.using(project_id))
+
     @router.post("/{project_id}/publish")
     def publish(project_id: str, confirm: bool = False):
         """Freeze the dataset for its dashboards. Lists dashboard visuals that would break unless confirmed."""
@@ -128,6 +146,7 @@ def build_router(
             if problems and not confirm:
                 raise HTTPException(409, {"message": "Publishing would break dashboard visuals.", "problems": problems})
             published = publishing.publish(store, project)
+            activity.log(project, "publish", f"Published version {published['version']}")
         store.remove_old_copies(project_id, keep=published["file"])
         return {**project_view(project, boards.using(project_id)), "broken_visuals": problems}
 
@@ -190,18 +209,24 @@ def build_router(
     @router.patch("/{project_id}/sources/{source_id}")
     def rename_source(project_id: str, source_id: str, body: NameBody):
         find_source(load(project_id), source_id)
+        old = find_source(load(project_id), source_id)["table"]
         try:
-            return store.rename_source(project_id, source_id, body.name)
+            source = store.rename_source(project_id, source_id, body.name)
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
+        with store.edit(project_id) as project:
+            activity.changed(project, "get_data", f"Renamed {old} to {source['table']}")
+        return source
 
     @router.delete("/{project_id}/sources/{source_id}")
     def delete_source(project_id: str, source_id: str):
         find_source(load(project_id), source_id)
+        name = find_source(load(project_id), source_id)["table"]
         store.delete_source(project_id, source_id)
         with store.edit(project_id) as project, store.connect(project_id) as con:
             transform.drop_source(project, source_id)
             transform.apply_all(con, project)
+            activity.changed(project, "get_data", f"Removed {name}")
         return {"deleted": source_id}
 
     @router.post("/{project_id}/sources/{source_id}/profile")

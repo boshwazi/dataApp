@@ -5,7 +5,7 @@ from typing import Callable
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from . import ai_model, llm, model, transform
+from . import activity, ai_model, llm, model, transform
 from .projects import NotFound, ProjectStore
 from .settings import ProviderSettings, SettingsStore
 
@@ -139,11 +139,20 @@ def build_router(
                 return entry
         raise model.ModelError("Not found.")
 
-    def undoable(action):
+    def undoable(action, summary=None, log_only=False):
+        """Snapshot for undo, apply, and log. `summary` may be a function of the project, called before the action."""
         def change(project, con):
             model.snapshot(project)
+            text = summary(project) if callable(summary) else summary
             action(project, con)
+            if text:
+                (activity.log if log_only else activity.changed)(project, "model", text)
         return change
+
+    def rel_label(p, rel_id):
+        rel = item(p, "relationships", rel_id)
+        names = transform.query_names(p) | {model.DATE_ID: model.DATE_NAME}
+        return f"{names.get(rel['from_table'])}[{rel['from_column']}] → {names.get(rel['to_table'])}[{rel['to_column']}]"
 
     @router.get("")
     def get_model(project_id: str):
@@ -151,23 +160,28 @@ def build_router(
 
     @router.post("/relationships")
     def add_relationship(project_id: str, body: RelationshipBody):
-        return respond(project_id, undoable(lambda p, con: model.add_relationship(con, p, body.model_dump(), "Approved")))
+        return respond(project_id, undoable(lambda p, con: model.add_relationship(con, p, body.model_dump(), "Approved"),
+                                            f"Added relationship {body.from_table}[{body.from_column}] → {body.to_table}[{body.to_column}]"))
 
     @router.delete("/relationships/{rel_id}")
     def remove_relationship(project_id: str, rel_id: str):
-        return respond(project_id, undoable(lambda p, con: model.state(p)["relationships"].remove(item(p, "relationships", rel_id))))
+        return respond(project_id, undoable(lambda p, con: model.state(p)["relationships"].remove(item(p, "relationships", rel_id)),
+                                            lambda p: f"Removed relationship {rel_label(p, rel_id)}"))
 
     @router.post("/measures")
     def add_measure(project_id: str, body: MeasureBody):
-        return respond(project_id, undoable(lambda p, con: model.add_measure(con, p, body.model_dump(), "Approved")))
+        return respond(project_id, undoable(lambda p, con: model.add_measure(con, p, body.model_dump(), "Approved"),
+                                            f"Added measure {body.name}"))
 
     @router.delete("/measures/{measure_id}")
     def remove_measure(project_id: str, measure_id: str):
-        return respond(project_id, undoable(lambda p, con: model.state(p)["measures"].remove(item(p, "measures", measure_id))))
+        return respond(project_id, undoable(lambda p, con: model.state(p)["measures"].remove(item(p, "measures", measure_id)),
+                                            lambda p: "Removed measure " + item(p, "measures", measure_id)["name"]))
 
     @router.put("/date-table")
     def set_date_table(project_id: str, body: DateTableBody):
-        return respond(project_id, undoable(lambda p, con: model.set_date_table(con, p, body.start_year, body.end_year)))
+        return respond(project_id, undoable(lambda p, con: model.set_date_table(con, p, body.start_year, body.end_year),
+                                            "Set up the date table"))
 
     @router.delete("/date-table")
     def remove_date_table(project_id: str):
@@ -178,11 +192,13 @@ def build_router(
                 r for r in current["relationships"] if model.DATE_ID not in (r["from_table"], r["to_table"])
             ]
             model.build_date_table(con, p)
-        return respond(project_id, undoable(change))
+        return respond(project_id, undoable(change, "Removed the date table"))
 
     @router.post("/hidden")
     def set_hidden(project_id: str, body: HiddenBody):
-        return respond(project_id, undoable(lambda p, con: model.set_hidden(con, p, body.table, body.column, body.hidden)))
+        verb = "Hid" if body.hidden else "Showed"
+        return respond(project_id, undoable(lambda p, con: model.set_hidden(con, p, body.table, body.column, body.hidden),
+                                            f"{verb} {body.table}[{body.column}]"))
 
     @router.post("/approve")
     def approve(project_id: str, item_id: str | None = None):
@@ -193,13 +209,15 @@ def build_router(
             for entry in entries:
                 if entry.get("status") == "AI" and (item_id is None or entry.get("id", "date") == item_id):
                     entry["status"] = "Approved"
-        return respond(project_id, undoable(change))
+        text = "Approved AI changes" if item_id is None else "Approved an AI change"
+        return respond(project_id, undoable(change, text, log_only=True))
 
     @router.post("/undo")
     def undo(project_id: str):
         def change(p, con):
             model.undo(p)
             model.build_date_table(con, p)
+            activity.changed(p, "model", "Undid the last Model change")
         return respond(project_id, change)
 
     @router.post("/evaluate")
@@ -226,7 +244,12 @@ def build_router(
         except llm.AIError as exc:
             raise HTTPException(502, f"AI modeling failed: {exc}") from exc
         result = {}
-        body = respond(project_id, lambda p, con: result.update(ai_model.apply(con, p, proposal)))
+        def apply(p, con):
+            result.update(ai_model.apply(con, p, proposal))
+            if result["added"]:
+                activity.changed(p, "model", f"AI built the model: {len(result['added'])} items added", "AI")
+
+        body = respond(project_id, apply)
         return {**result, **body}
 
     return router

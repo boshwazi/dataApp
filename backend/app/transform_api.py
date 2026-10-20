@@ -6,7 +6,7 @@ from typing import Callable
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from . import ai_transform, llm, transform
+from . import activity, ai_transform, llm, transform
 from .projects import NotFound, ProjectStore
 from .settings import ProviderSettings, SettingsStore
 from .transform_ops import StepError, catalogue, describe
@@ -144,55 +144,71 @@ def build_router(
             added, rejected = transform.add_steps(con, project, query["id"], [step], "Approved", body.position)
             if rejected:
                 raise StepError(rejected[0]["error"])
+            activity.changed(project, "transform", f"{query['name']}: added step {describe(body.op, step['params'], transform.query_names(project))}")
         return view(project)
 
     @router.post("/queries/{query_id}/steps/{step_id}/approve")
     def approve(project_id: str, query_id: str, step_id: str):
         with editing(project_id) as (project, _):
-            transform.approve_step(project, query_of(project, query_id)["id"], step_id)
+            query = query_of(project, query_id)
+            transform.approve_step(project, query["id"], step_id)
+            activity.log(project, "transform", f"{query['name']}: approved a step")
         return view(project)
 
     @router.post("/split")
     def split(project_id: str, body: SplitBody):
         with editing(project_id) as (project, con):
-            transform.split_table(con, project, body.from_table, body.columns, body.key, body.name, body.reason)
+            made = transform.split_table(con, project, body.from_table, body.columns, body.key, body.name, body.reason)
+            activity.changed(project, "transform", f"Split lookup table {made['name']} off {body.from_table}")
         return view(project)
 
     @router.delete("/queries/{query_id}")
     def remove_table(project_id: str, query_id: str):
         with editing(project_id) as (project, con):
-            transform.remove_table(con, project, query_of(project, query_id)["id"])
+            query = query_of(project, query_id)
+            transform.remove_table(con, project, query["id"])
+            activity.changed(project, "transform", f"Removed lookup table {query['name']}")
         return view(project)
 
     @router.post("/approve-all")
     def approve_all(project_id: str, query_id: str | None = None):
         """Approve every AI step; pass query_id to limit it to one table."""
         with editing(project_id) as (project, _):
-            transform.approve_all(project, query_of(project, query_id)["id"] if query_id else None)
+            count = transform.approve_all(project, query_of(project, query_id)["id"] if query_id else None)
+            activity.log(project, "transform", f"Approved {count} AI {'change' if count == 1 else 'changes'}")
         return view(project)
 
     @router.delete("/queries/{query_id}/steps/{step_id}")
     def remove(project_id: str, query_id: str, step_id: str):
         with editing(project_id) as (project, con):
-            transform.remove_step(con, project, query_of(project, query_id)["id"], step_id)
+            query = query_of(project, query_id)
+            label = next((describe(s["op"], s["params"], transform.query_names(project)) for s in query["steps"] if s["id"] == step_id), "a step")
+            transform.remove_step(con, project, query["id"], step_id)
+            activity.changed(project, "transform", f"{query['name']}: removed step {label}")
         return view(project)
 
     @router.post("/queries/{query_id}/steps/{step_id}/move")
     def move(project_id: str, query_id: str, step_id: str, body: MoveBody):
         with editing(project_id) as (project, con):
-            transform.move_step(con, project, query_of(project, query_id)["id"], step_id, body.to)
+            query = query_of(project, query_id)
+            transform.move_step(con, project, query["id"], step_id, body.to)
+            activity.changed(project, "transform", f"{query['name']}: moved a step to position {body.to + 1}")
         return view(project)
 
     @router.patch("/queries/{query_id}")
     def rename(project_id: str, query_id: str, body: NameBody):
         with editing(project_id) as (project, con):
-            transform.rename_query(con, project, query_of(project, query_id)["id"], body.name)
+            query = query_of(project, query_id)
+            old = query["name"]
+            transform.rename_query(con, project, query["id"], body.name)
+            activity.changed(project, "transform", f"Renamed table {old} to {query['name']}")
         return view(project)
 
     @router.post("/undo")
     def undo(project_id: str):
         with editing(project_id) as (project, _):
             transform.undo(project)
+            activity.changed(project, "transform", "Undid the last Transform change")
         return view(project)
 
     @router.post("/queries/{query_id}/ai")
@@ -240,6 +256,9 @@ def build_router(
             rejected += refused
             history = transform.state(project)["history"]
             del history[before + 1:]  # keep only the first snapshot, so one undo reverts the whole run
+            if added or tables:
+                extra = f" and split off {', '.join(tables)}" if tables else ""
+                activity.changed(project, "transform", f"{query['name']}: AI added {len(added)} cleaning steps{extra}", "AI")
         names = transform.query_names(project)
         return {
             "summary": proposal["summary"],
