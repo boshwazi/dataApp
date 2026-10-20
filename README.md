@@ -13,11 +13,23 @@ doing every step and each stage steered by a plain-English chat. See
 
 ## Setup
 
+macOS / Linux:
+
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r backend/requirements.txt -r backend/requirements-dev.txt
 (cd frontend && npm install)
 ```
+
+Windows (PowerShell):
+
+```powershell
+py -m venv .venv
+.venv\Scripts\pip install -r backend\requirements.txt -r backend\requirements-dev.txt
+cd frontend; npm install; cd ..
+```
+
+On Windows, replace `../.venv/bin/` with `..\.venv\Scripts\` in the commands below.
 
 Add your API key either in the app's Settings page, or in a `.env` file at the repo root
 (copy `.env.example`). The key is stored only on your machine and is never sent to the browser.
