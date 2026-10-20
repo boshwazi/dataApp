@@ -17,11 +17,15 @@ export type ConnectionReport = {
 };
 
 export type Origin = {
-  kind: "csv" | "excel" | "gsheet";
+  kind: "csv" | "excel" | "gsheet" | "dataset";
   label: string;
   file?: string;
   url?: string;
   sample?: boolean;
+  dataset_id?: string;
+  dataset_name?: string;
+  table?: string;
+  version?: number;
 };
 
 export type SourceSummary = {
@@ -33,7 +37,19 @@ export type SourceSummary = {
   columns: number;
   issue_count: number;
   has_ai: boolean;
+  update_available?: boolean;
 };
+
+export type LinkCatalogue = {
+  dataset_id: string;
+  dataset_name: string;
+  certified: boolean;
+  version: number;
+  tables: { query_id: string; name: string; rows: number; columns: string[] }[];
+}[];
+
+export type LineageNode = { id: string; kind: "source" | "table" | "measure" | "visual"; label: string; sub: string; column: number };
+export type Lineage = { nodes: LineageNode[]; edges: { from: string; to: string; kind: string }[] };
 
 export type PublishStatus = {
   published: boolean;
@@ -51,6 +67,8 @@ export type Dataset = {
   sources: SourceSummary[];
   status: PublishStatus;
   stale: Record<DatasetStage, string | null>;
+  certified: boolean;
+  linked_by: { id: string; name: string; tables: string[] }[];
   dashboards: { id: string; name: string }[];
 };
 
@@ -161,6 +179,11 @@ export const api = {
   },
   addGoogleSheet: (pid: string, url: string) =>
     request<AddResult>(`${project(pid)}/sources/gsheet`, json("POST", { url })),
+  linkCatalogue: (pid: string) => request<LinkCatalogue>(`${project(pid)}/link-catalogue`),
+  linkTable: (pid: string, datasetId: string, table: string) =>
+    request<AddResult>(`${project(pid)}/sources/link`, json("POST", { dataset_id: datasetId, table })),
+  certify: (pid: string, certified: boolean) => request<Dataset>(`${project(pid)}/certify`, json("POST", { certified })),
+  lineage: (pid: string) => request<Lineage>(`${project(pid)}/lineage`),
   addSample: (pid: string) => request<AddResult>(`${project(pid)}/sources/sample`, { method: "POST" }),
 
   getSource: (pid: string, sid: string) => request<Source>(source(pid, sid)),

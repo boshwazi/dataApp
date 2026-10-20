@@ -17,8 +17,8 @@ Google Sheets can be pulled on a schedule; files are refreshed by uploading a re
 import copy
 from datetime import datetime, timedelta, timezone
 
-from . import activity, ingest, model, profiling, publishing, transform
-from .projects import ProjectStore, now, quote
+from . import activity, ingest, links, model, profiling, publishing, transform
+from .projects import ProjectStore, load_sql, now, quote
 
 SCHEDULES = {"off": None, "hourly": 1, "every_6_hours": 6, "daily": 24, "weekly": 168}
 HISTORY_LIMIT = 50
@@ -35,7 +35,9 @@ def settings(project: dict) -> dict:
 
 
 def sheet_sources(project: dict) -> list[dict]:
-    return [s for s in project["sources"] if s["origin"].get("kind") == "gsheet" and s["origin"].get("url")]
+    """Sources the app can pull again by itself: Google Sheets and tables linked from other datasets."""
+    return [s for s in project["sources"]
+            if (s["origin"].get("kind") == "gsheet" and s["origin"].get("url")) or s["origin"].get("kind") == "dataset"]
 
 
 def schedule_next(project: dict, start: datetime | None = None) -> None:
@@ -53,7 +55,8 @@ def configure(project: dict, schedule: str | None, auto_publish: bool | None) ->
         if schedule not in SCHEDULES:
             raise RefreshError(f"Schedule must be one of: {', '.join(SCHEDULES)}.")
         if schedule != "off" and not sheet_sources(project):
-            raise RefreshError("Only Google Sheets can be pulled on a schedule. Files are refreshed by uploading a replacement.")
+            raise RefreshError("Only Google Sheets and linked tables can be pulled on a schedule. "
+                               "Files are refreshed by uploading a replacement.")
         config["schedule"] = schedule
         schedule_next(project)
     if auto_publish is not None:
@@ -123,7 +126,7 @@ def compare(before: dict, after: dict) -> tuple[list[dict], str]:
 def replace_in(con, project: dict, source: dict, table: ingest.LoadedTable, origin: dict | None = None) -> None:
     """New rows for a source, under the same table name. The caller holds the edit lock."""
     con.register("incoming", table.frame)
-    con.execute(f"CREATE OR REPLACE TABLE {quote(source['table'])} AS SELECT * FROM incoming")
+    con.execute(f"CREATE OR REPLACE TABLE {quote(source['table'])} AS {load_sql(table.types)}")
     con.unregister("incoming")
     source["profile"] = profiling.profile_table(con, source["table"])
     source["warnings"] = table.warnings
@@ -219,13 +222,17 @@ def pull_sheets(store: ProjectStore, boards, project_id: str, fetch, trigger: st
     project = store.get(project_id)
     targets = [s for s in sheet_sources(project) if only is None or s["id"] == only]
     if not targets:
-        raise RefreshError("This dataset has no Google Sheets to pull. Upload a replacement file instead.")
+        raise RefreshError("This dataset has no Google Sheets or linked tables to pull. Upload a replacement file instead.")
     new_data, failures = {}, {}
     for source in targets:
         try:
             # Downloads happen before the dataset is locked, so a slow sheet never blocks other changes.
-            new_data[source["id"]] = (ingest.read_gsheet(source["origin"]["url"], fetch, source["table"]), None)
-        except ingest.IngestError as exc:
+            if source["origin"].get("kind") == "dataset":
+                table, origin = links.read(store, source["origin"]["dataset_id"], source["origin"]["query_id"])
+                new_data[source["id"]] = (table, origin)
+            else:
+                new_data[source["id"]] = (ingest.read_gsheet(source["origin"]["url"], fetch, source["table"]), None)
+        except (ingest.IngestError, links.LinkError) as exc:
             failures[source["id"]] = str(exc)
     return run(store, boards, project_id, new_data, failures, trigger, actor)
 

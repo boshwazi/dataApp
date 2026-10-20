@@ -6,6 +6,7 @@ import { Dataset } from "./pages/Dataset";
 import { GetData } from "./pages/GetData";
 import { Home } from "./pages/Home";
 import { Model } from "./pages/Model";
+import { Lineage } from "./pages/Lineage";
 import { Refresh } from "./pages/Refresh";
 import { Settings } from "./pages/Settings";
 import { Transform } from "./pages/Transform";
@@ -44,6 +45,7 @@ createRoot(document.getElementById("root")!).render(
             <Route path="transform" element={<Transform />} />
             <Route path="model" element={<Model />} />
             <Route path="refresh" element={<Refresh />} />
+            <Route path="lineage" element={<Lineage />} />
           </Route>
           <Route
             path="dashboards/:dashboardId"

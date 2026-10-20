@@ -58,6 +58,21 @@ def quote(identifier: str) -> str:
     return '"' + identifier.replace('"', '""') + '"'
 
 
+SQL_TYPE = re.compile(r"^[A-Z][A-Z0-9_]*(\(\d+(, ?\d+)?\))?$")
+
+
+def load_sql(types: dict[str, str] | None) -> str:
+    """SELECT from the registered frame, casting back to the original column types when known.
+
+    pandas turns DATE into TIMESTAMP on the way through, so linked tables carry their types."""
+    if not types:
+        return "SELECT * FROM incoming"
+    for kind in types.values():
+        if not SQL_TYPE.match(kind):
+            raise ValueError(f"Unexpected column type {kind!r}.")
+    return "SELECT " + ", ".join(f"CAST({quote(c)} AS {t}) AS {quote(c)}" for c, t in types.items()) + " FROM incoming"
+
+
 class FolderStore:
     """JSON records kept one per folder, with a lock so concurrent requests don't overwrite each other."""
 
@@ -134,11 +149,12 @@ class ProjectStore(FolderStore):
 
     # Sources
 
-    def add_source(self, project_id: str, frame: pd.DataFrame, name: str, origin: dict, warnings: list[str]) -> dict:
+    def add_source(self, project_id: str, frame: pd.DataFrame, name: str, origin: dict, warnings: list[str],
+                   types: dict[str, str] | None = None) -> dict:
         with self.edit(project_id) as project, self.connect(project_id) as con:
             table = unique(table_name(name), {s["table"] for s in project["sources"]})
             con.register("incoming", frame)
-            con.execute(f"CREATE TABLE {quote(table)} AS SELECT * FROM incoming")
+            con.execute(f"CREATE TABLE {quote(table)} AS {load_sql(types)}")
             con.unregister("incoming")
             source = {
                 "id": new_id(),

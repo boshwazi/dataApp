@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
-from . import activity, ai_profile, ingest, llm, model, publishing, refresh, transform
+from . import activity, ai_profile, ingest, lineage, links, llm, model, publishing, refresh, transform
 from .dashboards import DashboardStore
 from .projects import NotFound, ProjectStore
 from .settings import ProviderSettings, SettingsStore
@@ -25,6 +25,15 @@ class RefreshSettingsBody(BaseModel):
     auto_publish: bool | None = None
 
 
+class LinkBody(BaseModel):
+    dataset_id: str
+    table: str
+
+
+class CertifyBody(BaseModel):
+    certified: bool
+
+
 class SheetBody(BaseModel):
     url: str
     name: str = ""
@@ -33,11 +42,15 @@ class SheetBody(BaseModel):
 HIDDEN_KEYS = ("sources", "transform", "model", "published", "report", "activity", "stage_marks", "chats")
 
 
-def project_view(project: dict, dashboards: list[dict] | None = None) -> dict:
+def project_view(project: dict, dashboards: list[dict] | None = None, versions: dict | None = None,
+                 linked_by: list[dict] | None = None) -> dict:
     """A dataset as the browser sees it: sources without their full profiles, publish status, users."""
     return {
         **{k: v for k, v in project.items() if k not in HIDDEN_KEYS},
-        "sources": [source_summary(s) for s in project["sources"]],
+        "certified": bool(project.get("certified")),
+        "linked_by": linked_by or [],
+        "sources": [{**source_summary(s), "update_available": links.update_available(s, versions or {})}
+                    for s in project["sources"]],
         "status": publishing.draft_status(project),
         "stale": activity.stale(project),
         "dashboards": [{"id": d["id"], "name": d["name"]} for d in dashboards or []],
@@ -67,6 +80,10 @@ def build_router(
 ) -> APIRouter:
     router = APIRouter(prefix="/api/datasets")
 
+    def full_view(project: dict) -> dict:
+        return project_view(project, boards.using(project["id"]), links.latest_versions(store),
+                            links.linked_by(store, project["id"]))
+
     def load(project_id: str) -> dict:
         try:
             return store.get(project_id)
@@ -94,7 +111,8 @@ def build_router(
     @router.get("")
     def list_projects():
         boards_now = boards.all()
-        return [project_view(p, [d for d in boards_now if d["dataset_id"] == p["id"]]) for p in store.all()]
+        versions = links.latest_versions(store)
+        return [project_view(p, [d for d in boards_now if d["dataset_id"] == p["id"]], versions) for p in store.all()]
 
     @router.post("")
     def create_project(body: NameBody):
@@ -102,7 +120,7 @@ def build_router(
 
     @router.get("/{project_id}")
     def get_project(project_id: str):
-        return project_view(load(project_id), boards.using(project_id))
+        return full_view(load(project_id))
 
     @router.patch("/{project_id}")
     def rename_project(project_id: str, body: NameBody):
@@ -131,7 +149,7 @@ def build_router(
         load(project_id)
         with store.edit(project_id) as project:
             activity.reviewed(project, stage)
-        return project_view(project, boards.using(project_id))
+        return full_view(project)
 
     # Refresh
 
@@ -204,7 +222,7 @@ def build_router(
             published = publishing.publish(store, project)
             activity.log(project, "publish", f"Published version {published['version']}")
         store.remove_old_copies(project_id, keep=published["file"])
-        return {**project_view(project, boards.using(project_id)), "broken_visuals": problems}
+        return {**full_view(project), "broken_visuals": problems}
 
     # Get Data: adding sources
 
@@ -238,6 +256,41 @@ def build_router(
             raise HTTPException(400, str(exc)) from exc
         added = add_tables(project_id, [table], {"kind": "gsheet", "url": body.url.strip()})
         return {"added": [source_summary(s) for s in added], "errors": []}
+
+    @router.get("/{project_id}/lineage")
+    def get_lineage(project_id: str):
+        """Sources → tables → measures → dashboard visuals, for this dataset's draft."""
+        return lineage.build(load(project_id), boards.using(project_id))
+
+    @router.get("/{project_id}/link-catalogue")
+    def link_catalogue(project_id: str):
+        """Clean tables of other published datasets that can be linked in, certified ones first."""
+        load(project_id)
+        return links.catalogue(store, project_id)
+
+    @router.post("/{project_id}/sources/link")
+    def link_table(project_id: str, body: LinkBody):
+        load(project_id)
+        if body.dataset_id == project_id:
+            raise HTTPException(400, "A dataset can't link its own tables.")
+        try:
+            table, origin = links.read(store, body.dataset_id, body.table)
+        except links.LinkError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        source = store.add_source(project_id, table.frame, table.name, origin, [], table.types)
+        with store.edit(project_id) as project:
+            activity.changed(project, "get_data", f"Linked {origin['label']} (v{origin['version']})")
+        return {"added": [source_summary(source)], "errors": []}
+
+    @router.post("/{project_id}/certify")
+    def certify(project_id: str, body: CertifyBody):
+        """Mark a dataset as a trusted, shared source (admins only, once roles exist)."""
+        load(project_id)
+        with store.edit(project_id) as project:
+            project["certified"] = body.certified
+            project["certified_at"] = publishing.now() if body.certified else None
+            activity.log(project, "publish", "Certified the dataset" if body.certified else "Removed certification")
+        return full_view(load(project_id))
 
     @router.post("/{project_id}/sources/sample")
     def add_sample(project_id: str):

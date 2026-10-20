@@ -65,7 +65,7 @@ export function Dataset() {
   const chat = useRef<ChatHandle | null>(null);
   const location = useLocation();
   const stage = STAGES.find((s) => location.pathname.endsWith(`/${s.path}`)) ?? STAGES[0];
-  const onRefresh = location.pathname.endsWith("/refresh");
+  const onRefresh = location.pathname.endsWith("/refresh") || location.pathname.endsWith("/lineage");
   const showChat = chatOpen && !onRefresh;
   const thread = useMemo(() => datasetChat(datasetId, stage.key), [datasetId, stage.key]);
 
@@ -122,6 +122,15 @@ export function Dataset() {
     });
   }
 
+  async function toggleCertified() {
+    if (!dataset) return;
+    try {
+      setDataset(await api.certify(dataset.id, !dataset.certified));
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
   async function markReviewed() {
     try {
       setDataset(await activityApi.stageReviewed(datasetId, stage.key));
@@ -165,6 +174,10 @@ export function Dataset() {
         <button className="secondary" onClick={toggleChat} aria-pressed={chatOpen}>
           {chatOpen ? "Hide chat" : "AI chat"}
         </button>
+        {dataset.certified && <span className="badge ok-badge" title="A trusted, shared dataset">✓ Certified</span>}
+        <button className="link small" onClick={toggleCertified}>
+          {dataset.certified ? "Remove certification" : "Certify"}
+        </button>
         <PublishBadge published={status.published} version={status.version} changes={status.unpublished_changes} />
         <button onClick={() => publish(false)} disabled={publishing || (status.published && !status.unpublished_changes)}>
           {publishing ? "Publishing…" : status.published ? "Publish changes" : "Publish dataset"}
@@ -200,6 +213,17 @@ export function Dataset() {
           </div>
         </div>
       )}
+      {dataset.linked_by.length > 0 && (
+        <p className="muted small used-by">
+          Linked by:{" "}
+          {dataset.linked_by.map((d, i) => (
+            <span key={d.id}>
+              {i > 0 && ", "}
+              <Link to={`/datasets/${d.id}/get-data`}>{d.name}</Link> ({d.tables.join(", ")})
+            </span>
+          ))}
+        </p>
+      )}
       {dataset.dashboards.length > 0 && (
         <p className="muted small used-by">
           Used by:{" "}
@@ -228,6 +252,10 @@ export function Dataset() {
           <NavLink to="refresh" className="rail-extra">
             <span className="step">↻</span>
             Refresh
+          </NavLink>
+          <NavLink to="lineage">
+            <span className="step">⇢</span>
+            Lineage
           </NavLink>
           <p className="rail-hint muted small">Publish when the model is ready. Dashboards read the published version.</p>
         </nav>

@@ -375,6 +375,9 @@ def md_context(ctx: Ctx) -> dict:
         "measures": measures,
         "hidden_columns": [f"{names.get(h['table'])}[{h['column']}]" for h in current["hidden"]],
         "candidate_key_pairs": model.candidates(ctx.con, found),
+        "modelling_rules": "Several fact tables are fine: relate each to the shared dimensions (Date, Product, "
+                           "Customer...), never fact to fact. Measures from different facts combine when split by "
+                           "a shared dimension's column.",
         "measure_rules": "aggregate: aggregation (sum, average, count, count_distinct, min, max) over a [Column] "
                          "expression of ONE table; formula: arithmetic over [Measure] names. format.type: number, "
                          "integer, currency (currency: 'RM'), percent.",

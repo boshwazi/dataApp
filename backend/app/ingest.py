@@ -31,6 +31,7 @@ class LoadedTable:
     frame: pd.DataFrame
     warnings: list[str] = field(default_factory=list)
     sheet: str | None = None  # the Excel sheet it came from, so a replacement file can be matched to it
+    types: dict[str, str] | None = None  # column types to keep, for tables linked from other datasets
 
 
 def read_file(filename: str, data: bytes) -> list[LoadedTable]:

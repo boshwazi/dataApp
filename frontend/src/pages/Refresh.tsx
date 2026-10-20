@@ -41,7 +41,7 @@ export function Refresh() {
 
   if (!state) return <p className={error ? "bad" : "muted"}>{error ?? "Loading…"}</p>;
 
-  const sheets = state.sources.filter((s) => s.kind === "gsheet");
+  const sheets = state.sources.filter((s) => s.kind === "gsheet" || s.kind === "dataset");
   const { settings } = state;
 
   return (
@@ -54,7 +54,7 @@ export function Refresh() {
         </p>
         <div className="refresh-controls">
           <label>
-            Pull Google Sheets
+            Pull Google Sheets and linked tables
             <select
               value={settings.schedule}
               onChange={(e) => act("schedule", () => refreshApi.configure(project.id, { schedule: e.target.value }))}
@@ -77,7 +77,7 @@ export function Refresh() {
             Publish automatically when the checks pass
           </label>
           <button onClick={() => act("all", () => refreshApi.pullAll(project.id))} disabled={!sheets.length || busy !== null}>
-            {busy === "all" ? "Pulling…" : "Pull all sheets now"}
+            {busy === "all" ? "Pulling…" : "Pull all now"}
           </button>
         </div>
         {!sheets.length && (
@@ -108,11 +108,11 @@ export function Refresh() {
               {state.sources.map((s) => (
                 <tr key={s.id}>
                   <td className="source-name">{s.table}</td>
-                  <td className="small">{s.kind === "gsheet" ? "Google Sheet" : s.file}</td>
+                  <td className="small">{s.kind === "gsheet" ? "Google Sheet" : s.kind === "dataset" ? "Linked table" : s.file}</td>
                   <td className="num">{s.rows.toLocaleString()}</td>
                   <td className="small">{new Date(s.refreshed_at).toLocaleString()}</td>
                   <td>
-                    {s.kind === "gsheet" ? (
+                    {s.kind === "gsheet" || s.kind === "dataset" ? (
                       <button className="secondary" onClick={() => act(s.id, () => refreshApi.pull(project.id, s.id))} disabled={busy !== null}>
                         {busy === s.id ? "Pulling…" : "Pull now"}
                       </button>

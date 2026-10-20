@@ -53,6 +53,7 @@ it on DuckDB.
 | M7a | Ask on published dashboards: answers from the model's measures with "how this was calculated" | Done |
 | M7b | PDF export: print-ready pages, cover, AI executive summary with checked numbers (browser "Save as PDF") | Done |
 | M8 | Data refresh: replace files, scheduled Google Sheets pulls, checks on refresh, auto-publish, refresh history | Done |
+| M9 | Linked tables from other datasets, certified datasets, multiple fact tables, lineage view | Done |
 
 ## Product structure
 
@@ -133,14 +134,14 @@ datalemon follows the same idea in three levels:
    sheets, and the model can have several fact tables. For example, `sales` and `targets` can
    both relate to shared `Date` and `Product` dimensions, which Power BI calls a galaxy schema.
    Measures from different facts sit side by side in one visual because they share those dimensions.
-2. **Linked tables from other datasets (to build).** In Get Data, choose "From another
+2. **Linked tables from other datasets (built in M9).** In Get Data, choose "From another
    dataset" and pick clean tables from any published dataset, such as a certified `Customers`
    table.
    - The link is read-only and keeps its lineage ("from Customer Master v4").
    - When the source dataset publishes a new version, the linked table shows "update available".
    - Updating re-checks the relationships and dashboards that use it.
    - Copies are made by the app, never by AI-written SQL.
-3. **Certified datasets (to build).** Admins mark core datasets, such as Customer Master and
+3. **Certified datasets (built in M9).** Admins mark core datasets, such as Customer Master and
    Calendar, as certified. Certified datasets appear first when linking, and changes to them
    list every dataset and dashboard downstream.
 
@@ -300,7 +301,6 @@ in the app.
 
 | # | Delivers | You can test |
 | --- | --- | --- |
-| M9 | Multi-dataset: linked tables from other datasets, certified datasets, multiple fact tables, lineage view | One dashboard over sales, targets and HR data |
 | M10 | Supabase: sign-in, workspaces, roles, invites, Postgres metadata with RLS, file storage | Two companies, fully isolated |
 | M11 | Landing page, sign-in and onboarding (datalemon brand) | A new company signing up |
 | M12 | Billing: plans, seats, AI credits ledger, CHIP checkout and renewals | Paying for Pro, topping up credits |

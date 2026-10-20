@@ -20,7 +20,10 @@ SYSTEM = (
     "or count_distincts an expression over ONE table's columns, written with [Column] references, e.g. "
     "[Qty] * [Unit Price]; a 'formula' measure combines other measures, e.g. [Revenue] / [Orders]. "
     "Use currency format with the right symbol for money (RM for Malaysian ringgit), percent for ratios, "
-    "integer for counts. Prefer 5 to 10 useful measures over many trivial ones. Give short reasons."
+    "integer for counts. Prefer 5 to 10 useful measures over many trivial ones. Give short reasons. "
+    "There may be several fact tables (e.g. sales and targets, or orders and returns): relate each one to the "
+    "shared dimensions (Date, Product, Customer, Region), never fact to fact, so their measures can sit side by "
+    "side when split by a shared dimension. Tables linked from other datasets are regular tables here."
 )
 
 SCHEMA = {

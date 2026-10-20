@@ -4,7 +4,7 @@ datalemon is an AI-powered take on Power BI Desktop: Get Data → Transform → 
 doing every step and each stage steered by a plain-English chat. See
 [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md).
 
-**Status:** M8 — datasets, dashboards, stage chats, Ask, PDF export and data refresh.
+**Status:** M9 — datasets with linked tables and lineage, dashboards, stage chats, Ask, PDF export and data refresh.
 
 ## Requirements
 
@@ -67,6 +67,21 @@ The app follows Power BI's shared-model practice: data is prepared once and reus
 
 Projects from earlier versions are moved over automatically. Each becomes a dataset, plus a
 dashboard if it had report pages.
+
+## Linked tables, certified datasets and lineage
+
+- **Linked tables:** in Get Data, **Link a table from another dataset** copies a clean table,
+  such as a shared Customers table, from another dataset's published version.
+  - The copy is read-only and keeps its column types.
+  - It shows **update available** when that dataset publishes again, and **Refresh** pulls the
+    new version through the usual checks. Scheduled pulls include linked tables.
+- **Certified datasets:** mark trusted shared datasets as **Certified**. They are listed first
+  when linking, and each dataset shows which other datasets link to it.
+- **Several fact tables:** one dataset can hold more than one fact table, for example sales and
+  targets. Relate each to the shared dimensions, and their measures combine when split by a
+  shared column. The Model AI and chat follow this rule.
+- **Lineage:** the **Lineage** tab shows sources → tables → measures → dashboard visuals. Click
+  any item to highlight everything that feeds it and everything it feeds.
 
 ## Ask
 

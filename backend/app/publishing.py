@@ -14,7 +14,7 @@ import hashlib
 import json
 
 from . import model, report, transform
-from .projects import now
+from .projects import now  # noqa: F401  (re-exported for the API)
 
 
 def content_hash(project: dict) -> str:

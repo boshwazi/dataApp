@@ -1908,3 +1908,150 @@ a.button.secondary {
     print-color-adjust: exact;
   }
 }
+
+/* Linked tables */
+
+.link-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.link-picker select {
+  font: inherit;
+  flex: 1;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.link-picker p {
+  flex-basis: 100%;
+}
+
+/* Lineage */
+
+.lineage-board {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 48px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  overflow-x: auto;
+}
+
+.lineage-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.lineage-line {
+  fill: none;
+  stroke: #9ca3af;
+  stroke-width: 1.4;
+  opacity: 0.7;
+}
+
+.lineage-line.kind-split,
+.lineage-line.kind-merge,
+.lineage-line.kind-append {
+  stroke-dasharray: 4 3;
+}
+
+.lineage-line.lit {
+  stroke: #005a9c;
+  stroke-width: 2;
+  opacity: 1;
+}
+
+.lineage-line.dim {
+  opacity: 0.12;
+}
+
+.lineage-column {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 170px;
+}
+
+.lineage-column .section-title {
+  margin-top: 0;
+}
+
+.lineage-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-left: 4px solid #9ca3af;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.lineage-card.kind-source {
+  border-left-color: #e69f00;
+}
+
+.lineage-card.kind-table {
+  border-left-color: #009e73;
+}
+
+.lineage-card.kind-measure {
+  border-left-color: #6b3fd4;
+}
+
+.lineage-card.kind-visual {
+  border-left-color: #005a9c;
+}
+
+.lineage-card.focused {
+  outline: 2px solid #005a9c;
+}
+
+.lineage-card.dim {
+  opacity: 0.35;
+}
+
+.lineage-label {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.lineage-sub {
+  color: var(--muted);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.lineage-key {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.key {
+  display: inline-block;
+  width: 24px;
+  border-top: 2px solid #9ca3af;
+}
+
+.key.dashed {
+  border-top-style: dashed;
+  margin-left: 10px;
+}

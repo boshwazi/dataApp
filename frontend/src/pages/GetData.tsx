@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
-import { api, type AddResult, type ColumnProfile, type Preview, type Source, type SourceSummary } from "../api";
+import { api, type AddResult, type ColumnProfile, type LinkCatalogue, type Preview, type Source, type SourceSummary } from "../api";
 import { useDataset } from "./Dataset";
 
 const ACCEPT = ".csv,.tsv,.txt,.xlsx,.xlsm";
 const PAGE_SIZE = 100;
 
-const ORIGIN_LABEL = { csv: "CSV", excel: "Excel", gsheet: "Google Sheets" } as const;
+const ORIGIN_LABEL = { csv: "CSV", excel: "Excel", gsheet: "Google Sheets", dataset: "Linked" } as const;
 
 export function GetData() {
   const { project, refresh } = useDataset();
@@ -135,6 +135,7 @@ function SourceItem(props: { source: SourceSummary; selected: boolean; describin
           {ORIGIN_LABEL[source.origin.kind]} · {source.rows.toLocaleString()} rows · {source.columns} cols
         </span>
         <span className="badges">
+          {source.update_available && <span className="badge warn">update available</span>}
           {source.issue_count > 0 && <span className="badge warn">{source.issue_count} {source.issue_count === 1 ? "issue" : "issues"}</span>}
           {props.describing ? (
             <span className="badge">AI profiling…</span>
@@ -215,6 +216,7 @@ function AddData(props: { projectId: string; busy: string | null; onAdd: (label:
         </button>
       </form>
       <p className="muted small">The sheet must be shared as "Anyone with the link can view".</p>
+      <LinkPicker projectId={projectId} busy={busy} onAdd={onAdd} />
       <button className="link" disabled={busy !== null} onClick={() => onAdd("sample", () => api.addSample(projectId))}>
         {busy === "sample" ? "Loading sample data…" : "Load sample data (sales, customers, products)"}
       </button>
@@ -281,7 +283,12 @@ function SourceDetail(props: DetailProps) {
   if (!source) return <p className={error ? "bad" : "muted"}>{error ?? "Loading…"}</p>;
 
   const { profile, ai } = source;
-  const origin = source.origin.kind === "gsheet" ? "Google Sheet" : source.origin.file;
+  const origin =
+    source.origin.kind === "gsheet"
+      ? "Google Sheet"
+      : source.origin.kind === "dataset"
+        ? `Linked from ${source.origin.dataset_name} v${source.origin.version}`
+        : source.origin.file;
 
   return (
     <>
@@ -503,5 +510,51 @@ function PreviewTable({ projectId, sourceId }: { projectId: string; sourceId: st
         </button>
       </div>
     </>
+  );
+}
+
+/** Link a clean table from another dataset's published version, certified datasets first. */
+function LinkPicker(props: { projectId: string; busy: string | null; onAdd: (label: string, action: () => Promise<AddResult>) => void }) {
+  const [catalogue, setCatalogue] = useState<LinkCatalogue | null>(null);
+  const [choice, setChoice] = useState("");
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (open && catalogue === null) api.linkCatalogue(props.projectId).then(setCatalogue).catch(() => setCatalogue([]));
+  }, [open, catalogue, props.projectId]);
+
+  if (!open) {
+    return (
+      <button className="link" onClick={() => setOpen(true)}>
+        Link a table from another dataset
+      </button>
+    );
+  }
+  if (catalogue === null) return <p className="muted small">Loading datasets…</p>;
+  if (catalogue.length === 0) return <p className="muted small">No other published datasets to link from yet.</p>;
+  const [datasetId, table] = choice.split("|");
+  return (
+    <div className="link-picker">
+      <select value={choice} onChange={(e) => setChoice(e.target.value)} aria-label="Table to link">
+        <option value="">Choose a table…</option>
+        {catalogue.map((d) => (
+          <optgroup key={d.dataset_id} label={`${d.certified ? "✓ " : ""}${d.dataset_name} (v${d.version})`}>
+            {d.tables.map((t) => (
+              <option key={t.query_id} value={`${d.dataset_id}|${t.query_id}`}>
+                {t.name} · {t.rows.toLocaleString()} rows
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+      <button
+        className="secondary"
+        disabled={!choice || props.busy !== null}
+        onClick={() => props.onAdd("link", () => api.linkTable(props.projectId, datasetId, table))}
+      >
+        {props.busy === "link" ? "Linking…" : "Link"}
+      </button>
+      <p className="muted small">A read-only copy that updates when that dataset publishes again (via Refresh).</p>
+    </div>
   );
 }
