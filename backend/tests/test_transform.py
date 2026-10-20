@@ -110,10 +110,10 @@ def test_cleaning_steps_produce_typed_clean_values(p):
     ok(p.add("sales", "blanks_to_null", columns=["price", "region"]))
     ok(p.add("sales", "trim", columns=["region"]))
     ok(p.add("sales", "change_case", columns=["region"], case="title"))
+    ok(p.add("sales", "remove_duplicates"))
     ok(p.add("sales", "change_type", column="day", to="date", date_order="dmy"))
     ok(p.add("sales", "change_type", column="price", to="decimal"))
     ok(p.add("sales", "change_type", column="qty", to="integer"))
-    ok(p.add("sales", "remove_duplicates"))
     ok(p.add("sales", "fill_blanks", column="region", value="Unknown"))
 
     types = {c["name"]: c["type"] for c in p.query("sales")["columns"]}
@@ -143,6 +143,7 @@ def test_rename_remove_and_filter(p):
 
 
 def test_filter_compares_typed_values(p):
+    ok(p.add("sales", "remove_duplicates"))
     ok(p.add("sales", "change_type", column="qty", to="integer"))
     ok(p.add("sales", "filter_rows", column="qty", operator="at_least", value=3))
     assert p.column("sales", "qty") == ["3"]
@@ -207,12 +208,13 @@ def test_merge_survives_renaming_the_other_table(p):
 
 
 def test_moving_a_step_before_what_it_needs_is_refused(p):
+    ok(p.add("sales", "remove_duplicates"))
     ok(p.add("sales", "rename_column", column="qty", to="quantity"))
     ok(p.add("sales", "change_type", column="quantity", to="integer"))
     sales = p.query("sales")
-    response = p.api.post(f"{p.base}/queries/{sales['id']}/steps/{sales['steps'][1]['id']}/move", json={"to": 0})
+    response = p.api.post(f"{p.base}/queries/{sales['id']}/steps/{sales['steps'][2]['id']}/move", json={"to": 1})
     assert response.status_code == 400
-    assert [s["op"] for s in p.query("sales")["steps"]] == ["rename_column", "change_type"]
+    assert [s["op"] for s in p.query("sales")["steps"]] == ["remove_duplicates", "rename_column", "change_type"]
 
 
 # Undo, approval, preview
@@ -310,3 +312,36 @@ def test_approve_all_is_one_undoable_change(tmp_path):
     assert {s["status"] for s in p.query("sales")["steps"]} == {"Approved"}
     ok(p.api.post(f"{p.base}/undo"))
     assert {s["status"] for s in p.query("sales")["steps"]} == {"AI"}
+
+
+# Dates and data-loss checks
+
+TRIPS = "start,miles\n6/28/2016 23:34,5.1\n01-02-2016 21:11,2\n3/5/2016 1:05 PM,1\n2016-07-01 08:00,4\n"
+
+
+def test_dates_with_times_and_the_other_order_still_parse(tmp_path):
+    p = Project(tmp_path)
+    p.upload("trips.csv", TRIPS)
+    # Day first: 01-02-2016 is 1 February and 3/5 is 3 May; 6/28/2016 can only be month first.
+    ok(p.add("trips", "change_type", column="start", to="date", date_order="dmy"))
+    assert p.column("trips", "start") == ["2016-06-28", "2016-02-01", "2016-05-03", "2016-07-01"]
+
+
+def test_profile_recognises_dates_with_times(tmp_path):
+    p = Project(tmp_path)
+    p.upload("trips.csv", TRIPS)
+    source = p.api.get(f"/api/projects/{p.id}").json()["sources"][0]
+    profile = p.api.get(f"/api/projects/{p.id}/sources/{source['id']}").json()["profile"]
+    assert profile["columns"][0]["detected_type"] == "date"
+
+
+def test_steps_that_blank_most_of_a_column_are_refused(p):
+    response = p.add("sales", "change_type", column="region", to="date")
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert "would blank 4 of 4 values" in detail and "'Central'" in detail
+
+
+def test_replacements_that_match_nothing_are_refused(p):
+    response = p.add("sales", "replace_values", column="region", replacements=[{"from": "Atlantis", "to": "x"}])
+    assert response.status_code == 400 and "change nothing" in response.json()["detail"]

@@ -10,7 +10,18 @@ import duckdb
 
 # "Unknown" and "missing" are left out: they are usually deliberate labels (Transform fills blanks with them).
 PLACEHOLDERS = ("n/a", "na", "null", "none", "nan", "-", "--", "?", "#n/a")
-DATE_FORMATS = ["%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%d-%m-%Y", "%d.%m.%Y", "%Y/%m/%d", "%d %b %Y", "%b %d, %Y", "%d-%b-%Y"]
+DAY_FIRST = ["%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y"]
+MONTH_FIRST = ["%m/%d/%Y", "%m-%d-%Y"]
+WORDY_DATES = ["%Y/%m/%d", "%d %b %Y", "%b %d, %Y", "%d-%b-%Y", "%d %B %Y", "%B %d, %Y"]
+TIMES = ["", " %H:%M", " %H:%M:%S", " %I:%M %p", " %I:%M:%S %p"]
+
+
+def with_times(formats: list[str]) -> list[str]:
+    """Each date format, also followed by a time of day (6/28/2016 23:34, 3/5/2016 1:05 PM)."""
+    return [f + t for f in formats for t in TIMES]
+
+
+DATE_FORMATS = with_times(["%Y-%m-%d"] + DAY_FIRST + MONTH_FIRST + WORDY_DATES)
 BOOLEANS = ("true", "false", "yes", "no", "y", "n", "t", "f")
 TRUE_WORDS = ("true", "yes", "y", "t")
 # Currency prefixes, thousands separators and spaces, stripped before reading a number.

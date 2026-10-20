@@ -170,8 +170,10 @@ def test_measures_compute_and_format_is_kept(p):
     ok(p.measure(name="Average order", kind="formula", expression="[Revenue] / [Orders]"))
     ok(p.measure(name="Online orders", kind="aggregate", table="sales", aggregation="count",
                  filters=[{"column": "customer", "operator": "equals", "value": "C2"}]))
+    ok(p.measure(name="Priced orders", kind="aggregate", table="sales", aggregation="count",
+                 filters=[{"column": "price", "operator": "is_not_blank"}]))
     values = {m["name"]: m["value"] for m in p.state()["measures"]}
-    assert values == {"Revenue": 54.0, "Orders": 4, "Average order": 13.5, "Online orders": 1}
+    assert values == {"Revenue": 54.0, "Orders": 4, "Average order": 13.5, "Online orders": 1, "Priced orders": 4}
     revenue = p.state()["measures"][0]
     assert revenue["format"]["currency"] == "RM" and revenue["label"] == "sum of [qty] * [price] in sales"
 

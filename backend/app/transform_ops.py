@@ -10,14 +10,15 @@ import re
 from dataclasses import dataclass
 from typing import Callable
 
-from .profiling import DATE_FORMATS, NUMBER_NOISE, PLACEHOLDERS, TRUE_WORDS, BOOLEANS, quote
+from .profiling import BOOLEANS, DAY_FIRST, MONTH_FIRST, NUMBER_NOISE, PLACEHOLDERS, TRUE_WORDS, WORDY_DATES, quote, with_times
 
 LOGICAL_TYPES = ("text", "integer", "decimal", "date", "boolean")
 SQL_TYPES = {"text": "VARCHAR", "integer": "BIGINT", "decimal": "DOUBLE", "date": "DATE", "boolean": "BOOLEAN"}
 DATE_ORDERS = {
-    # Tried after ISO dates (2024-01-31), which always parse first.
-    "dmy": ["%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y", "%d %b %Y", "%d-%b-%Y", "%d %B %Y", "%b %d, %Y", "%Y/%m/%d"],
-    "mdy": ["%m/%d/%Y", "%m-%d-%Y", "%b %d, %Y", "%B %d, %Y", "%d %b %Y", "%Y/%m/%d"],
+    # Tried after ISO dates (2024-01-31), which always parse first. The chosen order decides
+    # ambiguous dates like 05/01/2024; a date only valid the other way (6/28/2016) still parses.
+    "dmy": with_times(DAY_FIRST + WORDY_DATES + MONTH_FIRST),
+    "mdy": with_times(MONTH_FIRST + WORDY_DATES + DAY_FIRST),
 }
 FILTER_OPERATORS = (
     "equals", "not_equals", "in", "not_in", "is_blank", "is_not_blank",
@@ -341,7 +342,7 @@ OPERATIONS = {
     for op in [
         Operation(
             "change_type", change_type,
-            "Convert a column to a type. Decimal and integer strip currency symbols (RM, $) and thousands "
+            "Convert a column to a type. Dates keep the day and drop any time of day. Decimal and integer strip currency symbols (RM, $) and thousands "
             "separators. Values that do not convert become blank.",
             {"column": "string", "to": list(LOGICAL_TYPES),
              "date_order": {"enum": list(DATE_ORDERS), "note": "for slash dates like 05/01/2024: day first (dmy) or month first (mdy)"}},

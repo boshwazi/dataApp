@@ -170,6 +170,45 @@ def check_merges(con, project: dict, query: dict, compiled: Compiled) -> None:
 # Changing steps. Each function changes `project` in place, or raises StepError and leaves it alone.
 
 
+LOSS_LIMIT = 0.5
+
+
+def check_effect(con, project: dict, query: dict, index: int) -> None:
+    """Refuse a new step that silently destroys data or does nothing.
+
+    A type change may not blank more than half of a column's filled values (usually the wrong
+    date order or a mislabelled column), and a replacement must match at least one value.
+    """
+    step = query["steps"][index]
+    if step["op"] not in ("change_type", "replace_values"):
+        return
+    compiled = compile_query(con, project, query)
+    before_sql, after_sql = compiled.sql(index), compiled.sql(index + 1)
+    names = [c.name for c in compiled.columns[index + 1]]
+    target = next((n for n in names if n.lower() == str(step["params"].get("column", "")).lower()), None)
+    if target is None:
+        return
+    c = quote(target)
+    # Both sides are projections of the same rows in the same order, so they line up position by position.
+    pairs = f"(SELECT {c} AS v FROM ({before_sql})) b POSITIONAL JOIN (SELECT {c} AS v FROM ({after_sql})) a"
+    if step["op"] == "replace_values":
+        changed = con.execute(f"SELECT count(*) FROM {pairs} WHERE b.v IS DISTINCT FROM a.v").fetchone()[0]
+        if changed == 0:
+            raise StepError(f"None of the values to replace exist in {target}, so this step would change nothing.")
+        return
+    filled, lost = con.execute(
+        f"SELECT count(b.v), count(*) FILTER (WHERE b.v IS NOT NULL AND a.v IS NULL) FROM {pairs}"
+    ).fetchone()
+    if filled and lost / filled > LOSS_LIMIT:
+        examples = [str(v) for (v,) in con.execute(
+            f"SELECT DISTINCT CAST(b.v AS VARCHAR) FROM {pairs} WHERE b.v IS NOT NULL AND a.v IS NULL LIMIT 3"
+        ).fetchall()]
+        raise StepError(
+            f"Changing {target} to {step['params'].get('to')} would blank {lost} of {filled} values "
+            f"(e.g. {', '.join(repr(e) for e in examples)}), so it was refused."
+        )
+
+
 def add_steps(con, project: dict, query_id: str, steps: list[dict], status: str, position: int | None = None):
     """Add steps one by one, keeping those that pass the checks. Returns (added, rejected)."""
     query = find_query(project, query_id)
@@ -191,6 +230,7 @@ def add_steps(con, project: dict, query_id: str, steps: list[dict], status: str,
             if step["op"] not in OPERATIONS:
                 raise StepError(f"Unknown operation '{step['op']}'.")
             check_change(con, before, project, query["id"])
+            check_effect(con, project, query, query["steps"].index(step))
         except StepError as exc:
             query["steps"].remove(step)
             rejected.append({"op": step["op"], "params": proposal.get("params"), "reason": step["reason"], "error": str(exc)})

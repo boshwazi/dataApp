@@ -28,7 +28,9 @@ MIN_MATCH_RATE = 0.5
 AGGREGATIONS = ("sum", "average", "count", "count_distinct", "min", "max")
 NUMERIC = ("integer", "decimal")
 FORMATS = ("number", "integer", "currency", "percent")
-FILTER_OPERATORS = ("equals", "not_equals", "in", "not_in", "greater_than", "less_than", "at_least", "at_most")
+FILTER_OPERATORS = (
+    "equals", "not_equals", "in", "not_in", "is_blank", "is_not_blank", "greater_than", "less_than", "at_least", "at_most",
+)
 MAX_GROUPS = 1000
 
 
@@ -291,6 +293,10 @@ def filter_sql(table: Table, alias: str, item: dict) -> str:
     if operator not in FILTER_OPERATORS:
         raise ModelError(f"Filter operator must be one of: {', '.join(FILTER_OPERATORS)}.")
     ref = f"{alias}.{quote(column.name)}"
+    if operator == "is_blank":
+        return f"{ref} IS NULL" + (f" OR trim({ref}) = ''" if column.type == "text" else "")
+    if operator == "is_not_blank":
+        return f"{ref} IS NOT NULL" + (f" AND trim({ref}) <> ''" if column.type == "text" else "")
     try:
         if operator in ("in", "not_in"):
             values = item.get("values")
