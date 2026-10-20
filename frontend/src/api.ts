@@ -326,3 +326,90 @@ export function formatMeasure(value: number | null, format: MeasureFormat): stri
   if (format.type === "currency") return `${format.currency ?? "RM"} ${number(value)}`;
   return number(value);
 }
+
+// Report
+
+export type VisualType = "kpi" | "bar" | "column" | "line" | "donut" | "table";
+
+export type KpiData = {
+  value: number | null;
+  period: string;
+  previous: number | null;
+  delta: number | null;
+  delta_pct: number | null;
+  comparison: string | null;
+  sparkline: { label: string; value: number }[];
+  driver: { name: string; delta: number; column: string } | null;
+  note: string | null;
+};
+
+export type ChartData = {
+  columns: string[];
+  rows: (string | number | null)[][];
+  total_rows: number;
+  truncated: boolean;
+  check: { total: number; parts: number; ok: boolean } | null;
+};
+
+export type Visual = {
+  id: string;
+  type: VisualType;
+  title: string;
+  measures: string[];
+  group_by: { table: string; column: string }[];
+  kpi: { direction?: "higher_is_better" | "lower_is_better" };
+  width: "half" | "full";
+  insight: { text: string; check: { verified: boolean; unmatched: number[] } } | null;
+  status: "AI" | "Approved";
+  reason: string;
+  data: KpiData | ChartData | null;
+  error: string | null;
+};
+
+export type ReportPage = {
+  id: string;
+  title: string;
+  question: string;
+  summary: string;
+  status: "AI" | "Approved";
+  visuals: Visual[];
+};
+
+export type ReportState = {
+  pages: ReportPage[];
+  formats: Record<string, MeasureFormat>;
+  as_of: string | null;
+  can_undo: boolean;
+};
+
+export type ReportRun = ReportState & {
+  summary: string;
+  added: { kind: string; label: string }[];
+  refused: { kind: string; label: string; error: string }[];
+  new_pages: string[];
+};
+
+const rp = (pid: string) => `/api/projects/${pid}/report`;
+
+export const reportApi = {
+  state: (pid: string) => request<ReportState>(rp(pid)),
+  ai: (pid: string) => request<ReportRun>(`${rp(pid)}/ai`, { method: "POST" }),
+  approve: (pid: string, itemId?: string) =>
+    request<ReportState>(`${rp(pid)}/approve${itemId ? `?item_id=${itemId}` : ""}`, { method: "POST" }),
+  undo: (pid: string) => request<ReportState>(`${rp(pid)}/undo`, { method: "POST" }),
+  removeVisual: (pid: string, id: string) => request<ReportState>(`${rp(pid)}/visuals/${id}`, { method: "DELETE" }),
+  removePage: (pid: string, id: string) => request<ReportState>(`${rp(pid)}/pages/${id}`, { method: "DELETE" }),
+};
+
+/** Rounded for cards and chart labels: RM 1.2M, 34.5K, 53%. Tables use formatMeasure (full precision). */
+export function formatCompact(value: number | null | undefined, format: MeasureFormat | undefined): string {
+  if (value === null || value === undefined) return "(blank)";
+  const fmt = format ?? { type: "number" };
+  if (fmt.type === "percent") return `${(value * 100).toLocaleString(undefined, { maximumFractionDigits: 1 })}%`;
+  const abs = Math.abs(value);
+  const [scaled, unit] = abs >= 1e9 ? [value / 1e9, "B"] : abs >= 1e6 ? [value / 1e6, "M"] : abs >= 1e4 ? [value / 1e3, "K"] : [value, ""];
+  // Cards round: RM 478, not RM 478.12; small values keep the measure's decimals.
+  const digits = unit ? 1 : fmt.type === "integer" || abs >= 100 ? 0 : Math.min(fmt.decimals ?? 0, 2);
+  const text = `${scaled.toLocaleString(undefined, { minimumFractionDigits: unit ? 1 : 0, maximumFractionDigits: digits })}${unit}`;
+  return fmt.type === "currency" ? `${fmt.currency ?? "RM"} ${text}` : text;
+}

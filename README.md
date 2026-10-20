@@ -4,7 +4,7 @@ An AI-powered take on Power BI Desktop: Get Data → Transform → Model → Rep
 doing every step and each stage steered by a plain-English chat. See
 [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md).
 
-**Status:** M3 — Model: relationships, date table and measures, on top of Get Data (M1) and Transform (M2).
+**Status:** M4 — Report: AI-designed pages with KPI cards, charts and checked insights, on top of Get Data, Transform and Model.
 
 ## Requirements
 
@@ -97,6 +97,23 @@ min, max) over a `[Column]` expression such as `[Qty] * [Unit Price]`, or a form
 other measures such as `[Revenue] / [Orders]`. The app compiles them itself, so the AI never
 writes SQL. The Model tab shows the diagram, each relationship's match rate, and every
 measure's current value. Changes can be approved or undone.
+
+## Report
+
+**Build report with AI** designs pages that each answer one question. It uses KPI cards,
+bar charts sorted by value, trend lines, donuts only for three slices or fewer, and detail
+tables. It then writes one insight per visual and a summary per page. The look follows the
+house style for business users:
+- A light theme with colour-blind-safe colours.
+- At most 7 KPI cards per page.
+- Each KPI card shows the value, the change against the same period last year (arrow, sign,
+  amount and %), a 12-month sparkline and the top driver. When no comparison is possible,
+  the card says why.
+- No gauges and no dual axes.
+
+Every number comes from the model. Breakdowns are checked to add up to the total, and the
+numbers in each insight are checked against that visual's data at the precision written.
+Anything unconfirmed is flagged "Unverified".
 
 ## Tests
 

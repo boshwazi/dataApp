@@ -1,4 +1,4 @@
-import { StrictMode } from "react";
+import { StrictMode, Suspense, lazy } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Layout } from "./Layout";
@@ -9,6 +9,9 @@ import { Project } from "./pages/Project";
 import { Settings } from "./pages/Settings";
 import { Transform } from "./pages/Transform";
 import "./styles.css";
+
+// The Report tab carries the chart library, so it loads only when opened.
+const Report = lazy(() => import("./pages/Report").then((m) => ({ default: m.Report })));
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -22,6 +25,14 @@ createRoot(document.getElementById("root")!).render(
             <Route path="get-data" element={<GetData />} />
             <Route path="transform" element={<Transform />} />
             <Route path="model" element={<Model />} />
+            <Route
+              path="report"
+              element={
+                <Suspense fallback={<p className="muted">Loading…</p>}>
+                  <Report />
+                </Suspense>
+              }
+            />
           </Route>
         </Route>
       </Routes>
