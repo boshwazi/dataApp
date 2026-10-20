@@ -1,10 +1,12 @@
-import { StrictMode, Suspense, lazy } from "react";
+import { StrictMode, Suspense, lazy, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 import { Layout } from "./Layout";
 import { Dataset } from "./pages/Dataset";
 import { GetData } from "./pages/GetData";
 import { Home } from "./pages/Home";
+import { Invite } from "./pages/Invite";
+import { Members } from "./pages/Members";
 import { Model } from "./pages/Model";
 import { Lineage } from "./pages/Lineage";
 import { Refresh } from "./pages/Refresh";
@@ -16,6 +18,8 @@ import "@fontsource/plus-jakarta-sans/600.css";
 import "@fontsource/plus-jakarta-sans/700.css";
 import "@fontsource/plus-jakarta-sans/800.css";
 import { CrumbProvider, DialogProvider, ToastProvider } from "./components/ui";
+import { AccountProvider, WorkspaceGate, useAccount } from "./components/account";
+import type { Role } from "./api";
 import "./styles.css";
 
 // Dashboards carry the chart library, so they load only when opened.
@@ -29,13 +33,25 @@ function OldProjectLink() {
   return <Navigate to={`/datasets/${projectId}/${stage}`} replace />;
 }
 
+// Pages a role may not use send it home; the API refuses those calls as well.
+function Need({ role, children }: { role: Role; children: ReactNode }) {
+  return useAccount().can(role) ? children : <Navigate to="/" replace />;
+}
+
+function PlatformAdmin({ children }: { children: ReactNode }) {
+  return useAccount().me.platform_admin ? children : <Navigate to="/" replace />;
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>
       <ToastProvider>
       <DialogProvider>
       <CrumbProvider>
+      <AccountProvider>
+      <WorkspaceGate>
       <Routes>
+        <Route path="invite/:token" element={<Invite />} />
         {/* The PDF export is a page of its own, without the app's sidebar. */}
         <Route
           path="dashboards/:dashboardId/export"
@@ -47,10 +63,11 @@ createRoot(document.getElementById("root")!).render(
         />
         <Route element={<Layout />}>
           <Route index element={<Home />} />
-          <Route path="datasets" element={<Home show="datasets" />} />
+          <Route path="datasets" element={<Need role="creator"><Home show="datasets" /></Need>} />
           <Route path="dashboards" element={<Home show="dashboards" />} />
-          <Route path="settings" element={<Settings />} />
-          <Route path="datasets/:datasetId" element={<Dataset />}>
+          <Route path="settings" element={<PlatformAdmin><Settings /></PlatformAdmin>} />
+          <Route path="members" element={<Need role="admin"><Members /></Need>} />
+          <Route path="datasets/:datasetId" element={<Need role="creator"><Dataset /></Need>}>
             <Route index element={<Navigate to="get-data" replace />} />
             <Route path="get-data" element={<GetData />} />
             <Route path="transform" element={<Transform />} />
@@ -69,6 +86,8 @@ createRoot(document.getElementById("root")!).render(
           <Route path="projects/:projectId/*" element={<OldProjectLink />} />
         </Route>
       </Routes>
+      </WorkspaceGate>
+      </AccountProvider>
       </CrumbProvider>
       </DialogProvider>
       </ToastProvider>

@@ -15,14 +15,16 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import ingest, llm, refresh
-from .projects import ProjectStore
+from . import ingest, llm, refresh, workspaces
+from .auth import AuthConfig, AuthGuard
+from .projects import LOCAL_WORKSPACE, ProjectStore
 from .projects_api import build_router
 from .transform_api import build_router as build_transform_router
 from .model_api import build_router as build_model_router
 from .dashboards import DashboardStore, migrate
 from .dashboards_api import build_router as build_dashboards_router
 from .chat_api import build_router as build_chat_router
+from .workspaces_api import build_router as build_workspaces_router
 from .settings import ProviderSettings, SettingsStore, public_view
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -45,12 +47,14 @@ async def scheduler_lifespan(app: FastAPI):
     stop = threading.Event()
 
     def loop():
-        projects, boards, fetch = app.state.refresh_job
+        projects, boards, fetch, members = app.state.refresh_job
         while not stop.wait(SCHEDULER_SECONDS):
-            try:
-                refresh.run_due(projects, boards, fetch)
-            except Exception:  # keep the loop alive; the next tick tries again
-                log.exception("Scheduled refresh failed")
+            for workspace_id in members.ids():
+                try:
+                    with workspaces.use(workspace_id):
+                        refresh.run_due(projects, boards, fetch)
+                except Exception:  # keep the loop alive; the next tick tries again
+                    log.exception("Scheduled refresh failed in workspace %s", workspace_id)
 
     worker = threading.Thread(target=loop, name="refresh-scheduler", daemon=True)
     worker.start()
@@ -63,13 +67,26 @@ def create_app(
     run_scheduler: bool = False,
     client_factory: Callable[[ProviderSettings], object] = llm.make_client,
     fetch_url: Callable[[str], tuple[bytes, str, str]] = ingest.http_get,
+    auth: AuthConfig | None = None,
 ) -> FastAPI:
+    auth = auth or AuthConfig()  # local mode unless sign-in is configured
     store = SettingsStore(data_dir / "settings.json")
     app = FastAPI(title="datalemon", lifespan=scheduler_lifespan if run_scheduler else None)
-    boards = DashboardStore(data_dir / "dashboards")
-    projects = ProjectStore(data_dir / "datasets")
-    migrate(data_dir, projects, boards)
-    app.state.refresh_job = (projects, boards, fetch_url)
+
+    # Each workspace keeps its own folders; the stores follow the workspace of the current request.
+    members = workspaces.WorkspaceStore(data_dir / "workspaces.json")
+    root = data_dir / "workspaces"
+    workspaces.move_to_workspaces(data_dir)
+    members.ensure(LOCAL_WORKSPACE, "Local workspace")
+    current = lambda: workspaces.current().workspace_id  # noqa: E731
+    boards = DashboardStore(workspaces.folder_for(root, "dashboards"), current)
+    projects = ProjectStore(workspaces.folder_for(root, "datasets"), current)
+    for workspace_id in members.ids():
+        with workspaces.use(workspace_id):
+            migrate(root / workspace_id, projects, boards)
+    app.state.refresh_job = (projects, boards, fetch_url, members)
+    app.add_middleware(AuthGuard, config=auth, store=members)
+    app.include_router(build_workspaces_router(members, auth))
     app.include_router(build_router(projects, boards, store, client_factory, fetch_url, SAMPLES_DIR))
     app.include_router(build_transform_router(projects, store, client_factory))
     app.include_router(build_model_router(projects, store, client_factory))
@@ -84,12 +101,19 @@ def create_app(
     def get_settings():
         return public_view(store.load())
 
+    def platform_admin():
+        # The AI provider is set up once for the whole service, by its operators.
+        if not auth.is_platform_admin(workspaces.current_user()):
+            raise HTTPException(403, "Only the people running this service can change the AI provider.")
+
     @app.put("/api/settings")
     def put_settings(update: SettingsUpdate):
+        platform_admin()
         return public_view(store.update(update.base_url, update.model, update.api_key))
 
     @app.post("/api/settings/test")
     def test_settings():
+        platform_admin()
         settings = store.load()
         if not settings.api_key:
             raise HTTPException(400, "Add an API key first.")
@@ -120,4 +144,4 @@ def create_app(
 
 
 load_dotenv(REPO_ROOT / ".env")
-app = create_app(run_scheduler=True)
+app = create_app(run_scheduler=True, auth=AuthConfig.from_env())

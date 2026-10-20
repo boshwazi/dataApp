@@ -53,6 +53,23 @@ cd backend && ../.venv/bin/uvicorn app.main:app --port 8000   # open http://loca
 Then open **Settings** and click **Test connection**. It checks the key and model, and
 whether the provider supports tool calling and JSON mode (used by the stage agents).
 
+## Sign-in, workspaces and roles
+
+Without sign-in settings, datalemon runs as one person on their own computer, in the
+**Local workspace**. To turn sign-in on, create a Supabase project (Singapore region) and add its
+URL and publishable key to `.env` (see `.env.example`). Then:
+
+- People sign in with Google, Microsoft or an emailed link. A new account first creates a workspace for its company.
+- Each workspace keeps its own datasets and dashboards in its own folder (`data/workspaces/<id>/`).
+  - Nobody can open another workspace's data. The API checks this on every request, and the tests try every endpoint.
+- **Members** (admins only) creates invite links for an email address and a role. Links last 14 days.
+- Roles:
+  - **Viewers** see published dashboards, ask questions about them and export them.
+  - **Creators** also build and publish datasets and dashboards.
+  - **Admins** also manage people.
+- Only the emails in `PLATFORM_ADMINS` can change the AI provider in Settings.
+  - The first of them to sign in inherits the data built before sign-in was turned on.
+
 ## Datasets and dashboards
 
 The app follows Power BI's shared-model practice: data is prepared once and reused.

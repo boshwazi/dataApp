@@ -12,7 +12,7 @@ import logging
 from pathlib import Path
 
 from . import model, publishing, transform
-from .projects import LOCAL_WORKSPACE, FolderStore, NotFound, ProjectStore, new_id, now
+from .projects import FolderStore, NotFound, ProjectStore, new_id, now
 
 log = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ class DashboardStore(FolderStore):
     def create(self, name: str, dataset_id: str, pages: list | None = None) -> dict:
         dashboard = {
             "id": new_id(),
-            "workspace_id": LOCAL_WORKSPACE,
+            "workspace_id": self.workspace(),
             "name": name.strip() or "Untitled dashboard",
             "dataset_id": dataset_id,
             "created_at": now(),

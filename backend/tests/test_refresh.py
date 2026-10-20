@@ -151,7 +151,7 @@ def test_schedules_only_for_sheets_and_run_when_due(tmp_path):
     next_run = datetime.fromisoformat(settings["next_run"])
     assert timedelta(minutes=59) < next_run - datetime.now(timezone.utc) <= timedelta(hours=1)
 
-    store, boards = ProjectStore(tmp_path / "sheets" / "datasets"), DashboardStore(tmp_path / "sheets" / "dashboards")
+    store, boards = ProjectStore(tmp_path / "sheets" / "workspaces" / "local" / "datasets"), DashboardStore(tmp_path / "sheets" / "workspaces" / "local" / "dashboards")
     fetch.body = "region,target\nNorth,10\nSouth,20\nEast,5\n"
     assert refresh.run_due(store, boards, fetch, datetime.now(timezone.utc)) == []  # not due yet
     assert refresh.run_due(store, boards, fetch, next_run + timedelta(seconds=1)) == [pid]

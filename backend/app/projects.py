@@ -21,6 +21,7 @@ import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Callable
 
 import duckdb
 import pandas as pd
@@ -79,9 +80,15 @@ class FolderStore:
     filename = "record.json"
     label = "Record"
 
-    def __init__(self, root: Path):
-        self.root = root
+    def __init__(self, root: Path | Callable[[], Path], workspace: Callable[[], str] = lambda: LOCAL_WORKSPACE):
+        # root may follow the current workspace (see workspaces.folder_for); a fixed path suits tests and tools.
+        self._root = root
+        self.workspace = workspace
         self._lock = threading.RLock()
+
+    @property
+    def root(self) -> Path:
+        return self._root() if callable(self._root) else self._root
 
     def all(self) -> list[dict]:
         if not self.root.exists():
@@ -137,7 +144,7 @@ class ProjectStore(FolderStore):
     def create(self, name: str) -> dict:
         project = {
             "id": new_id(),
-            "workspace_id": LOCAL_WORKSPACE,
+            "workspace_id": self.workspace(),
             "name": name.strip() or "Untitled dataset",
             "created_at": now(),
             "updated_at": now(),

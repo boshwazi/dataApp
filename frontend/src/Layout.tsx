@@ -1,19 +1,27 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { ChevronRight, Database, House, LayoutDashboard, Search, Settings as SettingsIcon } from "lucide-react";
-import { api, dashboardsApi, type DashboardSummary, type Dataset } from "./api";
-import { LemonMark, useCurrentCrumbs } from "./components/ui";
+import { Check, ChevronsUpDown, ChevronRight, Database, House, LayoutDashboard, LogOut, Plus, Search, Settings as SettingsIcon, Users } from "lucide-react";
+import { accountApi, api, dashboardsApi, type DashboardSummary, type Dataset, type Role } from "./api";
+import { useAccount } from "./components/account";
+import { LemonMark, useCurrentCrumbs, useDialogs, useToast } from "./components/ui";
 
-const NAV = [
+type NavItem = { to: string; label: string; icon: typeof House; end: boolean; role?: Role; platform?: boolean; hosted?: boolean };
+
+const NAV: NavItem[] = [
   { to: "/", label: "Home", icon: House, end: true },
-  { to: "/datasets", label: "Datasets", icon: Database, end: false },
+  { to: "/datasets", label: "Datasets", icon: Database, end: false, role: "creator" },
   { to: "/dashboards", label: "Dashboards", icon: LayoutDashboard, end: false },
-  { to: "/settings", label: "Settings", icon: SettingsIcon, end: false },
+  { to: "/members", label: "Members", icon: Users, end: false, role: "admin", hosted: true },
+  { to: "/settings", label: "Settings", icon: SettingsIcon, end: false, platform: true },
 ];
 
 export function Layout() {
   const [searching, setSearching] = useState(false);
   const crumbs = useCurrentCrumbs();
+  const account = useAccount();
+  const nav = NAV.filter(
+    (n) => (!n.role || account.can(n.role)) && (!n.platform || account.me.platform_admin) && (!n.hosted || account.me.mode !== "local"),
+  );
 
   useEffect(() => {
     const onKey = (e: globalThis.KeyboardEvent) => {
@@ -36,17 +44,14 @@ export function Layout() {
           <LemonMark /> datalemon
         </Link>
         <nav aria-label="Main">
-          {NAV.map(({ to, label, icon: Icon, end }) => (
+          {nav.map(({ to, label, icon: Icon, end }) => (
             <NavLink key={to} to={to} end={end} title={label}>
               <Icon size={17} aria-hidden="true" />
               <span className="nav-label">{label}</span>
             </NavLink>
           ))}
         </nav>
-        <div className="workspace">
-          <span className="workspace-dot" aria-hidden="true" />
-          Local workspace
-        </div>
+        <WorkspaceMenu />
       </aside>
       <div className="main-column">
         <header className="topbar">
@@ -73,6 +78,88 @@ export function Layout() {
   );
 }
 
+function WorkspaceMenu() {
+  const account = useAccount();
+  const dialogs = useDialogs();
+  const toast = useToast();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const hosted = account.me.mode !== "local";
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => !root.current?.contains(e.target as Node) && setOpen(false);
+    const onKey = (e: globalThis.KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  function go(id: string) {
+    setOpen(false);
+    account.switchTo(id);
+    navigate("/");
+  }
+
+  async function create() {
+    setOpen(false);
+    const name = await dialogs.prompt({ title: "New workspace", label: "Company or team name", confirmLabel: "Create workspace" });
+    if (!name) return;
+    try {
+      const workspace = await accountApi.createWorkspace(name);
+      await account.refresh();
+      go(workspace.id);
+    } catch (e) {
+      toast((e as Error).message, "error");
+    }
+  }
+
+  const roleName = account.role[0].toUpperCase() + account.role.slice(1);
+  return (
+    <div className="workspace-menu" ref={root}>
+      <button className="workspace" onClick={() => setOpen(!open)} aria-haspopup="menu" aria-expanded={open}>
+        <span className="workspace-badge" aria-hidden="true">
+          {account.workspace?.name[0]?.toUpperCase()}
+        </span>
+        <span className="workspace-text">
+          <strong>{account.workspace?.name}</strong>
+          <span>{hosted ? roleName : "On this computer"}</span>
+        </span>
+        <ChevronsUpDown size={15} aria-hidden="true" />
+      </button>
+      {open && (
+        <div className="menu-list up" role="menu">
+          {account.me.workspaces.map((w) => (
+            <button key={w.id} role="menuitem" onClick={() => go(w.id)}>
+              <span className="workspace-badge small" aria-hidden="true">
+                {w.name[0]?.toUpperCase()}
+              </span>
+              <span className="grow">{w.name}</span>
+              {w.id === account.workspace?.id && <Check size={15} aria-label="Current" />}
+            </button>
+          ))}
+          {hosted && (
+            <button role="menuitem" onClick={create}>
+              <Plus size={16} aria-hidden="true" /> New workspace
+            </button>
+          )}
+          {hosted && <div className="menu-separator" role="separator" />}
+          {hosted && <div className="menu-note">{account.me.user.email}</div>}
+          {account.signOut && (
+            <button role="menuitem" onClick={() => void account.signOut!()}>
+              <LogOut size={16} aria-hidden="true" /> Sign out
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 type Item = { label: string; detail: string; to: string; group: string };
 
 function QuickSearch({ onClose }: { onClose: () => void }) {
@@ -82,10 +169,12 @@ function QuickSearch({ onClose }: { onClose: () => void }) {
   const [active, setActive] = useState(0);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [dashboards, setDashboards] = useState<DashboardSummary[]>([]);
+  const account = useAccount();
+  const canCreate = account.can("creator");
 
   useEffect(() => {
     ref.current?.showModal();
-    api.listDatasets().then(setDatasets).catch(() => {});
+    if (canCreate) api.listDatasets().then(setDatasets).catch(() => {});
     dashboardsApi.list().then(setDashboards).catch(() => {});
   }, []);
 
@@ -93,12 +182,12 @@ function QuickSearch({ onClose }: { onClose: () => void }) {
     const all: Item[] = [
       ...dashboards.map((d) => ({ label: d.name, detail: d.dataset ? `Dashboard on ${d.dataset.name}` : "Dashboard", to: `/dashboards/${d.id}`, group: "Dashboards" })),
       ...datasets.map((d) => ({ label: d.name, detail: `Dataset with ${d.sources.length} ${d.sources.length === 1 ? "source" : "sources"}`, to: `/datasets/${d.id}/get-data`, group: "Datasets" })),
-      { label: "New dashboard", detail: "Start from existing or new data", to: "/?new=1", group: "Actions" },
-      { label: "Settings", detail: "AI provider and connection test", to: "/settings", group: "Actions" },
+      ...(canCreate ? [{ label: "New dashboard", detail: "Start from existing or new data", to: "/?new=1", group: "Actions" }] : []),
+      ...(account.me.platform_admin ? [{ label: "Settings", detail: "AI provider and connection test", to: "/settings", group: "Actions" }] : []),
     ];
     const q = query.trim().toLowerCase();
     return q ? all.filter((i) => i.label.toLowerCase().includes(q) || i.detail.toLowerCase().includes(q)) : all;
-  }, [query, datasets, dashboards]);
+  }, [query, datasets, dashboards, canCreate, account.me.platform_admin]);
 
   function go(item: Item | undefined) {
     if (!item) return;

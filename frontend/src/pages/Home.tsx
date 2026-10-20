@@ -3,12 +3,17 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { BadgeCheck, Database, LayoutDashboard, Plus, Trash2 } from "lucide-react";
 import { api, dashboardsApi, type DashboardSummary, type Dataset, type ProviderSettings } from "../api";
 import { EmptyState, Skeleton, useCrumbs, useDialogs, useToast } from "../components/ui";
+import { useAccount } from "../components/account";
 import { PublishBadge } from "./Dataset";
 
 type Choice = "existing" | "new";
 type Show = "all" | "datasets" | "dashboards";
 
-export function Home({ show = "all" }: { show?: Show }) {
+export function Home({ show: wanted = "all" }: { show?: Show }) {
+  const account = useAccount();
+  const creator = account.can("creator");
+  // Viewers only work with published dashboards.
+  const show: Show = creator ? wanted : "dashboards";
   const [settings, setSettings] = useState<ProviderSettings | null>(null);
   const [dashboards, setDashboards] = useState<DashboardSummary[] | null>(null);
   const [datasets, setDatasets] = useState<Dataset[] | null>(null);
@@ -18,11 +23,12 @@ export function Home({ show = "all" }: { show?: Show }) {
   const toast = useToast();
   const dialogs = useDialogs();
 
-  useCrumbs([{ label: show === "datasets" ? "Datasets" : show === "dashboards" ? "Dashboards" : "Home" }]);
+  useCrumbs([{ label: wanted === "all" ? "Home" : show === "datasets" ? "Datasets" : "Dashboards" }]);
 
   function load() {
     dashboardsApi.list().then(setDashboards).catch((e) => toast(e.message, "error"));
-    api.listDatasets().then(setDatasets).catch((e) => toast(e.message, "error"));
+    if (creator) api.listDatasets().then(setDatasets).catch((e) => toast(e.message, "error"));
+    else setDatasets([]);
   }
 
   useEffect(() => {
@@ -88,27 +94,33 @@ export function Home({ show = "all" }: { show?: Show }) {
   }
 
   const connected = settings?.capabilities.tools !== undefined;
-  const title = show === "datasets" ? "Datasets" : show === "dashboards" ? "Dashboards" : "Home";
+  const title = wanted === "all" ? "Home" : show === "datasets" ? "Datasets" : "Dashboards";
 
   return (
     <div className="page wide">
       <div className="home-head">
         <h1>{title}</h1>
         <span className="spacer" />
-        {show !== "dashboards" && (
+        {creator && show !== "dashboards" && (
           <button className="secondary" onClick={newDataset}>
             <Database size={16} aria-hidden="true" /> New dataset
           </button>
         )}
-        {show !== "datasets" && (
+        {creator && show !== "datasets" && (
           <button onClick={() => setCreating(creating ? null : published.length ? "existing" : "new")} aria-expanded={!!creating}>
             <Plus size={16} aria-hidden="true" /> New dashboard
           </button>
         )}
       </div>
-      {settings && !connected && (
+      {settings && !connected && creator && (
         <div className="notice">
-          Connect your AI provider first: <Link to="/settings">open Settings</Link> and run the connection test.
+          {account.me.platform_admin ? (
+            <>
+              Connect your AI provider first: <Link to="/settings">open Settings</Link> and run the connection test.
+            </>
+          ) : (
+            "The AI isn't connected yet. The people running datalemon need to set it up."
+          )}
         </div>
       )}
 
@@ -128,8 +140,10 @@ export function Home({ show = "all" }: { show?: Show }) {
           {dashboards === null ? (
             <Skeleton lines={3} height={52} />
           ) : dashboards.length === 0 ? (
-            <EmptyState icon={<LayoutDashboard size={28} />} title="No dashboards yet">
-              A dashboard is built by the AI from a dataset's measures. Click New dashboard to make the first one.
+            <EmptyState icon={<LayoutDashboard size={28} />} title={creator ? "No dashboards yet" : "Nothing published yet"}>
+              {creator
+                ? "A dashboard is built by the AI from a dataset's measures. Click New dashboard to make the first one."
+                : "Dashboards show up here once someone in your team publishes them."}
             </EmptyState>
           ) : (
             <ul className="project-list">
@@ -143,12 +157,16 @@ export function Home({ show = "all" }: { show?: Show }) {
                       {new Date(d.updated_at).toLocaleDateString()}
                     </span>
                   </Link>
-                  <span className={`badge ${d.published ? (d.unpublished_changes ? "warn" : "ok-badge") : ""}`}>
-                    {d.published ? (d.unpublished_changes ? "Draft changes" : "Published") : "Draft"}
-                  </span>
-                  <button className="icon danger" aria-label={`Delete ${d.name}`} onClick={() => removeDashboard(d)}>
-                    <Trash2 size={16} />
-                  </button>
+                  {creator && (
+                    <>
+                      <span className={`badge ${d.published ? (d.unpublished_changes ? "warn" : "ok-badge") : ""}`}>
+                        {d.published ? (d.unpublished_changes ? "Draft changes" : "Published") : "Draft"}
+                      </span>
+                      <button className="icon danger" aria-label={`Delete ${d.name}`} onClick={() => removeDashboard(d)}>
+                        <Trash2 size={16} />
+                      </button>
+                    </>
+                  )}
                 </li>
               ))}
             </ul>

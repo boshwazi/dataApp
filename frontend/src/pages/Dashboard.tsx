@@ -21,7 +21,8 @@ import { ActivityDrawer } from "../components/ActivityDrawer";
 import { AskPanel } from "../components/AskPanel";
 import { Chart, SERIES, TOKENS } from "../components/Chart";
 import { ChatPanel, type ChatHandle } from "../components/ChatPanel";
-import { EmptyState, Menu, useCrumbs, useDialogs, useToast } from "../components/ui";
+import { EmptyState, Menu, type MenuItem, useCrumbs, useDialogs, useToast } from "../components/ui";
+import { useAccount } from "../components/account";
 
 const SUGGESTIONS = ["Add a page about customers", "Swap the donut for a bar chart", "Which visual shows the biggest change?"];
 
@@ -29,7 +30,9 @@ const SUGGESTIONS = ["Add a page about customers", "Swap the donut for a bar cha
 export function Dashboard() {
   const { dashboardId = "" } = useParams();
   const [params, setParams] = useSearchParams();
-  const side = params.get("view") === "published" ? "published" : "draft";
+  // Viewers only ever see the published version.
+  const creator = useAccount().can("creator");
+  const side = !creator || params.get("view") === "published" ? "published" : "draft";
   const [state, setState] = useState<ReportState | null>(null);
   const [hasKey, setHasKey] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -132,6 +135,12 @@ export function Dashboard() {
   const dataset = state.dataset;
 
   const showSide = chatOpen && (editing || state.published);
+  const moreItems: MenuItem[] = [
+    ...(creator ? [{ label: "Activity", icon: <History size={16} aria-hidden="true" />, onSelect: () => setShowActivity(true) }] : []),
+    ...(state.published
+      ? [{ label: "Export PDF", icon: <FileDown size={16} aria-hidden="true" />, onSelect: () => navigate(`/dashboards/${dashboardId}/export`) }]
+      : []),
+  ];
   const tabs = page && (
     <nav className="page-tabs" aria-label="Report pages">
       {state.pages.map((p, i) => (
@@ -159,6 +168,7 @@ export function Dashboard() {
           )}
         </div>
         <span className="spacer" />
+        {creator && (
         <span className="segmented" role="radiogroup" aria-label="Version">
           <button role="radio" aria-checked={editing} className={editing ? "on" : ""} onClick={() => go({ view: "draft" })}>
             Draft
@@ -167,6 +177,7 @@ export function Dashboard() {
             Published
           </button>
         </span>
+        )}
         {state.pages.length > 0 && (
           <button className="secondary" onClick={() => setPresenting(true)}>
             <Maximize2 size={16} aria-hidden="true" /> Present
@@ -175,16 +186,7 @@ export function Dashboard() {
         <button className="secondary" onClick={() => setChatOpen(!chatOpen)} aria-pressed={chatOpen}>
           <MessageSquare size={16} aria-hidden="true" /> {editing ? "AI chat" : "Ask"}
         </button>
-        <Menu
-          label="More actions"
-          icon={<MoreHorizontal size={18} />}
-          items={[
-            { label: "Activity", icon: <History size={16} aria-hidden="true" />, onSelect: () => setShowActivity(true) },
-            ...(state.published
-              ? [{ label: "Export PDF", icon: <FileDown size={16} aria-hidden="true" />, onSelect: () => navigate(`/dashboards/${dashboardId}/export`) }]
-              : []),
-          ]}
-        />
+        {moreItems.length > 0 && <Menu label="More actions" icon={<MoreHorizontal size={18} />} items={moreItems} />}
         {editing && (
           <button onClick={publish} disabled={publishing || (state.published && !state.unpublished_changes) || !state.pages.length}>
             {publishing ? "Publishing…" : state.published ? "Publish changes" : "Publish"}

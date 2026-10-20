@@ -9,7 +9,7 @@ from typing import Callable
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from . import activity, ai_report, ask, dashboards, export, llm, model, publishing, report
+from . import activity, ai_report, ask, dashboards, export, llm, model, publishing, report, workspaces
 from .dashboards import DashboardStore
 from .projects import NotFound, ProjectStore
 from .settings import ProviderSettings, SettingsStore
@@ -141,9 +141,13 @@ def build_router(
 
     # Dashboards
 
+    def viewer() -> bool:
+        return not workspaces.current().at_least("creator")
+
     @router.get("")
     def list_dashboards():
-        return [summary(d, datasets) for d in boards.all()]
+        # Viewers only ever see published dashboards.
+        return [summary(d, datasets) for d in boards.all() if d.get("published") or not viewer()]
 
     @router.post("")
     def create(body: NewDashboardBody):
@@ -157,6 +161,15 @@ def build_router(
     def get_dashboard(dashboard_id: str, side: str = "draft"):
         if side not in ("draft", "published"):
             raise HTTPException(400, "side is draft or published.")
+        if viewer():
+            published = False
+            try:
+                published = bool(boards.get(dashboard_id).get("published"))
+            except NotFound:
+                pass
+            if not published:
+                raise HTTPException(404, "Dashboard not found.")
+            side = "published"
         return respond(dashboard_id, side=side)
 
     @router.patch("/{dashboard_id}")
@@ -357,6 +370,8 @@ def build_router(
         settings = settings_store.load()
         if not settings.api_key:
             raise HTTPException(400, "The AI is not set up yet. Ask an admin to add an API key in Settings.")
+        if viewer() and body.side != "published":
+            raise HTTPException(403, "Viewers can ask about published dashboards only.")
         question = body.question.strip()
         if not question:
             raise HTTPException(400, "Type a question first.")

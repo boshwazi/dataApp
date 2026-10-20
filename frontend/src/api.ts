@@ -130,13 +130,29 @@ export type Preview = {
 
 export type AddResult = { added: SourceSummary[]; errors: string[] };
 
+// Who is calling: the sign-in token and the chosen workspace ride along on every request.
+const session = {
+  token: async (): Promise<string | null> => null,
+  workspace: null as string | null,
+  onSignedOut: () => {},
+};
+
+export function configureSession(options: Partial<typeof session>) {
+  Object.assign(session, options);
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const isForm = init?.body instanceof FormData;
+  const token = await session.token();
+  const who: Record<string, string> = {};
+  if (token) who.Authorization = `Bearer ${token}`;
+  if (session.workspace) who["X-Workspace"] = session.workspace;
   const response = await fetch(path, {
     ...init,
     // The browser sets the multipart boundary itself for uploads.
-    headers: isForm ? init?.headers : { "Content-Type": "application/json", ...init?.headers },
+    headers: isForm ? { ...who, ...init?.headers } : { "Content-Type": "application/json", ...who, ...init?.headers },
   });
+  if (response.status === 401) session.onSignedOut();
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     const detail = body.detail;
@@ -156,6 +172,31 @@ export class ApiError extends Error {
 const json = (method: string, body?: unknown): RequestInit => ({ method, body: JSON.stringify(body ?? {}) });
 const project = (id: string) => `/api/datasets/${id}`;
 const source = (pid: string, sid: string) => `${project(pid)}/sources/${sid}`;
+
+// Sign-in, workspaces and members
+
+export type Role = "admin" | "creator" | "viewer";
+export type WorkspaceRef = { id: string; name: string; role: Role };
+export type AuthConfig = { mode: "local" | "supabase"; supabase_url: string | null; supabase_key: string | null };
+export type Me = { mode: "local" | "supabase"; user: { id: string; email: string }; platform_admin: boolean; workspaces: WorkspaceRef[] };
+export type Member = { workspace_id: string; user_id: string; email: string; role: Role; joined_at: string };
+export type Invite = { id: string; email: string; role: Role; invited_by: string; created_at: string; expires_at: string; token: string };
+export type People = { members: Member[]; invites: Invite[] };
+
+export const accountApi = {
+  config: () => request<AuthConfig>("/api/auth/config"),
+  me: () => request<Me>("/api/me"),
+  createWorkspace: (name: string) => request<WorkspaceRef>("/api/workspaces", json("POST", { name })),
+  renameWorkspace: (name: string) => request<WorkspaceRef>("/api/workspaces/current", json("PATCH", { name })),
+  people: () => request<People>("/api/workspaces/current/members"),
+  setRole: (userId: string, role: Role) => request<People>(`/api/workspaces/current/members/${userId}`, json("PUT", { role })),
+  removeMember: (userId: string) => request<People>(`/api/workspaces/current/members/${userId}`, { method: "DELETE" }),
+  invite: (email: string, role: Role) => request<People & { invite: Invite }>("/api/workspaces/current/invites", json("POST", { email, role })),
+  revokeInvite: (id: string) => request<People>(`/api/workspaces/current/invites/${id}`, { method: "DELETE" }),
+  showInvite: (token: string) =>
+    request<{ workspace: string; email: string; role: Role; invited_by: string }>(`/api/invites/${encodeURIComponent(token)}`),
+  acceptInvite: (token: string) => request<WorkspaceRef>(`/api/invites/${encodeURIComponent(token)}/accept`, { method: "POST" }),
+};
 
 export const api = {
   getSettings: () => request<ProviderSettings>("/api/settings"),

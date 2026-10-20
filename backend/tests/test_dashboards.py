@@ -113,7 +113,7 @@ def test_old_projects_become_a_dataset_and_a_dashboard(tmp_path):
     kpi_page(p)
     pages = p.api.get(p.base).json()["pages"]
     old = tmp_path / "old"
-    shutil.copytree(tmp_path / "build" / "datasets", old / "projects")
+    shutil.copytree(tmp_path / "build" / "workspaces" / "local" / "datasets", old / "projects")
     record_path = old / "projects" / p.id / "project.json"
     record = json.loads(record_path.read_text(encoding="utf-8"))
     record.pop("published")
@@ -125,12 +125,14 @@ def test_old_projects_become_a_dataset_and_a_dashboard(tmp_path):
         leftover.unlink()
 
     api = TestClient(create_app(data_dir=old, client_factory=lambda s: None))
-    assert not (old / "projects").exists() and (old / "datasets").exists()
+    # Old top-level folders move into the local workspace, and projects become datasets.
+    moved = old / "workspaces" / "local"
+    assert not (old / "projects").exists() and not (moved / "projects").exists() and (moved / "datasets").exists()
     dashboards = api.get("/api/dashboards").json()
     assert [d["name"] for d in dashboards] == ["R"] and dashboards[0]["dataset"]["version"] == 1
     page = api.get(f"/api/dashboards/{dashboards[0]['id']}").json()["pages"][0]
     assert page["visuals"][0]["data"]["check"]["total"] == 64.0
-    assert "report" not in json.loads((old / "datasets" / p.id / "project.json").read_text(encoding="utf-8"))
+    assert "report" not in json.loads((moved / "datasets" / p.id / "project.json").read_text(encoding="utf-8"))
 
 
 def test_dataset_list_shows_which_dashboards_use_it(p):

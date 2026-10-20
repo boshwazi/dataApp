@@ -3224,3 +3224,224 @@ a.button.secondary:hover,
   color: var(--accent) !important;
   border-color: var(--accent) !important;
 }
+
+/* ---------- Sign-in, workspace switcher, members ---------- */
+
+.auth-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  background: var(--bg);
+}
+
+.auth-card {
+  width: min(420px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 32px 28px;
+  box-shadow: var(--shadow);
+}
+
+.auth-card.center {
+  align-items: center;
+  text-align: center;
+}
+
+.auth-card h1 {
+  margin: 4px 0 0;
+  font-size: 24px;
+}
+
+.auth-card p {
+  margin: 0;
+}
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.auth-providers,
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.auth-providers button,
+.auth-form button {
+  justify-content: center;
+  padding: 10px 14px;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.workspace-menu {
+  position: relative;
+  margin-top: auto;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+button.workspace {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  margin: 0;
+  border: none;
+  border-top: none;
+  border-radius: var(--radius);
+  background: none !important;
+  color: var(--text) !important;
+  text-align: left;
+  font-weight: 500;
+}
+
+button.workspace:hover {
+  background: var(--bg) !important;
+}
+
+.workspace-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.workspace-text strong {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-text span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.workspace-badge,
+.avatar {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--accent);
+  background: var(--selected);
+}
+
+.workspace-badge.small {
+  width: 22px;
+  height: 22px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+
+.avatar {
+  border-radius: 50%;
+}
+
+.avatar.pending {
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px dashed var(--border-strong);
+}
+
+.menu-list.up {
+  top: auto;
+  bottom: calc(100% + 6px);
+  left: 0;
+  right: 0;
+}
+
+.menu-separator {
+  height: 1px;
+  margin: 6px 4px;
+  background: var(--border);
+}
+
+.menu-note {
+  padding: 4px 10px 6px;
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.invite-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.invite-form h2 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.invite-form p {
+  margin: 0;
+}
+
+.members .project-list select {
+  font: inherit;
+  font-size: 14px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+@media (max-width: 900px) {
+  .workspace-menu {
+    margin: 0 0 0 auto;
+    border-top: none;
+    padding-top: 0;
+    order: 3;
+  }
+  .workspace-text {
+    display: none;
+  }
+  button.workspace svg {
+    display: none;
+  }
+  .menu-list.up {
+    top: calc(100% + 6px);
+    bottom: auto;
+    left: auto;
+    right: 0;
+    min-width: 230px;
+  }
+}
