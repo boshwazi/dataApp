@@ -302,14 +302,17 @@ Since CHIP has no subscription engine, we build a small one:
 
 Phase 1 (M0 to M10b) is done. The rest of the work to a paid, secure launch is in
 [PHASE2_PLAN.md](PHASE2_PLAN.md):
-- M11 Foundation
+- M11 Power BI import and export
 - M12 Accounts and brand
 - M13 Permissions
-- private beta
 - M14 Billing
-- M15 Compliance and hardening
+- M15 Go online
+- private beta
+- M16 Compliance and hardening
 - public launch
-- M16 Product depth
+- M17 Product depth
+
+Development stays local until M15.
 
 ## Stack (today)
 

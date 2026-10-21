@@ -5,8 +5,10 @@ chats in every stage, publishing, refresh, PDF export, lineage, sign-in, workspa
 invites and Postgres with row-level security.
 
 Phase 2 makes it something Malaysian companies can sign up for, trust with their data and pay
-for. It has eight workstreams, delivered as six milestones (M11 to M16), with a private beta
-after M13.
+for. It has nine workstreams, delivered as seven milestones (M11 to M17).
+
+Development stays on this computer (local testing, no domain or hosting) until the product is
+further along. Going online is M15, just before the private beta.
 
 ## Where the gaps are
 
@@ -20,6 +22,7 @@ after M13.
 | Permissions | Workspace-wide roles (admin, creator, viewer) | Per-dashboard sharing, groups, row-level security inside datasets, share links |
 | Payment | None | Plans and limits, AI credits, CHIP checkout and renewals, receipts with tax |
 | Legal | None | PDPA 2024 duties, privacy notice, terms, DPA, DPO, breach procedure |
+| Power BI | None | Import `.pbix` and `.pbip` models; export as a `.pbip` project (and `.pbix` through Desktop) |
 
 ## Workstreams
 
@@ -192,23 +195,82 @@ The 2024 amendments took effect in 2025 ([Baker McKenzie](https://insightplus.ba
   - A restore drill before launch, and quarterly after.
 - **Status page and support:** a support email, a status page, and a simple incident process tied to the breach procedure.
 
+### I. Power BI interoperability (import and export)
+
+Many customers already have Power BI models. Bringing a model in from Power BI, and handing one back
+out, lowers the cost of switching both ways and makes datawazi a natural companion to Power BI
+rather than a rival to it.
+
+**What each file holds**
+
+| File | Model (tables, columns, relationships, measures, Power Query) | Data | How we read or write it |
+| --- | --- | --- | --- |
+| `.pbip` project | Yes, as plain-text TMDL files in `<name>.SemanticModel/definition/` ([Microsoft Learn](https://learn.microsoft.com/mt-mt/power-bi/developer/projects/projects-dataset), [endjin](https://endjin.com/blog/why-power-bi-developers-should-care-about-the-tabular-model-definition-language-tmdl)) | No: only the queries that load it | Our own TMDL reader and writer (a documented text format) |
+| `.pbix` file | Yes, inside the compressed data model | Yes, compressed (VertiPaq) | Read with [PBIXRay](https://pypi.org/project/pbixray) (MIT licence, maintained; latest release Aug 2026). Writing `.pbix` is not possible: the format is undocumented and binary |
+| `.pbit` template | Yes, as JSON | No | Could be written: a zip holding the model schema. Optional |
+
+**Import: "Get Data → From Power BI"**
+
+1. **Upload** a `.pbix`, or a `.pbip` project as a zip.
+2. **Read the model.** Tables and column types, relationships (cardinality, active or not, filter direction), measures with their DAX, calculated columns, Power Query (M) per table, the date table, and roles.
+3. **Data.**
+   - **From a `.pbix`,** PBIXRay reads the tables' data, so the dataset is complete straight away. The tables arrive already clean: Power BI ran the Power Query steps before saving.
+   - **From a `.pbip`,** there's no data. The app lists each table's source from its M query, such as a file name, Excel sheet or SQL table, and asks you to upload the matching files or link existing tables. It matches them by name and column set.
+4. **Relationships** are added through the engine's normal checks: the one side is unique, types match, and the match rate is shown. Problems are flagged, not hidden.
+5. **Measures** are translated from DAX into the measure catalogue. The AI never writes SQL, and that still holds.
+   - **Deterministic for common patterns:** `SUM`, `AVERAGE`, `MIN`, `MAX`, `COUNT`, `COUNTROWS`, `DISTINCTCOUNT`, `DIVIDE`, arithmetic between measures, `SUMX('t', [a] * [b])`, and `CALCULATE` with simple column filters.
+   - **The rest go to the Model AI,** which proposes catalogue measures. The engine checks them, and the user approves each one in Review mode.
+   - **Anything that can't be expressed** (time intelligence, iterators over virtual tables, and similar) is kept as "Power BI measure, not converted", with its DAX shown, so nothing is silently lost.
+6. **Roles** (Power BI row-level security) become row-level security rules in the dataset (M13).
+7. **An import report** says what came across, what was converted by rule, what by the AI, and what was left behind.
+   - Lineage shows "imported from Sales.pbix".
+   - Every converted measure's total is computed, so the user can compare it with Power BI.
+
+**Export: "Download for Power BI"**
+
+- **PBIP project (main path).** A zip holding:
+  - `<name>.pbip`
+  - `<name>.SemanticModel/` with TMDL: tables with columns and types, relationships, measures written as DAX, format strings, the date table marked as a date table, and descriptions
+  - `<name>.Report/` (see below)
+  - a `data/` folder with each clean table as Parquet (or CSV)
+- **Data loading.** Each table's Power Query reads its file from `data/` through one `DataFolder` parameter. Open the `.pbip` in Power BI Desktop, set the folder once, and click Refresh.
+- **Measures to DAX** is fully deterministic, because the measure catalogue is small:
+  - aggregate measures become `SUM('t'[c])`, or `SUMX` for expressions
+  - filters become `CALCULATE(..., KEEPFILTERS(...))`
+  - division becomes `DIVIDE`
+- **`.pbix`:** open the exported `.pbip` in Power BI Desktop and choose *File → Save as → .pbix*. That's the supported route; there is no way to write `.pbix` directly.
+  - An optional `.pbit` template gives a single file instead. It opens in Desktop and loads from the same data files.
+- **Dashboards.** Report pages as Power BI report pages (PBIR): KPI cards become cards, bar, column, line, area, pie and donut charts keep their types, tables become tables, and titles and sort orders carry over. This comes after the model export works.
+
+**Checks and safety**
+
+- **Round trip:** exporting a dataset and importing it again gives the same tables, relationships and measure results. This is an automated test.
+- **Real-Desktop check:** the exported project is opened with this machine's Power BI tooling (the Power BI Desktop bridge and modelling MCP from the Power BI skills) before each release.
+- **Untrusted files.**
+  - Parsing runs in a separate worker with time and memory limits, and the plan's upload size limit applies.
+  - Nothing in the file is executed: no M, no DAX, no macros.
+  - PBIX passwords or embedded credentials are never read or stored.
+- **Limits by plan:** import and export are in Pro and Team. Free can import one `.pbix` to try it.
+
 ## Milestones
 
 | # | Delivers | Needs from you |
 | --- | --- | --- |
-| **M11** Foundation | Domain, Resend email, Singapore Supabase, Fly.io hosting with HTTPS, staging, CI, secrets, durable data files, job queue, rate limits, security headers | Buy the domain; Fly.io account; Supabase Pro on production |
+| **M11** Power BI interoperability | Import `.pbix` (model and data) and `.pbip` (model, then match data); DAX to measures with an import report; export a `.pbip` project with TMDL, DAX and data files; round-trip tests | A few real `.pbix`/`.pbip` files to test with |
 | **M12** Accounts and brand | Logo and brand, landing page, sign-up and onboarding, account and workspace settings, MFA, Google and Microsoft sign-in, delete and export | Logo direction; Google and Microsoft app registrations |
-| **M13** Permissions | Per-item sharing, groups, row-level security in datasets, share links, owners, audit log | Decide default sharing |
+| **M13** Permissions | Per-item sharing, groups, row-level security in datasets (and imported Power BI roles), share links, owners, audit log | Decide default sharing |
+| **M14** Billing | Plans and limits, AI credit metering, CHIP checkout and renewals (CHIP sandbox while local), receipts, billing page | CHIP sandbox account; final prices later |
+| **M15** Go online | Domain, Resend email, Singapore Supabase, Fly.io hosting with HTTPS, staging, CI, secrets, durable data files, job queue, rate limits, security headers | Buy the domain; Fly.io account; Supabase Pro on production |
 | **Private beta** | 5 to 10 friendly companies on Free, invited by you, with feedback built in | Pick the beta companies |
-| **M14** Billing | Plans and limits, AI credit metering, CHIP checkout and renewals, receipts, billing page | CHIP merchant account (registered business, SSM); final prices |
-| **M15** Compliance and hardening | Legal documents, DPO, breach procedure, transfer assessment, monitoring, backup drill, load test, security review, external penetration test | Lawyer review; DPO named; pen-test budget |
-| **Public launch** | | |
-| **M16** Product depth | Extend a dataset, notifications, scheduled digests, templates, Bahasa Malaysia, help docs | Template priorities |
+| **M16** Compliance and hardening | Legal documents, DPO, breach procedure, transfer assessment, monitoring, backup drill, load test, security review, external penetration test | Lawyer review; DPO named; pen-test budget |
+| **Public launch** | Billing switched to live CHIP | CHIP live account (registered business, SSM) |
+| **M17** Product depth | Extend a dataset, Power BI report export (dashboards as report pages), notifications, scheduled digests, templates, Bahasa Malaysia, help docs | Template priorities |
 
-Order matters in three places:
-- M11 comes first because everything else needs a real address, real email and a Singapore database.
-- Permissions come before the beta, because companies won't share real data without them.
-- Billing comes before public launch, but after the beta has shown which limits matter.
+Why this order:
+- **Local first.** M11 to M14 build and test on this computer with the current Seoul test project and Gmail sender. Nothing there needs a domain.
+- **Some security work can start early.** Parts of M15 (CI, rate limits, security headers, the job queue) don't need hosting and can be pulled forward whenever convenient.
+- **Going online comes before the beta,** because beta companies need a real address, reliable email and data in Singapore.
+- **Billing is built before the beta and switched on at launch,** after the beta has shown which limits matter.
 
 ## Running costs to expect (at launch scale)
 
@@ -238,9 +300,10 @@ No suitable skills for payments or Supabase came up in your claude.ai skill cata
 
 ## Decisions needed
 
-1. **Domain name:** `datawazi.com`, `.my`, `.ai` or `.io`? `.com.my` needs a registered Malaysian business.
+1. **Domain name (at M15):** `datawazi.com`, `.my`, `.ai` or `.io`? `.com.my` needs a registered Malaysian business.
 2. **Hosting:** Fly.io in Singapore (recommended), or AWS or Azure for enterprise buyers who ask.
 3. **Default sharing:** new dashboards visible to the whole workspace, or private until shared?
 4. **Beta:** which 5 to 10 companies, and when.
 5. **Business registration** for CHIP and for issuing invoices: an existing company, or a new Sdn Bhd?
 6. **Prices:** finalised after measuring AI cost per workspace in the beta.
+7. **Power BI scope for M11:** model import and export first (recommended), with dashboards as Power BI report pages in M17. Or both in M11.
