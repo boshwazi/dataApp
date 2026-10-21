@@ -305,7 +305,7 @@ Phase 1 (M0 to M10b) is done. The rest of the work to a paid, secure launch is i
 [PHASE2_PLAN.md](PHASE2_PLAN.md):
 - M11 Power BI import and export
 - M11b Power BI follow-ups (connector labels, refresh from a newer .pbix)
-- M12 AI engines
+- M12 AI engines and model depth
 - M13 Accounts and brand
 - M14 Permissions
 - M15 Billing
