@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>datawazi workspace mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --rail: #0f1a2b; --rail-text: #b4bfd0;
+    --text: #16202e; --muted: #5d6878; --faint: #8a94a3;
+    --border: #e4e7ec; --border-strong: #cfd4dc; --grid: #eef0f3;
+    --accent: #1b5fd1; --accent-soft: #e9f0fc; --ok: #067a57; --ok-soft: #e3f4ec;
+    --bad: #b42318; --bad-soft: #fdf1f0; --warn: #9a3412; --warn-soft: #fff4e5;
+    --ai: #854d0e; --ai-soft: #fef6dc; --ai-line: #eab308; --highlight: #facc15;
+    --s1: #0072B2; --s2: #E69F00; --s3: #009E73; --s4: #56B4E9;
+    --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+    --r: 6px;
+    font-family: Inter, system-ui, sans-serif; font-size: 13px; color: var(--text);
+    -webkit-font-smoothing: antialiased; font-feature-settings: "cv11", "ss01";
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #e8ebf0; }
+  .mono { font-family: var(--mono); font-size: 12px; }
+  .num { font-variant-numeric: tabular-nums; text-align: right; }
+  .muted { color: var(--muted); }
+  button { font: inherit; cursor: pointer; }
+
+  /* Review header, outside the product */
+  .review { max-width: 1440px; margin: 0 auto; padding: 22px 24px 14px; display: flex; gap: 24px; align-items: flex-end; flex-wrap: wrap; }
+  .review h1 { margin: 0 0 4px; font-size: 20px; letter-spacing: -0.01em; }
+  .review p { margin: 0; color: var(--muted); max-width: 760px; line-height: 1.5; }
+  .switch { margin-left: auto; display: inline-flex; background: #fff; border: 1px solid var(--border-strong); border-radius: 8px; padding: 3px; }
+  .switch button { border: 0; background: none; padding: 7px 16px; border-radius: 6px; font-weight: 600; color: var(--muted); }
+  .switch button[aria-selected="true"] { background: var(--rail); color: #fff; }
+
+  /* The product frame */
+  .app { max-width: 1440px; height: 860px; margin: 0 auto 28px; display: grid; grid-template-columns: 52px 1fr; border-radius: 10px; overflow: hidden; box-shadow: 0 24px 60px rgba(15, 26, 43, .18); background: var(--bg); }
+  .rail { background: var(--rail); display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 4px; }
+  .rail .logo { width: 26px; height: 26px; border-radius: 7px; background: var(--accent); display: grid; place-items: center; margin-bottom: 14px; position: relative; }
+  .rail .logo::after { content: ""; position: absolute; top: -3px; right: -3px; width: 9px; height: 9px; border-radius: 50%; background: var(--highlight); border: 2px solid var(--rail); }
+  .rail .logo i { display: block; width: 3px; background: #fff; margin: 0 1px; border-radius: 1px; }
+  .rail a { width: 36px; height: 36px; border-radius: 8px; display: grid; place-items: center; color: var(--rail-text); position: relative; }
+  .rail a.on { background: rgba(255,255,255,.09); color: #fff; }
+  .rail a.on::before { content: ""; position: absolute; left: -8px; top: 9px; bottom: 9px; width: 3px; border-radius: 0 2px 2px 0; background: var(--highlight); }
+  .rail .spacer { flex: 1; }
+  .rail .me { width: 28px; height: 28px; border-radius: 50%; background: #2a3a55; color: #fff; display: grid; place-items: center; font-size: 11px; font-weight: 700; }
+  svg.i { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+  .main { display: grid; grid-template-rows: 44px 1fr 26px; min-width: 0; }
+  .bar { display: flex; align-items: center; gap: 14px; padding: 0 14px; background: var(--panel); border-bottom: 1px solid var(--border); }
+  .crumbs { display: flex; align-items: center; gap: 6px; color: var(--muted); white-space: nowrap; }
+  .crumbs b { color: var(--text); font-weight: 600; }
+  .crumbs .sep { color: var(--faint); }
+  .stages { display: flex; gap: 2px; margin-left: 10px; }
+  .stages button { border: 0; background: none; padding: 6px 12px; border-radius: 6px; color: var(--muted); font-weight: 500; display: flex; align-items: center; gap: 6px; }
+  .stages button .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
+  .stages button.on { background: var(--accent-soft); color: var(--accent); font-weight: 650; }
+  .bar .grow { flex: 1; }
+  .status { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+  .status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #f59e0b; }
+  .btn { white-space: nowrap; border: 1px solid var(--border-strong); background: var(--panel); color: var(--text); border-radius: var(--r); height: 28px; padding: 0 10px; font-weight: 550; display: inline-flex; align-items: center; gap: 6px; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.ghost { border-color: transparent; background: none; color: var(--muted); }
+  .btn.ai { border-color: #f1d77a; background: var(--ai-soft); color: var(--ai); }
+  kbd { font-family: var(--mono); font-size: 10.5px; border: 1px solid var(--border-strong); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; color: var(--muted); background: #fff; }
+
+  .work { display: grid; min-height: 0; }
+  .pane { background: var(--panel); min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+  .pane-head { height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 12px; color: var(--muted); flex-shrink: 0; }
+  .pane-head .grow { flex: 1; }
+  .left { border-right: 1px solid var(--border); }
+  .right { border-left: 1px solid var(--border); }
+  .footer { display: flex; align-items: center; gap: 18px; padding: 0 14px; background: var(--panel); border-top: 1px solid var(--border); font-size: 11.5px; color: var(--muted); }
+  .footer .ok { color: var(--ok); }
+
+  /* Explorer tree */
+  .search { margin: 8px 10px; height: 28px; border: 1px solid var(--border); border-radius: var(--r); display: flex; align-items: center; gap: 6px; padding: 0 8px; color: var(--faint); background: var(--bg); }
+  .tree { list-style: none; margin: 0; padding: 2px 6px 10px; overflow: auto; }
+  .tree li { display: flex; align-items: center; gap: 7px; padding: 4px 6px; border-radius: 5px; white-space: nowrap; }
+  .tree li.t { font-weight: 600; margin-top: 4px; }
+  .tree li.c { padding-left: 24px; color: #2b3646; }
+  .tree li.sel { background: var(--accent-soft); color: var(--accent); }
+  .tree .count { margin-left: auto; color: var(--faint); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .ty { font-family: var(--mono); font-size: 9.5px; font-weight: 500; color: var(--muted); border: 1px solid var(--border-strong); border-radius: 3px; padding: 0 3px; min-width: 22px; text-align: center; }
+  .ty.d { color: #0b6e99; border-color: #b8dcef; }
+  .ty.n { color: #6b46c1; border-color: #d8cdf3; }
+  .ty.m { color: var(--accent); border-color: #c4d6f6; }
+
+  /* Transform grid */
+  .toolbar { height: 38px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border-bottom: 1px solid var(--border); background: var(--panel); flex-shrink: 0; }
+  .toolbar .div { width: 1px; height: 18px; background: var(--border); margin: 0 4px; }
+  .stepbar { white-space: nowrap; overflow: hidden; display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--border); background: #fbfcfd; font-size: 12px; flex-shrink: 0; }
+  .stepbar .fx { font-family: var(--mono); font-weight: 500; color: var(--muted); border-right: 1px solid var(--border); padding-right: 8px; }
+  .gridwrap { overflow: hidden; position: relative; flex: 1; background: var(--panel); }
+  table.g { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 12px; }
+  table.g th { position: sticky; top: 0; background: #fafbfc; text-align: left; font-weight: 600; padding: 0; border-bottom: 1px solid var(--border); border-right: 1px solid var(--grid); }
+  table.g th .h { display: flex; align-items: center; gap: 6px; padding: 7px 8px 5px; }
+  table.g th .h .caret { margin-left: auto; color: var(--faint); }
+  table.g th .q { display: flex; height: 3px; margin: 0 8px 6px; border-radius: 2px; overflow: hidden; background: var(--grid); }
+  table.g th .q i { display: block; }
+  table.g th .qt { font-weight: 400; color: var(--faint); font-size: 10.5px; padding: 0 8px 6px; }
+  table.g td { padding: 5px 8px; border-bottom: 1px solid var(--grid); border-right: 1px solid var(--grid); white-space: nowrap; font-family: var(--mono); font-size: 11.5px; }
+  table.g td.rn { color: var(--faint); text-align: right; width: 38px; background: #fbfcfd; font-family: Inter; }
+  table.g td.changed { background: #eef4fe; box-shadow: inset 2px 0 0 var(--accent); }
+  table.g td.null { color: var(--faint); font-style: italic; }
+  table.g th.active { background: var(--accent-soft); }
+  table.g th.active .h { color: var(--accent); }
+  .menu { position: absolute; z-index: 5; background: #fff; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 14px 34px rgba(15,26,43,.16); padding: 5px; min-width: 214px; font-size: 12.5px; }
+  .menu div { padding: 6px 9px; border-radius: 5px; display: flex; align-items: center; gap: 8px; }
+  .menu div.hover { background: var(--bg); }
+  .menu div span:last-child.k { margin-left: auto; color: var(--faint); font-size: 11px; }
+  .menu hr { border: 0; border-top: 1px solid var(--border); margin: 4px 2px; }
+  .menu .sub::after { content: "›"; margin-left: auto; color: var(--faint); }
+
+  .steps { list-style: none; margin: 0; padding: 6px; overflow: auto; }
+  .steps li { display: grid; grid-template-columns: 22px 1fr; gap: 6px; padding: 7px 8px; border-radius: 6px; align-items: start; }
+  .steps li .n { color: var(--faint); font-variant-numeric: tabular-nums; text-align: right; }
+  .steps li.sel { background: var(--accent-soft); }
+  .steps li.sel .t { color: var(--accent); font-weight: 600; }
+  .steps .d { color: var(--muted); font-size: 11.5px; margin-top: 2px; line-height: 1.4; }
+  .steps li.ai { background: var(--ai-soft); box-shadow: inset 2px 0 0 var(--ai-line); }
+  .steps li.ai .tag { font-size: 10.5px; font-weight: 700; color: var(--ai); }
+  .acts { display: flex; gap: 6px; margin-top: 6px; }
+  .acts .btn { height: 24px; font-size: 11.5px; }
+  .effect { border-top: 1px solid var(--border); padding: 10px 12px 12px; }
+  .effect h4 { margin: 0 0 8px; font-size: 12px; color: var(--muted); font-weight: 600; }
+  .kv { display: grid; grid-template-columns: 1fr auto; gap: 5px 10px; font-size: 12px; }
+  .kv .v { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .arrow { color: var(--faint); font-weight: 400; }
+
+  /* Model diagram */
+  .canvas { position: relative; flex: 1; overflow: hidden; background-color: #f8f9fb; background-image: radial-gradient(#d9dde4 1px, transparent 1px); background-size: 18px 18px; }
+  .formula { display: flex; align-items: stretch; border-bottom: 1px solid var(--border); background: var(--panel); flex-shrink: 0; position: relative; }
+  .formula .lab { font-family: var(--mono); font-weight: 500; color: var(--muted); padding: 9px 10px; border-right: 1px solid var(--border); }
+  .formula .code { flex: 1; padding: 9px 12px; font-family: var(--mono); font-size: 12.5px; }
+  .code .m { color: var(--accent); } .code .c { color: #6b46c1; } .code .f { color: #0b6e99; font-weight: 500; }
+  .caretline { display: inline-block; width: 1.5px; height: 15px; background: var(--text); vertical-align: -3px; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .caretline { animation: none; } }
+  .formula .check { display: flex; align-items: center; gap: 6px; padding: 0 12px; color: var(--ok); font-size: 12px; border-left: 1px solid var(--border); white-space: nowrap; }
+  .ac { position: absolute; top: calc(100% + 2px); left: 200px; z-index: 6; width: 300px; background: #fff; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 14px 34px rgba(15,26,43,.16); padding: 5px; }
+  .ac div { display: grid; grid-template-columns: 26px 1fr auto; gap: 6px; align-items: center; padding: 6px 8px; border-radius: 5px; font-size: 12px; }
+  .ac div.hover { background: var(--accent-soft); }
+  .ac small { color: var(--faint); font-size: 11px; }
+  .tcard { position: absolute; width: 196px; background: #fff; border: 1px solid var(--border-strong); border-radius: 8px; box-shadow: 0 2px 6px rgba(15,26,43,.06); font-size: 12px; }
+  .tcard header { display: flex; align-items: center; gap: 6px; padding: 7px 10px; border-bottom: 1px solid var(--border); font-weight: 650; border-radius: 8px 8px 0 0; }
+  .tcard header .role { margin-left: auto; font-weight: 500; font-size: 10.5px; color: var(--faint); }
+  .tcard.fact header { background: #eef4fe; }
+  .tcard.date header { background: #fdf7e4; }
+  .tcard ul { list-style: none; margin: 0; padding: 4px 0; }
+  .tcard li { display: flex; align-items: center; gap: 6px; padding: 3px 10px; }
+  .tcard li.key { font-weight: 600; }
+  .tcard li.drag { background: var(--accent-soft); color: var(--accent); }
+  .tcard li.drop { background: #e3f4ec; color: var(--ok); outline: 1.5px dashed var(--ok); outline-offset: -2px; }
+  .tcard li.ms { color: var(--accent); }
+  svg.links { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .tip { position: absolute; background: var(--rail); color: #e9eef6; border-radius: 7px; padding: 8px 10px; font-size: 11.5px; line-height: 1.45; box-shadow: 0 10px 26px rgba(15,26,43,.25); }
+  .tip b { color: #fff; }
+  .tip .okk { color: #7ee2b8; }
+  .props { padding: 10px 12px; display: grid; gap: 11px; overflow: auto; }
+  .field { display: grid; gap: 4px; }
+  .field label { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+  .input { border: 1px solid var(--border-strong); border-radius: var(--r); padding: 6px 8px; background: #fff; min-height: 30px; display: flex; align-items: center; gap: 6px; }
+  .input.ta { min-height: 52px; align-items: flex-start; line-height: 1.4; color: #2b3646; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .chip { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--border); border-radius: 5px; padding: 2px 7px; font-size: 11.5px; background: var(--bg); }
+  .suggest { border: 1px solid #f1d77a; background: var(--ai-soft); border-radius: 8px; padding: 9px 10px; display: grid; gap: 6px; font-size: 12px; }
+  .suggest .h { font-weight: 700; color: var(--ai); font-size: 11px; }
+  .usedby { display: grid; gap: 4px; font-size: 12px; }
+
+  /* Report canvas */
+  .pages { padding: 10px; display: grid; gap: 10px; overflow: auto; }
+  .thumb { border: 1px solid var(--border); border-radius: 6px; padding: 6px; background: #fff; }
+  .thumb.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+  .thumb .mini { height: 74px; border-radius: 3px; background: var(--bg); display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: 14px 1fr; gap: 3px; padding: 4px; }
+  .thumb .mini i { background: #dfe5ee; border-radius: 2px; }
+  .thumb .mini i.w2 { grid-column: span 2; }
+  .thumb .mini i.w4 { grid-column: span 4; }
+  .thumb span { display: block; margin-top: 5px; font-size: 11.5px; font-weight: 600; }
+  .stage { flex: 1; overflow: hidden; display: grid; place-items: start center; padding: 18px; background: #e9ecf1; position: relative; }
+  .page { width: 860px; height: 560px; background: #fff; border-radius: 4px; box-shadow: 0 1px 3px rgba(15,26,43,.12); position: relative; padding: 14px; background-image: linear-gradient(#f2f4f7 1px, transparent 1px), linear-gradient(90deg, #f2f4f7 1px, transparent 1px); background-size: 20px 20px; }
+  .vis { position: absolute; background: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 9px 11px; }
+  .vis h5 { margin: 0 0 6px; font-size: 12px; font-weight: 650; }
+  .vis.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .vis .hd { position: absolute; width: 8px; height: 8px; background: #fff; border: 1.5px solid var(--accent); border-radius: 2px; }
+  .slicer { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .slicer .lab { font-size: 11px; color: var(--muted); font-weight: 600; margin-right: 2px; }
+  .seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 5px; overflow: hidden; }
+  .seg span { padding: 3px 9px; font-size: 11.5px; border-right: 1px solid var(--border); }
+  .seg span:last-child { border-right: 0; }
+  .seg span.on { background: var(--accent); color: #fff; }
+  .kpi .v { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+  .kpi .p { font-size: 10.5px; color: var(--faint); }
+  .kpi .delta { font-size: 11px; font-weight: 650; margin-top: 2px; }
+  .up { color: var(--ok); } .down { color: #b54a00; }
+  .guide { position: absolute; background: #e94e9b; }
+  .measure-tag { position: absolute; background: #e94e9b; color: #fff; font-size: 10px; padding: 1px 5px; border-radius: 3px; font-weight: 600; }
+  .wells { padding: 8px 10px; display: grid; gap: 10px; overflow: auto; }
+  .well label { font-size: 11px; color: var(--muted); font-weight: 600; display: block; margin-bottom: 4px; }
+  .well .slot { border: 1px dashed var(--border-strong); border-radius: 6px; padding: 5px; min-height: 32px; display: flex; flex-wrap: wrap; gap: 5px; }
+  .well .slot.filled { border-style: solid; background: #fbfcfd; }
+  .well .slot.target { border-color: var(--accent); background: var(--accent-soft); }
+  .pill { display: inline-flex; align-items: center; gap: 5px; background: #fff; border: 1px solid var(--border-strong); border-radius: 5px; padding: 3px 7px; font-size: 11.5px; }
+  .pill .x { color: var(--faint); margin-left: 2px; }
+  .tabs2 { display: flex; gap: 0; border-bottom: 1px solid var(--border); padding: 0 10px; flex-shrink: 0; }
+  .tabs2 span { padding: 8px 10px; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent; }
+  .tabs2 span.on { color: var(--accent); border-bottom-color: var(--accent); }
+  .ghostpill { position: absolute; z-index: 7; transform: rotate(-2deg); box-shadow: 0 10px 22px rgba(15,26,43,.2); border-color: var(--accent); color: var(--accent); }
+  .cmd { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); width: 560px; background: #fff; border: 1px solid var(--border-strong); border-radius: 10px; box-shadow: 0 16px 40px rgba(15,26,43,.22); }
+  .cmd .in { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--border); }
+  .cmd .in .ph { flex: 1; color: var(--text); }
+  .cmd .sug { padding: 8px 12px 10px; display: grid; gap: 6px; font-size: 12px; }
+  .cmd .sug .row { display: flex; align-items: center; gap: 8px; }
+  .cmd .ans { background: var(--bg); border-radius: 6px; padding: 7px 9px; line-height: 1.45; }
+
+  /* Notes under each screen */
+  .notes { max-width: 1440px; margin: -14px auto 30px; padding: 0 24px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .note { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+  .note h3 { margin: 0 0 6px; font-size: 13px; }
+  .note ul { margin: 0; padding-left: 16px; color: #2b3646; line-height: 1.55; }
+  [hidden] { display: none !important; }
+  @media (max-width: 1100px) { .notes { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<header class="review">
+  <div>
+    <h1>datawazi: professional workspace mockups (M13)</h1>
+    <p>Three editors in the shape of Power BI Desktop: what you browse on the left, the work in the middle, its
+      details on the right. You work directly, by dragging, right-clicking and typing. The AI appears inside each
+      editor as a suggestion you accept or reject, and changes nothing behind your back. Data is the Uber trips example.</p>
+  </div>
+  <div class="switch" role="tablist" aria-label="Editor">
+    <button role="tab" aria-selected="true" data-show="transform">Transform</button>
+    <button role="tab" aria-selected="false" data-show="model">Model</button>
+    <button role="tab" aria-selected="false" data-show="report">Report</button>
+  </div>
+</header>
+
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z"/></symbol>
+  <symbol id="db" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></symbol>
+  <symbol id="dash" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></symbol>
+  <symbol id="users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20c-.5-2.4-1.9-4-3.8-4.9"/></symbol>
+  <symbol id="cog" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></symbol>
+  <symbol id="redo" viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></symbol>
+  <symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="spark" viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/></symbol>
+  <symbol id="check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></symbol>
+  <symbol id="filter" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></symbol>
+  <symbol id="table" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M3 10h18M3 15h18M9 4v16"/></symbol>
+  <symbol id="drag" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/></symbol>
+</svg>
+
+<!-- ============================ TRANSFORM ============================ -->
+<section data-screen="transform">
+<div class="app">
+  <nav class="rail" aria-label="Main">
+    <div class="logo" aria-hidden="true"><i style="height:7px"></i><i style="height:11px"></i><i style="height:14px;opacity:.6"></i></div>
+    <a title="Home"><svg class="i"><use href="#home"/></svg></a>
+    <a class="on" title="Datasets"><svg class="i"><use href="#db"/></svg></a>
+    <a title="Dashboards"><svg class="i"><use href="#dash"/></svg></a>
+    <a title="Members"><svg class="i"><use href="#users"/></svg></a>
+    <span class="spacer"></span>
+    <a title="Settings"><svg class="i"><use href="#cog"/></svg></a>
+    <span class="me">MA</span>
+  </nav>
+  <div class="main">
+    <div class="bar">
+      <div class="crumbs">Datasets <span class="sep">/</span> <b>Uber Data</b></div>
+      <div class="stages">
+        <button><span class="dot"></span>Get Data</button>
+        <button class="on"><span class="dot"></span>Transform</button>
+        <button><span class="dot"></span>Model</button>
+      </div>
+      <span class="grow"></span>
+      <span class="status">Draft, v1 is live</span>
+      <button class="btn ghost"><svg class="i"><use href="#search"/></svg><kbd>Ctrl K</kbd></button>
+      <button class="btn ai"><svg class="i"><use href="#spark"/></svg>Ask AI <kbd>Ctrl I</kbd></button>
+      <button class="btn primary">Publish</button>
+    </div>
+
+    <div class="work" style="grid-template-columns: 236px 1fr 300px;">
+      <aside class="pane left">
+        <div class="pane-head">Tables<span class="grow"></span><svg class="i" style="width:15px"><use href="#plus"/></svg></div>
+        <div class="search"><svg class="i" style="width:14px"><use href="#search"/></svg> Find a table or column</div>
+        <ul class="tree">
+          <li class="t sel"><svg class="i" style="width:14px"><use href="#table"/></svg>uberdataset<span class="count">1,152</span></li>
+          <li class="c"><span class="ty d">date</span>START_DATE</li>
+          <li class="c"><span class="ty d">date</span>END_DATE</li>
+          <li class="c"><span class="ty">abc</span>CATEGORY</li>
+          <li class="c"><span class="ty">abc</span>START</li>
+          <li class="c"><span class="ty">abc</span>STOP</li>
+          <li class="c"><span class="ty n">1.2</span>MILES</li>
+          <li class="c"><span class="ty">abc</span>PURPOSE</li>
+          <li class="t"><svg class="i" style="width:14px"><use href="#table"/></svg>purposes<span class="count">10</span></li>
+          <li class="t"><svg class="i" style="width:14px"><use href="#table"/></svg>locations<span class="count">177</span></li>
+        </ul>
+      </aside>
+
+      <section class="pane" style="background:var(--bg)">
+        <div class="toolbar">
+          <button class="btn ghost" title="Undo"><svg class="i"><use href="#undo"/></svg></button>
+          <button class="btn ghost" title="Redo"><svg class="i"><use href="#redo"/></svg></button>
+          <span class="div"></span>
+          <button class="btn"><svg class="i"><use href="#plus"/></svg>Add step</button>
+          <button class="btn"><svg class="i"><use href="#filter"/></svg>Keep rows</button>
+          <button class="btn">Merge</button>
+          <button class="btn">Append</button>
+          <span class="div"></span>
+          <span class="muted" style="font-size:12px">Showing step 6 of 9</span>
+          <span style="flex:1"></span>
+          <span class="muted" style="font-size:12px">1,155 rows, 7 columns</span>
+        </div>
+        <div class="stepbar"><span class="fx">Step 6</span>Change <b>START_DATE</b> to date, month first (6/28/2016 → 2016-06-28). Times are kept.</div>
+        <div class="gridwrap">
+          <table class="g" aria-label="Preview of the table after step 6">
+            <thead><tr>
+              <th style="width:38px"></th>
+              <th class="active"><div class="h"><span class="ty d">date</span>START_DATE<span class="caret">▾</span></div><div class="q"><i style="width:100%;background:var(--ok)"></i></div><div class="qt">100% valid</div></th>
+              <th><div class="h"><span class="ty">abc</span>END_DATE<span class="caret">▾</span></div><div class="q"><i style="width:100%;background:var(--ok)"></i></div><div class="qt">100% valid</div></th>
+              <th><div class="h"><span class="ty">abc</span>CATEGORY<span class="caret">▾</span></div><div class="q"><i style="width:100%;background:var(--ok)"></i></div><div class="qt">2 distinct</div></th>
+              <th><div class="h"><span class="ty">abc</span>START<span class="caret">▾</span></div><div class="q"><i style="width:98%;background:var(--ok)"></i><i style="width:2%;background:#c7ccd4"></i></div><div class="qt">2% blank</div></th>
+              <th><div class="h"><span class="ty">abc</span>STOP<span class="caret">▾</span></div><div class="q"><i style="width:98%;background:var(--ok)"></i><i style="width:2%;background:#c7ccd4"></i></div><div class="qt">2% blank</div></th>
+              <th><div class="h"><span class="ty">abc</span>MILES<span class="caret">▾</span></div><div class="q"><i style="width:100%;background:var(--ok)"></i></div><div class="qt">text</div></th>
+              <th><div class="h"><span class="ty">abc</span>PURPOSE<span class="caret">▾</span></div><div class="q"><i style="width:57%;background:var(--ok)"></i><i style="width:43%;background:#c7ccd4"></i></div><div class="qt">43% blank</div></th>
+            </tr></thead>
+            <tbody>
+              <tr><td class="rn">1</td><td class="changed">2016-01-01 21:11</td><td>1/1/2016 21:17</td><td>Business</td><td>Fort Pierce</td><td>Fort Pierce</td><td>5.1</td><td>Meal/Entertain</td></tr>
+              <tr><td class="rn">2</td><td class="changed">2016-01-02 01:25</td><td>1/2/2016 1:37</td><td>Business</td><td>Fort Pierce</td><td>Fort Pierce</td><td>5</td><td class="null">blank</td></tr>
+              <tr><td class="rn">3</td><td class="changed">2016-01-02 20:25</td><td>1/2/2016 20:38</td><td>Business</td><td>Fort Pierce</td><td>Fort Pierce</td><td>4.8</td><td>Errand/Supplies</td></tr>
+              <tr><td class="rn">4</td><td class="changed">2016-01-05 17:31</td><td>1/5/2016 17:45</td><td>Business</td><td>Fort Pierce</td><td>Fort Pierce</td><td>4.7</td><td>Meeting</td></tr>
+              <tr><td class="rn">5</td><td class="changed">2016-01-06 14:42</td><td>1/6/2016 15:49</td><td>Business</td><td>Fort Pierce</td><td>West Palm Beach</td><td>63.7</td><td>Customer Visit</td></tr>
+              <tr><td class="rn">6</td><td class="changed">2016-01-06 17:15</td><td>1/6/2016 17:19</td><td>Business</td><td>West Palm Beach</td><td>West Palm Beach</td><td>4.3</td><td>Meal/Entertain</td></tr>
+              <tr><td class="rn">7</td><td class="changed">2016-01-06 17:30</td><td>1/6/2016 17:35</td><td>Business</td><td>West Palm Beach</td><td>Palm Beach</td><td>7.1</td><td>Meeting</td></tr>
+              <tr><td class="rn">8</td><td class="changed">2016-01-07 13:27</td><td>1/7/2016 13:33</td><td>Business</td><td>Cary</td><td>Cary</td><td>0.8</td><td>Meeting</td></tr>
+              <tr><td class="rn">9</td><td class="changed">2016-01-10 08:05</td><td>1/10/2016 8:25</td><td>Business</td><td>Cary</td><td>Morrisville</td><td>8.3</td><td>Meeting</td></tr>
+              <tr><td class="rn">10</td><td class="changed">2016-01-10 12:17</td><td>1/10/2016 12:44</td><td>Business</td><td>Jamaica</td><td>New York</td><td>16.5</td><td>Customer Visit</td></tr>
+              <tr><td class="rn">11</td><td class="changed">2016-01-10 15:08</td><td>1/10/2016 15:51</td><td>Business</td><td>New York</td><td>Queens</td><td>10.8</td><td>Meeting</td></tr>
+              <tr><td class="rn">12</td><td class="changed">2016-01-10 18:18</td><td>1/10/2016 18:53</td><td>Business</td><td>Elmhurst</td><td>New York</td><td>7.5</td><td>Meeting</td></tr>
+              <tr><td class="rn">13</td><td class="changed">2016-01-10 19:12</td><td>1/10/2016 19:32</td><td>Business</td><td>Midtown</td><td>East Harlem</td><td>6.2</td><td>Meeting</td></tr>
+              <tr><td class="rn">14</td><td class="changed">2016-01-11 08:01</td><td>1/11/2016 8:11</td><td>Business</td><td>East Harlem</td><td>NoMad</td><td>6.4</td><td>Temporary Site</td></tr>
+              <tr><td class="rn">15</td><td class="changed">2016-01-11 12:00</td><td>1/11/2016 12:03</td><td>Business</td><td>Flatiron District</td><td>Midtown</td><td>1.6</td><td>Errand/Supplies</td></tr>
+              <tr><td class="rn">16</td><td class="changed">2016-01-11 12:46</td><td>1/11/2016 12:58</td><td>Business</td><td>Midtown</td><td>Midtown East</td><td>1.7</td><td>Meal/Entertain</td></tr>
+              <tr><td class="rn">17</td><td class="changed">2016-01-11 14:15</td><td>1/11/2016 14:20</td><td>Business</td><td>Midtown East</td><td>Midtown</td><td>1.9</td><td>Meeting</td></tr>
+              <tr><td class="rn">18</td><td class="changed">2016-01-12 08:03</td><td>1/12/2016 8:12</td><td>Business</td><td>Midtown</td><td>Hudson Square</td><td>1.9</td><td>Meeting</td></tr>
+            </tbody>
+          </table>
+          <div class="menu" style="left:690px; top:58px" role="menu" aria-label="Column MILES">
+            <div class="sub hover"><span class="ty n">1.2</span><span>Change type</span></div>
+            <div><span style="width:22px"></span><span>Rename</span><span class="k">F2</span></div>
+            <div><span style="width:22px"></span><span>Replace values</span></div>
+            <div><span style="width:22px"></span><span>Fill blanks</span></div>
+            <div><span style="width:22px"></span><span>Keep rows where</span></div>
+            <hr>
+            <div><span style="width:22px"></span><span>Remove duplicates by this column</span></div>
+            <div><span style="width:22px"></span><span>Split into a lookup table</span></div>
+            <hr>
+            <div style="color:var(--bad)"><span style="width:22px"></span><span>Remove column</span><span class="k">Del</span></div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="pane right">
+        <div class="pane-head">Applied steps<span class="grow"></span><span class="muted" style="font-weight:500">9</span></div>
+        <ol class="steps">
+          <li><span class="n">1</span><div><div class="t">Trim spaces</div><div class="d">CATEGORY, START, STOP, PURPOSE</div></div></li>
+          <li><span class="n">2</span><div><div class="t">Treat placeholders as blank</div></div></li>
+          <li><span class="n">3</span><div><div class="t">Replace "Unknown Location" in START</div></div></li>
+          <li><span class="n">4</span><div><div class="t">Replace "Unknown Location" in STOP</div></div></li>
+          <li><span class="n">5</span><div><div class="t">Remove duplicate rows</div><div class="d">1 row removed</div></div></li>
+          <li class="sel"><span class="n">6</span><div><div class="t">Change START_DATE to date</div><div class="d">Month first, times kept</div></div></li>
+          <li><span class="n">7</span><div><div class="t">Change END_DATE to date</div></div></li>
+          <li><span class="n">8</span><div><div class="t">Keep rows where MILES &lt; 200</div><div class="d">3 rows removed</div></div></li>
+          <li class="ai"><span class="n">9</span><div><div class="tag">Suggested by AI</div><div class="t">Change MILES to decimal</div><div class="d">MILES is text like "5.1"; as a number it can be summed and averaged.</div><div class="acts"><button class="btn primary">Accept</button><button class="btn">Reject</button><button class="btn ghost">Preview</button></div></div></li>
+        </ol>
+        <div class="effect">
+          <h4>What step 6 changed</h4>
+          <div class="kv">
+            <span>Rows</span><span class="v">1,155 <span class="arrow">unchanged</span></span>
+            <span>START_DATE</span><span class="v">text <span class="arrow">→</span> date</span>
+            <span>Blanks in START_DATE</span><span class="v">0 <span class="arrow">→</span> 0</span>
+            <span>Values changed</span><span class="v">1,155</span>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <div class="footer"><span class="ok">● All steps valid</span><span>Profiled on all 1,155 rows</span><span>Ran in 0.4 s</span><span style="margin-left:auto">Right-click a column for its actions <kbd>Shift F10</kbd></span></div>
+  </div>
+</div>
+<div class="notes">
+  <div class="note"><h3>What's new</h3><ul><li>A Power Query-style grid with type icons and a quality bar under every column header.</li><li>Every step from the column's right-click menu; the AI isn't needed.</li><li>Cells a step changed are tinted, so its effect is visible in place.</li></ul></div>
+  <div class="note"><h3>Where the AI went</h3><ul><li>Its proposals sit in Applied steps, marked "Suggested by AI", with Accept, Reject and Preview.</li><li><kbd>Ctrl I</kbd> opens a command bar for requests ("treat blank purpose as Unknown") instead of a permanent chat panel.</li></ul></div>
+  <div class="note"><h3>For you to judge</h3><ul><li>Is this dense enough, or too dense?</li><li>Steps on the right (like Power BI) or the left?</li><li>Does the quality bar under each header help?</li></ul></div>
+</div>
+</section>
+
+<!-- ============================ MODEL ============================ -->
+<section data-screen="model" hidden>
+<div class="app">
+  <nav class="rail" aria-label="Main">
+    <div class="logo" aria-hidden="true"><i style="height:7px"></i><i style="height:11px"></i><i style="height:14px;opacity:.6"></i></div>
+    <a title="Home"><svg class="i"><use href="#home"/></svg></a>
+    <a class="on" title="Datasets"><svg class="i"><use href="#db"/></svg></a>
+    <a title="Dashboards"><svg class="i"><use href="#dash"/></svg></a>
+    <a title="Members"><svg class="i"><use href="#users"/></svg></a>
+    <span class="spacer"></span>
+    <a title="Settings"><svg class="i"><use href="#cog"/></svg></a>
+    <span class="me">MA</span>
+  </nav>
+  <div class="main">
+    <div class="bar">
+      <div class="crumbs">Datasets <span class="sep">/</span> <b>Retail Sales</b></div>
+      <div class="stages">
+        <button><span class="dot"></span>Get Data</button>
+        <button><span class="dot"></span>Transform</button>
+        <button class="on"><span class="dot"></span>Model</button>
+      </div>
+      <span class="grow"></span>
+      <span class="status">Draft, v3 is live</span>
+      <button class="btn ghost"><svg class="i"><use href="#search"/></svg><kbd>Ctrl K</kbd></button>
+      <button class="btn ai"><svg class="i"><use href="#spark"/></svg>Ask AI <kbd>Ctrl I</kbd></button>
+      <button class="btn primary">Publish</button>
+    </div>
+
+    <div class="work" style="grid-template-columns: 236px 1fr 300px;">
+      <aside class="pane left">
+        <div class="pane-head">Data<span class="grow"></span><svg class="i" style="width:15px"><use href="#plus"/></svg></div>
+        <div class="search"><svg class="i" style="width:14px"><use href="#search"/></svg> Find a field or measure</div>
+        <ul class="tree">
+          <li class="t"><svg class="i" style="width:14px"><use href="#table"/></svg>sales<span class="count">60,000</span></li>
+          <li class="c sel"><span class="ty m">fx</span>Net Sales</li>
+          <li class="c"><span class="ty m">fx</span>Total Sales</li>
+          <li class="c"><span class="ty m">fx</span>Returns value</li>
+          <li class="c"><span class="ty m">fx</span>Order Count</li>
+          <li class="c"><span class="ty m">fx</span>Average Order Value</li>
+          <li class="c"><span class="ty n">123</span>Quantity</li>
+          <li class="c"><span class="ty n">1.2</span>Sales Amount</li>
+          <li class="c"><span class="ty d">date</span>Order Date</li>
+          <li class="t"><svg class="i" style="width:14px"><use href="#table"/></svg>customers<span class="count">5,000</span></li>
+          <li class="t"><svg class="i" style="width:14px"><use href="#table"/></svg>products<span class="count">500</span></li>
+          <li class="t"><svg class="i" style="width:14px"><use href="#table"/></svg>Date<span class="count">1,096</span></li>
+        </ul>
+      </aside>
+
+      <section class="pane" style="background:var(--bg)">
+        <div class="formula">
+          <span class="lab">Net Sales =</span>
+          <div class="code"><span class="m">[Total Sales]</span> - <span class="m">[Ret</span><span class="caretline"></span></div>
+          <span class="check"><svg class="i" style="width:14px"><use href="#check"/></svg>Valid. Total RM 73.89M</span>
+        <div class="ac" role="listbox" aria-label="Suggestions">
+          <div class="hover"><span class="ty m">fx</span><span>[Returns value]</span><small>measure</small></div>
+          <div><span class="ty n">123</span><span>sales[Return Quantity]</span><small>column</small></div>
+          <div><span class="ty m">fx</span><span>[Returns rate]</span><small>measure</small></div>
+        </div>
+        </div>
+        <div class="canvas">
+          <svg class="links" aria-hidden="true">
+            <path d="M 372 196 C 450 196, 470 140, 548 140" stroke="#8a94a3" stroke-width="1.6" fill="none"/>
+            <text x="378" y="190" font-size="11" fill="#5d6878">*</text><text x="538" y="134" font-size="11" fill="#5d6878">1</text>
+            <path d="M 372 262 C 450 262, 470 320, 548 330" stroke="#8a94a3" stroke-width="1.6" fill="none"/>
+            <text x="378" y="276" font-size="11" fill="#5d6878">*</text><text x="538" y="324" font-size="11" fill="#5d6878">1</text>
+            <path d="M 176 236 C 120 236, 110 420, 176 440" stroke="#8a94a3" stroke-width="1.6" fill="none" stroke-dasharray="0"/>
+            <text x="160" y="230" font-size="11" fill="#5d6878">*</text><text x="164" y="452" font-size="11" fill="#5d6878">1</text>
+            <path d="M 372 284 C 470 300, 470 520, 548 530" stroke="#1b5fd1" stroke-width="1.8" fill="none" stroke-dasharray="5 4"/>
+          </svg>
+          <div class="tcard fact" style="left:176px; top:120px">
+            <header><svg class="i" style="width:14px"><use href="#table"/></svg>sales<span class="role">fact, 60,000</span></header>
+            <ul>
+              <li class="key"><span class="ty d">date</span>Order Date</li>
+              <li><span class="ty n">123</span>ProductKey</li>
+              <li><span class="ty n">123</span>CustomerKey</li>
+              <li class="drag"><span class="ty">abc</span>StoreCode</li>
+              <li><span class="ty n">123</span>Quantity</li>
+              <li><span class="ty n">1.2</span>Sales Amount</li>
+              <li class="ms"><span class="ty m">fx</span>5 measures</li>
+            </ul>
+          </div>
+          <div class="tcard" style="left:548px; top:96px">
+            <header><svg class="i" style="width:14px"><use href="#table"/></svg>products<span class="role">500</span></header>
+            <ul><li class="key"><span class="ty n">123</span>ProductKey</li><li><span class="ty">abc</span>Product Name</li><li><span class="ty">abc</span>Category</li></ul>
+          </div>
+          <div class="tcard" style="left:548px; top:290px">
+            <header><svg class="i" style="width:14px"><use href="#table"/></svg>customers<span class="role">5,000</span></header>
+            <ul><li class="key"><span class="ty n">123</span>CustomerKey</li><li><span class="ty">abc</span>Customer Name</li><li><span class="ty">abc</span>Segment</li></ul>
+          </div>
+          <div class="tcard" style="left:548px; top:462px">
+            <header><svg class="i" style="width:14px"><use href="#table"/></svg>stores<span class="role">42</span></header>
+            <ul><li class="drop"><span class="ty">abc</span>StoreCode</li><li><span class="ty">abc</span>Store Name</li><li><span class="ty">abc</span>State</li></ul>
+          </div>
+          <div class="tcard date" style="left:176px; top:420px">
+            <header><svg class="i" style="width:14px"><use href="#table"/></svg>Date<span class="role">date table</span></header>
+            <ul><li class="key"><span class="ty d">date</span>Date</li><li><span class="ty n">123</span>Year</li><li><span class="ty">abc</span>Month</li></ul>
+          </div>
+          <div class="tip" style="left:548px; top:600px; width:236px">
+            <b>sales[StoreCode] → stores[StoreCode]</b><br>
+            <span class="okk">✓</span> Each store appears once<br>
+            <span class="okk">✓</span> Both are text<br>
+            <span class="okk">✓</span> 99.6% of sales rows match<br>
+            Release to create the relationship.
+          </div>
+        </div>
+      </section>
+
+      <aside class="pane right">
+        <div class="pane-head">Measure<span class="grow"></span><span class="muted" style="font-weight:500">Net Sales</span></div>
+        <div class="props">
+          <div class="field"><label>Name</label><div class="input">Net Sales</div></div>
+          <div class="row2">
+            <div class="field"><label>Home table</label><div class="input">sales ▾</div></div>
+            <div class="field"><label>Folder</label><div class="input">Revenue ▾</div></div>
+          </div>
+          <div class="row2">
+            <div class="field"><label>Format</label><div class="input">Currency ▾</div></div>
+            <div class="field"><label>Decimals</label><div class="input">2</div></div>
+          </div>
+          <div class="field"><label>Description</label><div class="input ta">Revenue after returns: Total Sales minus the value of returned units.</div></div>
+          <div class="field"><label>Used by</label>
+            <div class="usedby"><span><span class="chip">Revenue trend</span> Overview</span><span><span class="chip">Net vs gross</span> Overview</span><span><span class="chip">Top products</span> Products</span></div>
+          </div>
+          <div class="suggest">
+            <span class="h">Suggested by AI</span>
+            <span>Add <b>Net Sales YoY %</b>: this year against the same period last year, using the Date table.</span>
+            <div class="acts"><button class="btn primary">Add measure</button><button class="btn">Dismiss</button></div>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <div class="footer"><span class="ok">● Model valid</span><span>4 tables, 4 relationships, 12 measures</span><span style="margin-left:auto">Drag a column onto another table to relate them</span></div>
+  </div>
+</div>
+<div class="notes">
+  <div class="note"><h3>What's new</h3><ul><li>A formula bar with autocomplete for tables, columns and measures, a live check and the current value.</li><li>Drag a column onto another table to make a relationship. The engine's checks show as you hover, before you drop.</li></ul></div>
+  <div class="note"><h3>Where the AI went</h3><ul><li>Suggestions appear on the object they're about, such as a measure's properties, with Add or Dismiss.</li><li>Formulas stay in datawazi's checked measure language, not raw SQL, so every measure can still be explained and exported to Power BI.</li></ul></div>
+  <div class="note"><h3>For you to judge</h3><ul><li>Formula bar on top (Power BI style), or inside the properties pane?</li><li>Should measures be listed under their table (as here), or in a separate Measures section?</li></ul></div>
+</div>
+</section>
+
+<!-- ============================ REPORT ============================ -->
+<section data-screen="report" hidden>
+<div class="app">
+  <nav class="rail" aria-label="Main">
+    <div class="logo" aria-hidden="true"><i style="height:7px"></i><i style="height:11px"></i><i style="height:14px;opacity:.6"></i></div>
+    <a title="Home"><svg class="i"><use href="#home"/></svg></a>
+    <a title="Datasets"><svg class="i"><use href="#db"/></svg></a>
+    <a class="on" title="Dashboards"><svg class="i"><use href="#dash"/></svg></a>
+    <a title="Members"><svg class="i"><use href="#users"/></svg></a>
+    <span class="spacer"></span>
+    <a title="Settings"><svg class="i"><use href="#cog"/></svg></a>
+    <span class="me">MA</span>
+  </nav>
+  <div class="main">
+    <div class="bar">
+      <div class="crumbs">Dashboards <span class="sep">/</span> <b>Uber Review</b></div>
+      <div class="stages">
+        <button class="on">Edit</button>
+        <button>View as viewer</button>
+      </div>
+      <span class="grow"></span>
+      <span class="status">Draft changes</span>
+      <button class="btn ghost" title="Undo"><svg class="i"><use href="#undo"/></svg></button>
+      <button class="btn ghost" title="Redo"><svg class="i"><use href="#redo"/></svg></button>
+      <button class="btn ai"><svg class="i"><use href="#spark"/></svg>Ask AI <kbd>Ctrl I</kbd></button>
+      <button class="btn">Present</button>
+      <button class="btn primary">Publish</button>
+    </div>
+
+    <div class="work" style="grid-template-columns: 168px 1fr 288px;">
+      <aside class="pane left">
+        <div class="pane-head">Pages<span class="grow"></span><svg class="i" style="width:15px"><use href="#plus"/></svg></div>
+        <div class="pages">
+          <div class="thumb on"><div class="mini"><i class="w4"></i><i></i><i></i><i></i><i></i></div><span>Overview</span></div>
+          <div class="thumb"><div class="mini"><i class="w4"></i><i class="w2"></i><i class="w2"></i></div><span>Where and when</span></div>
+          <div class="thumb"><div class="mini"><i class="w4"></i><i class="w4"></i></div><span>Purposes</span></div>
+        </div>
+      </aside>
+
+      <section class="pane" style="background:#e9ecf1">
+        <div class="stage">
+          <div class="page" aria-label="Overview page">
+            <div class="vis" style="left:14px; top:14px; width:832px; height:44px; padding:9px 11px">
+              <div class="slicer">
+                <span class="lab">Period</span><span class="seg"><span>2015</span><span class="on">2016</span><span>All</span></span>
+                <span class="lab" style="margin-left:14px">Category</span><span class="seg"><span class="on">All</span><span>Business</span><span>Personal</span></span>
+                <span class="lab" style="margin-left:14px">Purpose</span><span class="chip">Any ▾</span>
+              </div>
+            </div>
+            <div class="vis kpi" style="left:14px; top:70px; width:200px; height:96px"><h5>Total trips</h5><div class="p">2016</div><div class="v">1,152</div><div class="delta up">▲ 6.1% vs 2015</div></div>
+            <div class="vis kpi" style="left:224px; top:70px; width:200px; height:96px"><h5>Total miles</h5><div class="p">2016</div><div class="v">11.9K</div><div class="delta up">▲ 3.4% vs 2015</div></div>
+            <div class="vis kpi" style="left:434px; top:70px; width:200px; height:96px"><h5>Miles per trip</h5><div class="p">2016</div><div class="v">10.3</div><div class="delta down">▼ 2.6% vs 2015</div></div>
+            <div class="vis kpi" style="left:644px; top:70px; width:202px; height:96px"><h5>Business share</h5><div class="p">2016, miles</div><div class="v">93.8%</div><div class="delta up">▲ 1.2 pts</div></div>
+
+            <div class="vis sel" style="left:14px; top:178px; width:512px; height:250px">
+              <h5>Trips by month, business and personal</h5>
+              <svg viewBox="0 0 490 200" width="490" height="200" aria-hidden="true">
+                <g stroke="#eef0f3"><line x1="30" x2="485" y1="20" y2="20"/><line x1="30" x2="485" y1="70" y2="70"/><line x1="30" x2="485" y1="120" y2="120"/><line x1="30" x2="485" y1="170" y2="170"/></g>
+                <g font-size="9" fill="#8a94a3" font-family="Inter"><text x="4" y="23">150</text><text x="4" y="73">100</text><text x="10" y="123">50</text><text x="16" y="173">0</text>
+                  <text x="34" y="190">Jan</text><text x="110" y="190">Mar</text><text x="186" y="190">May</text><text x="262" y="190">Jul</text><text x="338" y="190">Sep</text><text x="414" y="190">Nov</text></g>
+                <polyline fill="none" stroke="#0072B2" stroke-width="2" points="40,104 78,107 116,96 154,70 192,98 230,123 268,82 306,79 344,92 382,96 420,90 458,26"/>
+                <polyline fill="none" stroke="#E69F00" stroke-width="2" points="40,160 78,158 116,161 154,157 192,160 230,163 268,156 306,159 344,160 382,158 420,157 458,150"/>
+                <circle cx="458" cy="26" r="3.5" fill="#0072B2"/>
+                <g font-size="9.5" font-family="Inter"><text x="404" y="20" fill="#0072B2" font-weight="600">Dec 141</text></g>
+                <g font-size="9.5" font-family="Inter"><rect x="34" y="4" width="8" height="8" fill="#0072B2"/><text x="45" y="11" fill="#5d6878">Business</text><rect x="96" y="4" width="8" height="8" fill="#E69F00"/><text x="107" y="11" fill="#5d6878">Personal</text></g>
+              </svg>
+              <span class="hd" style="left:-5px; top:-5px"></span><span class="hd" style="right:-5px; top:-5px"></span><span class="hd" style="left:-5px; bottom:-5px"></span><span class="hd" style="right:-5px; bottom:-5px"></span><span class="hd" style="left:calc(50% - 4px); top:-5px"></span><span class="hd" style="right:-5px; top:calc(50% - 4px)"></span>
+            </div>
+            <div class="guide" style="left:526px; top:150px; width:1px; height:300px"></div>
+            <div class="measure-tag" style="left:518px; top:290px">10 px</div>
+
+            <div class="vis" style="left:536px; top:178px; width:310px; height:250px">
+              <h5>Miles by purpose</h5>
+              <svg viewBox="0 0 290 200" width="290" height="200" aria-hidden="true" font-family="Inter" font-size="10">
+                <g fill="#5d6878"><text x="0" y="22">Meeting</text><text x="0" y="52">Customer visit</text><text x="0" y="82">Meal / entertain</text><text x="0" y="112">Errand / supplies</text><text x="0" y="142">Temporary site</text><text x="0" y="172">Between offices</text></g>
+                <g fill="#0072B2"><rect x="92" y="12" width="160" height="14" rx="2"/><rect x="92" y="42" width="118" height="14" rx="2"/><rect x="92" y="72" width="66" height="14" rx="2"/><rect x="92" y="102" width="54" height="14" rx="2"/><rect x="92" y="132" width="41" height="14" rx="2"/><rect x="92" y="162" width="20" height="14" rx="2"/></g>
+                <g fill="#16202e" font-variant-numeric="tabular-nums"><text x="257" y="23">2,851</text><text x="215" y="53">2,089</text><text x="163" y="83">1,145</text><text x="151" y="113">945</text><text x="138" y="143">712</text><text x="117" y="173">351</text></g>
+              </svg>
+            </div>
+            <div class="vis" style="left:14px; top:440px; width:832px; height:106px; display:flex; align-items:center; justify-content:center; color:var(--faint); border-style:dashed">
+              Drop a field here, or drag a visual from the Visuals list
+            </div>
+          </div>
+          <div class="cmd" role="dialog" aria-label="Ask AI">
+            <div class="in"><svg class="i" style="color:var(--ai)"><use href="#spark"/></svg><span class="ph">why is December so high?</span><kbd>Enter</kbd></div>
+            <div class="sug">
+              <div class="ans">December has <b>141 business trips</b>, 1.6× the monthly average. Most of the rise is <b>Meetings in Cary</b> (52 trips, up from 18 in November). From <b>Trips by month</b> and the data model.</div>
+              <div class="row"><button class="btn">Add "December by purpose" as a chart</button><button class="btn ghost">How this was calculated</button></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="pane right">
+        <div class="tabs2"><span class="on">Build</span><span>Format</span><span>Filters</span></div>
+        <div class="wells">
+          <div style="display:flex; gap:6px; flex-wrap:wrap">
+            <span class="chip" style="border-color:var(--accent); color:var(--accent); background:var(--accent-soft)">Line</span><span class="chip">Column</span><span class="chip">Bar</span><span class="chip">Area</span><span class="chip">Table</span><span class="chip">KPI</span><span class="chip">More ▾</span>
+          </div>
+          <div class="well"><label>X-axis</label><div class="slot filled"><span class="pill"><span class="ty d">date</span>Date[Month]<span class="x">×</span></span></div></div>
+          <div class="well"><label>Y-axis</label><div class="slot filled"><span class="pill"><span class="ty m">fx</span>Total Trips<span class="x">×</span></span></div></div>
+          <div class="well"><label>Legend</label><div class="slot target"><span class="pill"><span class="ty">abc</span>CATEGORY<span class="x">×</span></span></div></div>
+          <div class="well"><label>Tooltips</label><div class="slot"></div></div>
+          <div class="field" style="margin-top:4px"><label>Fields</label>
+            <div class="search" style="margin:0"><svg class="i" style="width:14px"><use href="#search"/></svg> Search fields</div>
+            <ul class="tree" style="padding:6px 0 0">
+              <li class="t"><svg class="i" style="width:14px"><use href="#table"/></svg>uberdataset</li>
+              <li class="c"><span class="ty m">fx</span>Total Trips</li>
+              <li class="c"><span class="ty m">fx</span>Total Miles</li>
+              <li class="c"><span class="ty">abc</span>CATEGORY</li>
+              <li class="c sel"><span class="ty">abc</span>PURPOSE</li>
+              <li class="t"><svg class="i" style="width:14px"><use href="#table"/></svg>Date</li>
+            </ul>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <div class="footer"><span>Page 1 of 3</span><span>1280 × 720</span><span>Snap to grid on</span><span style="margin-left:auto">Drag to move, handles to resize, <kbd>Ctrl Z</kbd> to undo</span></div>
+  </div>
+</div>
+<div class="notes">
+  <div class="note"><h3>What's new</h3><ul><li>A real canvas: drag visuals to move them, handles to resize, with snap guides.</li><li>Build and Format panes to make a chart by hand: drag a field onto X-axis, Y-axis or Legend, which light up while you drag.</li><li>Slicers and filters on the page that every visual and Ask respect.</li></ul></div>
+  <div class="note"><h3>Where the AI went</h3><ul><li><kbd>Ctrl I</kbd> opens a command bar on the canvas. Answers come from the data with "How this was calculated" and can be added as a chart.</li><li>"Build with AI" stays for a first draft, but every visual it makes is an ordinary one you edit.</li></ul></div>
+  <div class="note"><h3>For you to judge</h3><ul><li>Fixed page size (Power BI style), or a responsive grid that reflows on phones?</li><li>Command bar at the bottom, or a side panel you can pin open?</li></ul></div>
+</div>
+</section>
+
+<script>
+  const buttons = document.querySelectorAll(".switch button");
+  buttons.forEach((b) => b.addEventListener("click", () => {
+    buttons.forEach((x) => x.setAttribute("aria-selected", String(x === b)));
+    document.querySelectorAll("[data-screen]").forEach((s) => (s.hidden = s.dataset.screen !== b.dataset.show));
+  }));
+</script>
+</body>
+</html>
