@@ -1,11 +1,36 @@
-import { useState } from "react";
-import { CheckCircle2, FileBarChart2, TriangleAlert } from "lucide-react";
+import { useRef, useState } from "react";
+import { CheckCircle2, FileBarChart2, RefreshCw, TriangleAlert } from "lucide-react";
 import { powerbiApi, type PowerBIImport } from "../api";
 
 /** What the last Power BI import brought across, what was split, and what was left behind and why. */
 export function PowerBIPanel({ projectId, info, onChanged }: { projectId: string; info: PowerBIImport; onChanged: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refreshed, setRefreshed] = useState<string | null>(null);
+  const newer = useRef<HTMLInputElement>(null);
+
+  async function refreshFrom(files: FileList | null) {
+    const file = files?.[0];
+    if (!file) return;
+    setBusy(true);
+    setError(null);
+    setRefreshed(null);
+    try {
+      const entry = await powerbiApi.refresh(projectId, file);
+      const changed = entry.sources.map((s) => `${s.table} ${s.rows_before.toLocaleString()} → ${s.rows_after.toLocaleString()} rows`);
+      setRefreshed(
+        `Refreshed from ${file.name}: ${changed.join(", ") || "no tables"}.` +
+          (entry.failed_sources.length ? ` Not refreshed: ${entry.failed_sources.join(", ")}.` : "") +
+          (entry.not_added.length ? ` New in the file and not added: ${entry.not_added.join(", ")}.` : "") +
+          (entry.status === "failed" ? " Some checks failed; see Refresh history." : ""),
+      );
+      onChanged();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   const report = info.report;
   const added = report?.relationships.filter((r) => r.added) ?? [];
   const skipped = report?.relationships.filter((r) => !r.added) ?? [];
@@ -51,6 +76,25 @@ export function PowerBIPanel({ projectId, info, onChanged }: { projectId: string
         </div>
       )}
       {error && <p className="bad small">{error}</p>}
+      {refreshed && <p className="small">{refreshed}</p>}
+      {info.kind === "pbix" && (
+        <div className="powerbi-refresh">
+          <button className="secondary" onClick={() => newer.current?.click()} disabled={busy}>
+            <RefreshCw size={15} aria-hidden="true" /> {busy ? "Refreshing…" : "Refresh from a newer .pbix"}
+          </button>
+          <span className="muted small">Refresh the file in Power BI Desktop first, then upload it here.</span>
+          <input
+            ref={newer}
+            type="file"
+            accept=".pbix"
+            hidden
+            onChange={(e) => {
+              void refreshFrom(e.target.files);
+              e.target.value = "";
+            }}
+          />
+        </div>
+      )}
 
       {report && (
         <>

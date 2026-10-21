@@ -58,6 +58,12 @@ class PbiTable:
     calculated: str | None = None    # calculated table (DAX), as text
     is_date_table: bool = False
     data: pd.DataFrame | None = None  # only from .pbix
+    mode: str = "import"              # import, directquery, dual or directlake (Power BI storage mode)
+    refreshed_at: str | None = None   # when Power BI last refreshed it (from .pbix)
+
+    @property
+    def connector(self) -> str:
+        return connector_of(self.source_m, self.calculated)
 
 
 @dataclass
@@ -84,12 +90,51 @@ class PbiModel:
         return next((t for t in self.tables if t.name.lower() == name.lower()), None)
 
 
+CONNECTORS = [  # (pattern in Power Query, plain name); the first match wins
+    ("Sql.Database", "SQL Server"), ("Sql.Databases", "SQL Server"), ("Oracle.Database", "Oracle"),
+    ("PostgreSQL.Database", "PostgreSQL"), ("MySQL.Database", "MySQL"), ("Snowflake.Databases", "Snowflake"),
+    ("Databricks", "Databricks"), ("GoogleBigQuery", "Google BigQuery"), ("AmazonRedshift", "Amazon Redshift"),
+    ("Teradata", "Teradata"), ("SapHana", "SAP HANA"), ("SapBusinessWarehouse", "SAP BW"),
+    ("AnalysisServices", "Analysis Services"), ("PowerPlatform.Dataflows", "Power BI dataflow"),
+    ("PowerBI.Dataflows", "Power BI dataflow"), ("CommonDataService", "Dataverse"), ("Dataverse", "Dataverse"),
+    ("Salesforce", "Salesforce"), ("SharePoint", "SharePoint"), ("AzureStorage", "Azure Storage"),
+    ("AzureDataLakeStorage", "Azure Data Lake"), ("OData.Feed", "OData feed"), ("Odbc.", "ODBC"), ("OleDb.", "OLE DB"),
+    ("Binary.Decompress", "Entered data"), ("Excel.Workbook", "Excel"), ("Csv.Document", "CSV"),
+    ("Json.Document", "JSON"), ("Folder.Files", "Folder"), ("Web.Contents", "Web"), ("GoogleSheets", "Google Sheets"),
+]
+
+
+def connector_of(source_m: str | None, calculated: str | None = None) -> str:
+    """The Power BI connector a table was loaded with, in plain words (Excel, SQL Server, SharePoint...)."""
+    if calculated:
+        return "Calculated in Power BI"
+    for pattern, name in CONNECTORS:
+        if source_m and pattern in source_m:
+            if name == "Excel" and "sharepoint" in source_m.lower():
+                return "Excel on SharePoint"
+            return name
+    return "Power Query" if source_m else "Unknown source"
+
+
+MODES = {0: "import", 1: "directquery", 4: "dual", 5: "directlake"}
+
+
 # .pbix
 
 
 def read_pbix(data: bytes, name: str) -> PbiModel:
     from pbixray import PBIXRay  # imported here: only needed for .pbix
 
+    try:
+        entries = set(zipfile.ZipFile(io.BytesIO(data)).namelist())
+    except zipfile.BadZipFile as exc:
+        raise PbiError("This isn't a .pbix file, or it's damaged.") from exc
+    if "DataModel" not in entries:
+        if "Connections" in entries:
+            raise PbiError("This report uses a live connection to a semantic model in the Power BI service, so the "
+                           "file has no model or data inside. Open the model itself (or download it as a .pbix from "
+                           "the service) and import that.")
+        raise PbiError("This .pbix has no data model inside.")
     with tempfile.TemporaryDirectory() as folder:
         path = Path(folder) / "model.pbix"
         path.write_bytes(data)
@@ -121,6 +166,17 @@ def read_pbix(data: bytes, name: str) -> PbiModel:
                 calculated[row.TableName] = row.Expression
         except Exception:
             pass
+        modes, refreshed = {}, {}
+        try:
+            for row in pbix.tmschema_partitions.itertuples():
+                if row.Type in (3,):  # attribute hierarchy partitions, not data
+                    continue
+                modes.setdefault(row.TableName, MODES.get(int(row.Mode), "import"))
+                when = pd.Timestamp(row.RefreshedTime) if row.RefreshedTime is not None else None
+                if when is not None and when.year > 1900:
+                    refreshed[row.TableName] = max(refreshed.get(row.TableName, when), when)
+        except Exception:
+            pass
         calc_columns = {}
         try:
             for row in pbix.dax_columns.itertuples():
@@ -136,11 +192,16 @@ def read_pbix(data: bytes, name: str) -> PbiModel:
                        for r in rows.itertuples() if not str(r.ColumnName).startswith("RowNumber-")]
             table = PbiTable(name=table_name, columns=columns, hidden=table_name in hidden_tables,
                              description=descriptions.get(table_name, ""), source_m=m_by_table.get(table_name),
-                             calculated=calculated.get(table_name))
-            try:
-                table.data = pbix.get_table(table_name)
-            except Exception:
-                table.data = None
+                             calculated=calculated.get(table_name), mode=modes.get(table_name, "import"),
+                             refreshed_at=refreshed[table_name].isoformat(timespec="minutes")
+                             if table_name in refreshed else None)
+            if table.mode == "directquery":
+                table.data = None  # Power BI keeps no data for DirectQuery tables
+            else:
+                try:
+                    table.data = pbix.get_table(table_name)
+                except Exception:
+                    table.data = None
             model.tables.append(table)
         for row in pbix.dax_measures.itertuples():
             model.measures.append(PbiMeasure(
@@ -348,6 +409,8 @@ def _tmdl_table(model: PbiModel, node: dict) -> None:
                 folder=mprops.get("displayFolder", ""), hidden=mprops.get("isHidden") == "true"))
         elif head.startswith("partition "):
             _, _, kind = _name_and_rest(head[len("partition "):])
+            mode = _props(child).get("mode", "import").lower()
+            table.mode = {"directquery": "directquery", "dual": "dual", "directlake": "directlake"}.get(mode, "import")
             for sub in child["children"]:
                 if sub["head"].startswith("source"):
                     text = _expression(sub) or sub["head"].split("=", 1)[-1].strip()

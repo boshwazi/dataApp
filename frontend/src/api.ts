@@ -26,6 +26,10 @@ export type Origin = {
   dataset_name?: string;
   table?: string;
   version?: number;
+  /** Power BI imports: the connector Power BI used, its storage mode and when it last refreshed the data. */
+  connector?: string;
+  mode?: "import" | "directquery" | "dual" | "directlake";
+  snapshot?: string | null;
 };
 
 export type SourceSummary = {
@@ -245,6 +249,11 @@ export const powerbiApi = {
       `/api/datasets/${pid}/sources/powerbi`,
       { method: "POST", body: form },
     );
+  },
+  refresh: (pid: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request<RefreshEntry & { not_added: string[] }>(`/api/datasets/${pid}/powerbi/refresh`, { method: "POST", body: form });
   },
   finish: (pid: string) =>
     request<{ report: PowerBIReport; waiting_for: string[] }>(`/api/datasets/${pid}/powerbi/apply`, { method: "POST" }),
@@ -688,7 +697,7 @@ export type RefreshCheck = { level: "error" | "warning" | "info"; text: string }
 
 export type RefreshEntry = {
   at: string;
-  trigger: "manual" | "replace" | "schedule";
+  trigger: "manual" | "replace" | "schedule" | "powerbi";
   status: "ok" | "warnings" | "failed";
   sources: { table: string; rows_before: number; rows_after: number }[];
   failed_sources: string[];

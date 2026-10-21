@@ -285,16 +285,23 @@ def build_router(
                 continue
             frame, types = pbi_import.frame_and_types(table)
             notes = ["Calculated in Power BI; imported as values."] if table.calculated else []
-            source = store.add_source(project_id, frame, table.name,
-                                      {"kind": "powerbi", "file": pbi.name, "label": table.name}, notes, types)
+            source = store.add_source(project_id, frame, table.name, pbi_import.origin_for(table, pbi.name), notes, types)
             names[table.name] = source["table"]
             added.append(source)
         waiting = [t["name"] for t in overview["tables"] if t["role"] == "needs_data"]
         with store.edit(project_id) as project, store.connect(project_id) as con:
             transform.state(project)
             report = pbi_import.apply_model(con, project, pbi, names) if names else None
-            entry = pbi_import.record(project, pbi, report, waiting)
-            entry["names"] = names
+            if report:
+                note = pbi_import.snapshot_note(pbi, list(names))
+                if note:
+                    report["notes"].insert(0, note)
+                direct = [t["name"] for t in overview["tables"] if t["mode"] == "directquery"]
+                if direct:
+                    report["notes"].append(f"{', '.join(direct)} use DirectQuery in Power BI, so the file holds no "
+                                           "data for them. Load their data another way, then Finish import.")
+            pbi_import.record(project, pbi, report, waiting)
+            project["powerbi"]["names"] = names
             activity.changed(project, "get_data", f"Imported {pbi.name} from Power BI"
                              + (f" ({len(added)} tables)" if added else " (model only; its tables need data)"))
             if report:
@@ -327,6 +334,24 @@ def build_router(
         try:
             return await run_in_threadpool(import_powerbi, project_id, pbi)
         except (model.ModelError, ValueError) as exc:
+            raise HTTPException(400, str(exc)) from exc
+
+    @router.post("/{project_id}/powerbi/refresh")
+    async def refresh_powerbi(project_id: str, file: UploadFile):
+        """Refresh tables imported from Power BI with a newer .pbix (refreshed in Power BI Desktop first)."""
+        load(project_id)
+        data = await file.read(MAX_UPLOAD_BYTES + 1)
+        name = file.filename or "model.pbix"
+        if len(data) > MAX_UPLOAD_BYTES:
+            raise HTTPException(400, "The file is larger than 200 MB.")
+        if not name.lower().endswith(".pbix"):
+            raise HTTPException(400, "Refresh needs a .pbix file: a Power BI project (.pbip) holds no data.")
+        try:
+            pbi = await run_in_threadpool(pbi_model.read_pbix, data, Path(name).stem)
+            return await run_in_threadpool(pbi_import.refresh_from, store, boards, project_id, pbi)
+        except pbi_model.PbiError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        except model.ModelError as exc:
             raise HTTPException(400, str(exc)) from exc
 
     @router.post("/{project_id}/powerbi/apply")

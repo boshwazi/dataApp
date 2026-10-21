@@ -321,7 +321,10 @@ function SourceDetail(props: DetailProps) {
       ? "Google Sheet"
       : source.origin.kind === "dataset"
         ? `Linked from ${source.origin.dataset_name} v${source.origin.version}`
-        : source.origin.file;
+        : source.origin.kind === "powerbi"
+          ? `From ${source.origin.file}.pbix (Power BI, ${source.origin.connector ?? "unknown source"})` +
+            (source.origin.snapshot ? `: a snapshot as of ${new Date(source.origin.snapshot).toLocaleDateString()}` : "")
+          : source.origin.file;
 
   return (
     <>

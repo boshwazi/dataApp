@@ -129,6 +129,18 @@ dashboard if it had report pages.
 - **Date tables.** Power BI's date table, and its automatic date tables, become datawazi's Date table.
 - **Safety.** Nothing in the file is run. DAX and Power Query are read as text.
 
+**Snapshots and refresh.** A `.pbix` holds the data of Import-mode tables as Power BI last refreshed it,
+whatever connector produced it (SQL Server, SharePoint, Excel...). datawazi imports that copy. It can't
+run Power BI's connectors and never sees their credentials.
+
+- **Labels.** Each imported table shows its original connector and "a snapshot as of" its last refresh in Power BI.
+- **Refreshing.** Refresh the file in Power BI Desktop, then choose **Refresh from a newer .pbix** on the dataset.
+  - Tables are matched by name and run through the usual refresh checks and history.
+  - Your measures, relationships and edits stay.
+  - New tables in the file are listed, not added.
+- **DirectQuery tables** hold no data in the file, so they're listed as needing data.
+- **Live-connection reports** (a report on a model in the Power BI service) are explained instead of imported.
+
 **Export:** on a dataset, choose **⋯ → Download for Power BI**. You get a `.pbip` project in a zip:
 
 - the model in TMDL, with measures written as DAX

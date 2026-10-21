@@ -126,7 +126,9 @@ def test_a_pbix_brings_its_model_and_data(api, monkeypatch):
     report = body["report"]
     assert [m["measure"] for m in report["measures"]] == ["Revenue", "Paid", "Share paid"]
     assert report["not_converted"][0]["measure"] == "Colour" and "IF" in report["not_converted"][0]["why"]
-    assert all(r["added"] for r in report["relationships"]) and "replaced by datawazi's Date table" in report["notes"][0]
+    assert all(r["added"] for r in report["relationships"])
+    assert any("replaced by datawazi's Date table" in n for n in report["notes"])
+    assert "snapshot" in report["notes"][0] and "Refresh from a newer .pbix" in report["notes"][0]
 
     result = ok(api.post(f"/api/datasets/{ds}/model/evaluate",
                          json={"measures": ["Revenue", "Paid", "Share paid"], "group_by": [{"table": "Date", "column": "Year"}]}))
@@ -218,3 +220,69 @@ def test_round_trip_keeps_the_model_and_its_numbers(api):
     assert numbers(api, copy) == numbers(api, original)
     formats = {m["name"]: m["format"] for m in ok(api.get(f"/api/datasets/{copy}/model"))["measures"]}
     assert formats["Revenue"] == {"type": "currency", "decimals": 2, "currency": "RM"}
+
+
+# Sources, snapshots and refresh (M11b)
+
+
+@pytest.mark.parametrize("m, name", [
+    ('Sql.Database("srv", "db")', "SQL Server"),
+    ('Excel.Workbook(Web.Contents("https://x.sharepoint.com/a.xlsx"))', "Excel on SharePoint"),
+    ('Excel.Workbook(File.Contents("C:\a.xlsx"))', "Excel"),
+    ("Table.FromRows(Json.Document(Binary.Decompress(Binary.FromText(\"x\"))))", "Entered data"),
+    ("Salesforce.Data()", "Salesforce"),
+    (None, "Unknown source"),
+])
+def test_the_original_connector_is_named(m, name):
+    assert pbi_model.connector_of(m) == name
+
+
+def test_live_connection_reports_are_explained():
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("Version", "1.28")
+        archive.writestr("Connections", "{}")
+        archive.writestr("Report/Layout", "{}")
+    with pytest.raises(pbi_model.PbiError, match="live connection"):
+        pbi_model.read_pbix(buffer.getvalue(), "Thin report")
+
+
+def test_directquery_tables_are_flagged_and_sources_are_labelled(api, monkeypatch):
+    model = fake_pbix()
+    model.tables[0].source_m = 'Sql.Database("srv", "sales")'
+    model.tables[0].refreshed_at = "2026-06-04T05:30"
+    model.tables[1].mode, model.tables[1].data = "directquery", None
+    monkeypatch.setattr(pbi_model, "read_pbix", lambda data, name: model)
+    ds = ok(api.post("/api/datasets", json={"name": "Shop"}))["id"]
+    body = ok(api.post(f"/api/datasets/{ds}/sources/powerbi", files=[("file", ("Shop.pbix", b"x"))]))
+    customers = next(t for t in body["plan"]["tables"] if t["name"] == "Customers")
+    assert customers["role"] == "needs_data" and customers["why"].startswith("DirectQuery")
+    assert body["waiting_for"] == ["Customers"] and any("DirectQuery" in n for n in body["report"]["notes"])
+    assert "last refreshed it on 2026-06-04" in body["report"]["notes"][0]
+    origin = ok(api.get(f"/api/datasets/{ds}"))["sources"][0]["origin"]
+    assert origin["connector"] == "SQL Server" and origin["snapshot"] == "2026-06-04T05:30" and origin["mode"] == "import"
+
+
+def test_refresh_from_a_newer_pbix_replaces_data_and_keeps_the_model(api, monkeypatch):
+    monkeypatch.setattr(pbi_model, "read_pbix", lambda data, name: fake_pbix())
+    ds = ok(api.post("/api/datasets", json={"name": "Shop"}))["id"]
+    ok(api.post(f"/api/datasets/{ds}/sources/powerbi", files=[("file", ("Shop.pbix", b"x"))]))
+    ok(api.post(f"/api/datasets/{ds}/model/measures", json={"name": "Orders", "kind": "aggregate", "table": "sales", "aggregation": "count"}))
+
+    newer = fake_pbix()
+    extra = pd.DataFrame({"Order Date": pd.to_datetime(["2025-06-01"]), "CustomerKey": [2], "Amount": [500.0], "Status": ["Paid"]})
+    newer.tables[0].data = pd.concat([SALES, extra], ignore_index=True)
+    newer.tables[0].refreshed_at = "2026-10-01T08:00"
+    newer.tables.append(PbiTable("Targets", [PbiColumn("Target", "decimal")], data=pd.DataFrame({"Target": [1.0]})))
+    monkeypatch.setattr(pbi_model, "read_pbix", lambda data, name: newer)
+    entry = ok(api.post(f"/api/datasets/{ds}/powerbi/refresh", files=[("file", ("Shop v2.pbix", b"y"))]))
+    assert entry["trigger"] == "powerbi" and entry["status"] in ("ok", "warnings")
+    assert {"table": "sales", "rows_before": 4, "rows_after": 5} in entry["sources"]
+    assert entry["not_added"] == ["Targets"]  # new tables aren't added by a refresh
+    measures = {m["name"] for m in ok(api.get(f"/api/datasets/{ds}/model"))["measures"]}
+    assert {"Revenue", "Paid", "Orders"} <= measures  # the model, including edits made in datawazi, is kept
+    revenue = ok(api.post(f"/api/datasets/{ds}/model/evaluate", json={"measures": ["Revenue"]}))["rows"][0][0]
+    assert revenue == 750.0
+    sales = next(s for s in ok(api.get(f"/api/datasets/{ds}"))["sources"] if s["table"] == "sales")
+    assert sales["origin"]["snapshot"] == "2026-10-01T08:00"  # labelled with the newer file's refresh
+    assert api.post(f"/api/datasets/{ds}/powerbi/refresh", files=[("file", ("x.zip", b"y"))]).status_code == 400

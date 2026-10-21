@@ -10,7 +10,7 @@ const SCHEDULE_LABELS: Record<string, string> = {
   weekly: "Every week",
 };
 
-const TRIGGER_LABELS = { manual: "Pulled now", replace: "File replaced", schedule: "Scheduled" } as const;
+const TRIGGER_LABELS = { manual: "Pulled now", replace: "File replaced", schedule: "Scheduled", powerbi: "From a newer .pbix" } as const;
 
 /** New data in, same steps, model and dashboards on top; every refresh is checked and recorded. */
 export function Refresh() {
@@ -177,7 +177,7 @@ function EntryCard({ entry, highlight = false }: { entry: RefreshEntry; highligh
       <header>
         <span className={`badge ${badge}`}>{label}</span>
         <span className="muted small">
-          {TRIGGER_LABELS[entry.trigger]} · {new Date(entry.at).toLocaleString()}
+          {TRIGGER_LABELS[entry.trigger] ?? entry.trigger}, {new Date(entry.at).toLocaleString()}
         </span>
         <span className="spacer" />
         {entry.published_version ? (

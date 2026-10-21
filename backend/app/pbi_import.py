@@ -75,9 +75,16 @@ def plan(model_: PbiModel) -> dict:
             role = "load"
         else:
             role = "needs_data"
+        why = None
+        if role == "needs_data":
+            why = ("DirectQuery: Power BI queries the source live and keeps no data in the file."
+                   if t.mode == "directquery" else
+                   "Direct Lake: the data stays in Fabric." if t.mode == "directlake" else
+                   "A Power BI project holds the model but not the data.")
         tables.append({"name": t.name, "role": role, "columns": len(t.columns),
                        "rows": None if t.data is None else int(len(t.data)), "calculated": bool(t.calculated),
-                       "source_hint": source_hint(t.source_m)})
+                       "source_hint": source_hint(t.source_m), "connector": t.connector, "mode": t.mode,
+                       "refreshed_at": t.refreshed_at, "why": why})
     return {"file": model_.name, "kind": model_.kind, "tables": tables,
             "measures": len(model_.measures), "relationships": len(model_.relationships), "roles": len(model_.roles)}
 
@@ -229,6 +236,49 @@ def _add_measure(con, project, found, proposal: dict, names: dict[str, str], for
     proposal["format"] = pbi_dax.format_from(format_string)
     proposal["reason"] = "Imported from Power BI."
     model.add_measure(con, project, proposal, "Approved")
+
+
+def origin_for(table: PbiTable, file: str) -> dict:
+    """How a source imported from Power BI is labelled: the file, the original connector and the snapshot date."""
+    return {"kind": "powerbi", "file": file, "label": table.name, "connector": table.connector,
+            "snapshot": table.refreshed_at, "mode": table.mode}
+
+
+def snapshot_note(model_: PbiModel, loaded: list[str]) -> str | None:
+    """Imported data is a copy of Power BI's last refresh; say so, and how to refresh it."""
+    dates = sorted(t.refreshed_at for t in model_.tables if t.name in loaded and t.refreshed_at)
+    if model_.kind != "pbix" or not loaded:
+        return None
+    when = f" (Power BI last refreshed it on {dates[-1][:10]})" if dates else ""
+    return (f"The data is a snapshot of the file{when}. datawazi can't run Power BI's connectors, so to update "
+            "it, refresh the file in Power BI Desktop and use Refresh from a newer .pbix.")
+
+
+def refresh_from(store, boards, project_id: str, model_: PbiModel) -> dict:
+    """New data for tables imported from Power BI, from a newer .pbix: matched by table name and run
+    through the normal refresh checks and history. Measures and relationships are kept, not re-imported."""
+    from . import ingest, refresh  # refresh uses the stores; imported here to keep this module light
+
+    project = store.get(project_id)
+    imported = [s for s in project["sources"] if s["origin"].get("kind") == "powerbi"]
+    if not imported:
+        raise model.ModelError("Nothing in this dataset was imported from Power BI.")
+    new_data, failures = {}, {}
+    for source in imported:
+        table = model_.table(source["origin"].get("label") or source["table"])
+        if table is None:
+            failures[source["id"]] = f"{source['origin'].get('label')} isn't in {model_.name}."
+        elif table.data is None:
+            failures[source["id"]] = f"{table.name} has no data in {model_.name} ({table.mode})."
+        else:
+            frame, types = frame_and_types(table)
+            loaded = ingest.LoadedTable(name=table.name, frame=frame, types=types)
+            new_data[source["id"]] = (loaded, origin_for(table, model_.name))
+    entry = refresh.run(store, boards, project_id, new_data, failures, "powerbi")
+    labels = {s["origin"].get("label", "").lower() for s in imported}
+    entry["not_added"] = [t.name for t in model_.tables if t.data is not None and t.name.lower() not in labels
+                          and not is_date_table(t, model_) and not is_measure_table(t, model_)]
+    return entry
 
 
 def record(project: dict, model_: PbiModel, report: dict | None, waiting: list[str]) -> dict:
