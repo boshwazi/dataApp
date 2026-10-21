@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from "react";
-import { AlertTriangle, ArrowDown, ArrowUp, ChevronDown, ChevronRight, CopyMinus, MoreHorizontal, Sparkles, Table2, Undo2, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, ChevronDown, ChevronRight, Combine, CopyMinus, MoreHorizontal, Rows3, Sparkles, Table2, Undo2, X } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import {
   api,
@@ -192,7 +192,7 @@ type WorkspaceProps = {
   onChange: Change;
 };
 
-function QueryWorkspace({ projectId, query, canUndo, hasKey, cleaning, run, error, onClean, onChange }: WorkspaceProps) {
+function QueryWorkspace({ projectId, query, others, canUndo, hasKey, cleaning, run, error, onClean, onChange }: WorkspaceProps) {
   const total = query.steps.length;
   const [step, setStep] = useState(total);
   const [preview, setPreview] = useState<StepPreview | null>(null);
@@ -201,6 +201,11 @@ function QueryWorkspace({ projectId, query, canUndo, hasKey, cleaning, run, erro
   const [side, setSide] = useState<"after" | "before" | "removed">("after");
   const [removed, setRemoved] = useState<(StepRows & { comparable: boolean }) | null>(null);
   const [menu, setMenu] = useState<{ column: string; type: LogicalType; x: number; y: number } | null>(null);
+  const [combine, setCombine] = useState<{ kind: "merge" | "append"; x: number; y: number } | null>(null);
+  const openCombine = (kind: "merge" | "append") => (e: ReactMouseEvent) => {
+    const box = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setCombine({ kind, x: box.left, y: box.bottom + 4 });
+  };
   const dialogs = useDialogs();
 
   useEffect(() => {
@@ -233,7 +238,9 @@ function QueryWorkspace({ projectId, query, canUndo, hasKey, cleaning, run, erro
   // Cells this step changed, when rows line up one to one (no rows added or removed).
   const changed = useMemo(() => {
     const out = new Set<string>();
-    if (!preview?.before || side !== "after" || !impact || impact.rows_before !== impact.rows_after) return out;
+    // Steps that may reorder rows (merge, append, filters, de-duplication) can't be compared row by row.
+    const op = query.steps[step - 1]?.op;
+    if (!preview?.before || side !== "after" || !impact || impact.rows_before !== impact.rows_after || REORDERS.has(op)) return out;
     const beforeIndex = new Map(preview.before.columns.map((c, i) => [c.name, i]));
     preview.after.rows.forEach((row, r) =>
       row.forEach((value, c) => {
@@ -242,7 +249,8 @@ function QueryWorkspace({ projectId, query, canUndo, hasKey, cleaning, run, erro
       }),
     );
     return out;
-  }, [preview, side, impact]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preview, side, impact, step]);
 
   // Column quality: the whole table on the last step (from its profile), the rows on show otherwise.
   const quality = useMemo(() => {
@@ -292,7 +300,13 @@ function QueryWorkspace({ projectId, query, canUndo, hasKey, cleaning, run, erro
           </button>
           <span className="tool-sep" />
           <button className="tool labelled" onClick={() => add("remove_duplicates", {})} disabled={!!query.error}>
-            <CopyMinus size={15} aria-hidden="true" /> Remove duplicate rows
+            <CopyMinus size={15} aria-hidden="true" /> Remove duplicates
+          </button>
+          <button className="tool labelled" onClick={openCombine("merge")} disabled={!!query.error || !others.length} title="Bring in columns from another table by matching keys">
+            <Combine size={15} aria-hidden="true" /> Merge
+          </button>
+          <button className="tool labelled" onClick={openCombine("append")} disabled={!!query.error || !others.length} title="Add the rows of other tables under this one">
+            <Rows3 size={15} aria-hidden="true" /> Append
           </button>
           <button
             className="tool labelled"
@@ -301,7 +315,7 @@ function QueryWorkspace({ projectId, query, canUndo, hasKey, cleaning, run, erro
               if (name && name !== query.name) void onChange(() => transformApi.rename(projectId, query.id, name));
             }}
           >
-            Rename table
+            Rename
           </button>
           {query.kind === "lookup" && (
             <button className="tool labelled danger" onClick={() => onChange(() => transformApi.removeTable(projectId, query.id))}>
@@ -514,6 +528,15 @@ function QueryWorkspace({ projectId, query, canUndo, hasKey, cleaning, run, erro
       </aside>
 
       {menu && <ColumnMenu menu={menu} onClose={() => setMenu(null)} onAdd={add} />}
+      {combine && (
+        <PopMenu x={combine.x} y={combine.y} onClose={() => setCombine(null)} label={combine.kind === "merge" ? "Merge" : "Append"}>
+          {combine.kind === "merge" ? (
+            <MergeForm query={query} others={others} onAdd={(params) => (setCombine(null), void add("merge", params))} />
+          ) : (
+            <AppendForm query={query} others={others} onAdd={(params) => (setCombine(null), void add("append", params))} />
+          )}
+        </PopMenu>
+      )}
     </>
   );
 }
@@ -526,6 +549,8 @@ function FragmentRow({ label, value }: { label: string; value: string }) {
     </>
   );
 }
+
+const REORDERS = new Set(["merge", "append", "filter_rows", "remove_duplicates"]);
 
 const pct = (v: number) => `${v < 0.01 && v > 0 ? "<1" : Math.round(v * 100)}%`;
 
@@ -687,6 +712,136 @@ function ColumnMenu(props: {
           operatorNeeds === null || first.trim() !== "",
         )}
     </PopMenu>
+  );
+}
+
+/** Merge Queries: match keys with another table and bring some of its columns in. */
+function MergeForm({ query, others, onAdd }: { query: QuerySummary; others: QuerySummary[]; onAdd: (params: Record<string, unknown>) => void }) {
+  const usable = others.filter((q) => !q.error && q.columns.length);
+  const [otherId, setOtherId] = useState(usable[0]?.id ?? "");
+  const other = usable.find((q) => q.id === otherId);
+  // Start from a column the two tables share by name, the usual key.
+  const guess = (o?: QuerySummary) => {
+    const shared = query.columns.find((c) => o?.columns.some((x) => x.name.toLowerCase() === c.name.toLowerCase()));
+    return { left: shared?.name ?? query.columns[0]?.name ?? "", right: o?.columns.find((x) => x.name.toLowerCase() === shared?.name.toLowerCase())?.name ?? o?.columns[0]?.name ?? "" };
+  };
+  const [keys, setKeys] = useState(() => guess(other));
+  const [bring, setBring] = useState<string[]>([]);
+  const [how, setHow] = useState<"left" | "inner">("left");
+  const choices = other?.columns.filter((c) => c.name !== keys.right) ?? [];
+
+  if (!usable.length) return <p className="muted small pad">There is no other table to merge with.</p>;
+  return (
+    <form
+      className="pop-form combine-form"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (other && bring.length) onAdd({ query: other.id, left_on: [keys.left], right_on: [keys.right], columns: bring, how });
+      }}
+    >
+      <div className="pop-head">Merge into {query.name}</div>
+      <label className="pop-field">
+        <span>Table to look up from</span>
+        <select
+          value={otherId}
+          onChange={(e) => {
+            const next = usable.find((q) => q.id === e.target.value);
+            setOtherId(e.target.value);
+            setKeys(guess(next));
+            setBring([]);
+          }}
+        >
+          {usable.map((q) => (
+            <option key={q.id} value={q.id}>
+              {q.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="pop-pair">
+        <label className="pop-field">
+          <span>Match {query.name}[…]</span>
+          <select value={keys.left} onChange={(e) => setKeys({ ...keys, left: e.target.value })}>
+            {query.columns.map((c) => (
+              <option key={c.name}>{c.name}</option>
+            ))}
+          </select>
+        </label>
+        <label className="pop-field">
+          <span>with {other?.name}[…]</span>
+          <select value={keys.right} onChange={(e) => setKeys({ ...keys, right: e.target.value })}>
+            {other?.columns.map((c) => (
+              <option key={c.name}>{c.name}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <div className="pop-field">
+        <span>Columns to bring in</span>
+        <ul className="value-list">
+          {choices.map((c) => (
+            <li key={c.name}>
+              <label>
+                <input type="checkbox" checked={bring.includes(c.name)} onChange={() => setBring((b) => (b.includes(c.name) ? b.filter((x) => x !== c.name) : [...b, c.name]))} />
+                <TypeTag type={c.type} />
+                <span>{c.name}</span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <label className="pop-field">
+        <span>Rows</span>
+        <select value={how} onChange={(e) => setHow(e.target.value as "left" | "inner")}>
+          <option value="left">Keep every row of {query.name} (blank where nothing matches)</option>
+          <option value="inner">Keep only rows that match</option>
+        </select>
+      </label>
+      <p className="muted small pad-x">Only when a value must live in this table. To report across tables, relate them in Model instead.</p>
+      <button type="submit" disabled={!bring.length}>
+        Add merge step
+      </button>
+    </form>
+  );
+}
+
+/** Append Queries: stack other tables' rows under this one; columns are matched by name. */
+function AppendForm({ query, others, onAdd }: { query: QuerySummary; others: QuerySummary[]; onAdd: (params: Record<string, unknown>) => void }) {
+  const usable = others.filter((q) => !q.error);
+  const [picked, setPicked] = useState<string[]>([]);
+  const mine = new Set(query.columns.map((c) => c.name.toLowerCase()));
+  const fit = (q: QuerySummary) => {
+    const theirs = new Set(q.columns.map((c) => c.name.toLowerCase()));
+    const missing = query.columns.filter((c) => !theirs.has(c.name.toLowerCase())).length;
+    const extra = q.columns.filter((c) => !mine.has(c.name.toLowerCase())).length;
+    return missing || extra ? `${missing} missing, ${extra} extra columns` : "same columns";
+  };
+  if (!usable.length) return <p className="muted small pad">There is no other table to append.</p>;
+  return (
+    <form
+      className="pop-form combine-form"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (picked.length) onAdd({ queries: picked });
+      }}
+    >
+      <div className="pop-head">Append to {query.name}</div>
+      <ul className="value-list">
+        {usable.map((q) => (
+          <li key={q.id}>
+            <label>
+              <input type="checkbox" checked={picked.includes(q.id)} onChange={() => setPicked((p) => (p.includes(q.id) ? p.filter((x) => x !== q.id) : [...p, q.id]))} />
+              <span>{q.name}</span>
+              <small className="muted">{q.rows === null ? "" : `${q.rows.toLocaleString()} rows, `}{fit(q)}</small>
+            </label>
+          </li>
+        ))}
+      </ul>
+      <p className="muted small pad-x">Columns are matched by name; a column a table lacks is left blank for its rows.</p>
+      <button type="submit" disabled={!picked.length}>
+        Add append step
+      </button>
+    </form>
   );
 }
 

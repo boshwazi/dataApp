@@ -378,6 +378,8 @@ button.compact {
 /* Small tool buttons used inside editors */
 
 button.tool {
+  white-space: nowrap;
+  flex-shrink: 0;
   display: inline-grid;
   grid-auto-flow: column;
   align-items: center;
@@ -2456,4 +2458,30 @@ button.slicer-button:hover:not(:disabled) {
 
 .report-table tr.picked td {
   background: var(--selected);
+}
+
+/* Merge and Append */
+
+.combine-form {
+  width: 340px;
+}
+
+.pop-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.pad-x {
+  margin: 0;
+  padding: 0 9px;
+}
+
+.combine-form .value-list label {
+  flex-wrap: wrap;
+}
+
+.combine-form .value-list label small {
+  width: 100%;
+  padding-left: 24px;
+  font-size: 11px;
 }
