@@ -4,18 +4,33 @@ import { GridComponent, LegendComponent, TooltipComponent } from "echarts/compon
 import * as echarts from "echarts/core";
 import { SVGRenderer } from "echarts/renderers";
 import type { EChartsCoreOption } from "echarts/core";
+import { token, useTheme } from "./theme";
 
 echarts.use([BarChart, LineChart, PieChart, ScatterChart, GridComponent, LegendComponent, TooltipComponent, SVGRenderer]);
 
-// House style tokens (light theme, WCAG-checked on white).
+// House style colours, read from the theme tokens so charts follow light and dark.
 export const TOKENS = {
-  text: "#1F2937",
-  muted: "#6B7280",
-  accent: "#005A9C",
-  context: "#9CA3AF",
-  grid: "#E5E7EB",
-  good: "#007A5E",
-  bad: "#B54A00",
+  get text() {
+    return token("--text") || "#1F2937";
+  },
+  get muted() {
+    return token("--muted") || "#6B7280";
+  },
+  get accent() {
+    return token("--chart-accent") || "#005A9C";
+  },
+  get context() {
+    return token("--faint") || "#9CA3AF";
+  },
+  get grid() {
+    return token("--grid-line") || "#E5E7EB";
+  },
+  get good() {
+    return token("--ok") || "#007A5E";
+  },
+  get bad() {
+    return token("--warn") || "#B54A00";
+  },
 };
 // Okabe-Ito order, colour-blind safe; never more than 6 series.
 export const SERIES = ["#0072B2", "#E69F00", "#009E73", "#56B4E9", "#D55E00", "#CC79A7"];
@@ -25,6 +40,7 @@ export function Chart(props: { option: EChartsCoreOption; height: number | strin
   const { option, height, label } = props;
   const box = useRef<HTMLDivElement>(null);
   const chart = useRef<echarts.ECharts | null>(null);
+  const theme = useTheme();
   const pick = useRef(props.onPick);
   pick.current = props.onPick;
 
@@ -54,10 +70,13 @@ export function Chart(props: { option: EChartsCoreOption; height: number | strin
         textStyle: { fontFamily: "system-ui, 'Segoe UI', sans-serif", color: TOKENS.text },
         animation: false,
         ...option,
+        tooltip: option.tooltip
+          ? { backgroundColor: token("--panel"), borderColor: token("--border"), textStyle: { color: TOKENS.text }, ...(option.tooltip as object) }
+          : undefined,
       },
       true,
     );
-  }, [option]);
+  }, [option, theme]);
 
   /** On bar, column and line charts a click anywhere in a category's band picks it, as in Power BI. */
   function onClick(e: ReactMouseEvent<HTMLDivElement>) {

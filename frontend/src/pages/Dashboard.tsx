@@ -30,6 +30,7 @@ import { Chart, SERIES, TOKENS } from "../components/Chart";
 import { ChatPanel, type ChatHandle } from "../components/ChatPanel";
 import { EmptyState, Menu, PopMenu, TopbarActions, type MenuItem, useCrumbs, useDialogs, useShortcut, useToast } from "../components/ui";
 import { useAccount } from "../components/account";
+import { useTheme } from "../components/theme";
 import { TypeTag } from "./Transform";
 
 const SUGGESTIONS = ["Add a page about customers", "Swap the donut for a bar chart", "Which visual shows the biggest change?"];
@@ -1348,7 +1349,7 @@ export function KpiCard({ visual, format }: { visual: Visual; format: MeasureFor
       <div className="kpi-period">{data.period}</div>
       <div className="kpi-value">{formatCompact(data.value, format)}</div>
       {change ? (
-        <div className="kpi-change" style={{ color: good ? TOKENS.good : TOKENS.bad }}>
+        <div className="kpi-change" style={{ color: good ? "var(--ok)" : "var(--warn)" }}>
           {change}
         </div>
       ) : (
@@ -1377,8 +1378,8 @@ function Sparkline({ points, months }: { points: number[]; months: number }) {
   return (
     <div className="kpi-spark">
       <svg viewBox={`-3 -3 ${width + 6} ${height + 6}`} width={width} height={height} aria-hidden="true">
-        <polyline points={xy.map((p) => p.join(",")).join(" ")} fill="none" stroke={TOKENS.accent} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-        <circle cx={last[0]} cy={last[1]} r={3} fill={TOKENS.accent} />
+        <polyline points={xy.map((p) => p.join(",")).join(" ")} fill="none" style={{ stroke: "var(--chart-accent)" }} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        <circle cx={last[0]} cy={last[1]} r={3} style={{ fill: "var(--chart-accent)" }} />
       </svg>
       <span>{months} months</span>
     </div>
@@ -1403,10 +1404,11 @@ export function ChartVisual(props: {
   const data = visual.data as ChartData;
   const groups = visual.group_by.length;
   const pickedKey = JSON.stringify(picked ?? null);
+  const theme = useTheme(); // chart colours come from the theme
   const option = useMemo(
     () => highlight(chartOption(visual, data, formats), visual, data, picked),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [visual, data, formats, pickedKey],
+    [visual, data, formats, pickedKey, theme],
   );
   const onPick = props.onPick;
   const pickName = onPick

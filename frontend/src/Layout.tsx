@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Check, Database, House, LayoutDashboard, LogOut, Plus, Search, Settings as SettingsIcon, Users } from "lucide-react";
+import { Check, Database, Monitor, Moon, Sun, House, LayoutDashboard, LogOut, Plus, Search, Settings as SettingsIcon, Users } from "lucide-react";
 import { accountApi, api, dashboardsApi, type DashboardSummary, type Dataset, type Role } from "./api";
 import { useAccount } from "./components/account";
+import { savedTheme, setTheme, type ThemeChoice } from "./components/theme";
 import { BrandMark, TopbarContext, useCurrentCrumbs, useDialogs, useShortcut, useToast } from "./components/ui";
 
 type NavItem = {
@@ -163,6 +164,8 @@ function WorkspaceMenu() {
               <Plus size={16} aria-hidden="true" /> New workspace
             </button>
           )}
+          <div className="menu-separator" role="separator" />
+          <ThemePicker />
           {hosted && <div className="menu-separator" role="separator" />}
           {hosted && <div className="menu-note">{account.me.user.email}</div>}
           {account.signOut && (
@@ -172,6 +175,37 @@ function WorkspaceMenu() {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function ThemePicker() {
+  const [choice, setChoice] = useState<ThemeChoice>(savedTheme);
+  const options: { value: ThemeChoice; label: string; icon: typeof Sun }[] = [
+    { value: "light", label: "Light", icon: Sun },
+    { value: "dark", label: "Dark", icon: Moon },
+    { value: "system", label: "Computer", icon: Monitor },
+  ];
+  return (
+    <div className="theme-picker" role="radiogroup" aria-label="Theme">
+      <span>Theme</span>
+      <span className="segmented compact">
+        {options.map(({ value, label, icon: Icon }) => (
+          <button
+            key={value}
+            role="radio"
+            aria-checked={choice === value}
+            className={choice === value ? "on" : ""}
+            title={value === "system" ? "Follow the computer's setting" : label}
+            onClick={() => {
+              setChoice(value);
+              setTheme(value);
+            }}
+          >
+            <Icon size={13} aria-hidden="true" /> {label}
+          </button>
+        ))}
+      </span>
     </div>
   );
 }

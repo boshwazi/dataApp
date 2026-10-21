@@ -129,7 +129,7 @@ h2 {
 
 .notice {
   background: var(--notice);
-  border: 1px solid #f0dc9c;
+  border: 1px solid var(--ai-border);
   padding: 10px 14px;
   border-radius: 8px;
   margin: 12px 0;
@@ -623,7 +623,7 @@ input {
 .grid th {
   position: sticky;
   top: 0;
-  background: #f0f2f6;
+  background: var(--hover);
   text-align: left;
   font-weight: 600;
   white-space: nowrap;
@@ -680,15 +680,15 @@ input {
 
 .type-integer,
 .type-decimal {
-  color: #1a5fb4;
+  color: var(--accent);
 }
 
 .type-date {
-  color: #26803b;
+  color: var(--ok);
 }
 
 .type-boolean {
-  color: #a3480f;
+  color: var(--warn);
 }
 
 .bar {
@@ -742,20 +742,20 @@ input {
 }
 
 .badge.ok-badge {
-  background: #e3f4ea;
+  background: var(--ok-bg);
   color: var(--ok);
   border-color: transparent;
 }
 
 .badge.bad-badge {
-  background: #fbe5e5;
+  background: var(--bad-bg);
   color: var(--bad);
   border-color: transparent;
 }
 
 .bad-notice {
-  background: #fbe5e5;
-  border-color: #f0b8b8;
+  background: var(--bad-bg);
+  border-color: var(--bad-line);
   color: var(--bad);
 }
 
@@ -925,20 +925,20 @@ button.icon.danger:hover:not(:disabled) {
 }
 
 .diagram .box .box-head {
-  fill: #eef1f6;
+  fill: var(--hover);
   stroke: none;
 }
 
 .diagram .kind-fact .box-head {
-  fill: #e4ecfd;
+  fill: var(--selected);
 }
 
 .diagram .kind-dimension .box-head {
-  fill: #e6f4ec;
+  fill: var(--ok-bg);
 }
 
 .diagram .kind-date .box-head {
-  fill: #f6eddc;
+  fill: var(--ai-bg);
 }
 
 .diagram .box-title {
@@ -1023,7 +1023,7 @@ tr.inactive td {
 }
 
 .measure.broken {
-  border-color: #f0b8b8;
+  border-color: var(--bad-line);
 }
 
 .measure p {
@@ -1089,7 +1089,7 @@ tr.inactive td {
 }
 
 .report-page {
-  background: #f3f4f6;
+  background: var(--hover);
   border: 1px solid var(--border);
   border-top: none;
   border-radius: 0 0 10px 10px;
@@ -1145,7 +1145,7 @@ tr.inactive td {
 }
 
 .visual {
-  background: #ffffff;
+  background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 14px 16px;
@@ -1220,7 +1220,7 @@ tr.inactive td {
 }
 
 .unverified {
-  color: #b54a00;
+  color: var(--warn);
   font-weight: 600;
 }
 
@@ -1231,11 +1231,11 @@ tr.inactive td {
 }
 
 .check-ok {
-  color: #007a5e;
+  color: var(--ok);
 }
 
 .check-bad {
-  color: #b54a00;
+  color: var(--warn);
   font-weight: 600;
 }
 
@@ -1252,7 +1252,7 @@ tr.inactive td {
   right: 0;
   top: 6px;
   bottom: 6px;
-  background: #dbe8f4;
+  background: var(--selected);
   border-radius: 2px;
 }
 
@@ -1523,7 +1523,7 @@ tr.inactive td {
 }
 
 .brand-mark {
-  color: #f5c518;
+  color: var(--highlight);
 }
 
 /* Ask */
@@ -1734,7 +1734,7 @@ a.button.secondary {
 }
 
 .export-sheet {
-  background: #fff;
+  background: var(--panel);
   border: 1px solid var(--border);
   padding: 24px 28px;
   margin-bottom: 20px;
@@ -1822,7 +1822,7 @@ a.button.secondary {
 
 @media print {
   body {
-    background: #fff;
+    background: var(--panel);
   }
   .no-print {
     display: none !important;
@@ -1898,7 +1898,7 @@ a.button.secondary {
 
 .lineage-line {
   fill: none;
-  stroke: #9ca3af;
+  stroke: var(--faint);
   stroke-width: 1.4;
   opacity: 0.7;
 }
@@ -1910,7 +1910,7 @@ a.button.secondary {
 }
 
 .lineage-line.lit {
-  stroke: #005a9c;
+  stroke: var(--accent);
   stroke-width: 2;
   opacity: 1;
 }
@@ -1940,26 +1940,26 @@ a.button.secondary {
   background: var(--panel);
   color: var(--text);
   border: 1px solid var(--border);
-  border-left: 4px solid #9ca3af;
+  border-left: 4px solid var(--faint);
   border-radius: 6px;
   padding: 6px 8px;
   font-size: 13px;
 }
 
 .lineage-card.kind-source {
-  border-left-color: #e69f00;
+  border-left-color: var(--warn-dot);
 }
 
 .lineage-card.kind-table {
-  border-left-color: #009e73;
+  border-left-color: var(--ok);
 }
 
 .lineage-card.kind-measure {
-  border-left-color: #6b3fd4;
+  border-left-color: var(--tag-num);
 }
 
 .lineage-card.kind-visual {
-  border-left-color: #005a9c;
+  border-left-color: var(--accent);
 }
 
 .lineage-card.focused {
@@ -1990,7 +1990,7 @@ a.button.secondary {
 .key {
   display: inline-block;
   width: 24px;
-  border-top: 2px solid #9ca3af;
+  border-top: 2px solid var(--faint);
 }
 
 .key.dashed {
@@ -2041,7 +2041,7 @@ a.button.secondary:hover {
 .badge.ai {
   background: var(--ai-bg);
   color: var(--ai);
-  border: 1px solid #fde68a;
+  border: 1px solid var(--ai-border);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2111,7 +2111,7 @@ button.link {
   font-size: 19px;
   font-weight: 800;
   letter-spacing: -0.02em;
-  color: #111827;
+  color: var(--text);
   text-decoration: none;
 }
 
@@ -2300,7 +2300,7 @@ kbd {
 .skeleton span {
   display: block;
   border-radius: var(--radius);
-  background: linear-gradient(90deg, #e9edf2 0%, #f4f6f9 50%, #e9edf2 100%);
+  background: linear-gradient(90deg, var(--hover) 0%, var(--hover) 50%, var(--hover) 100%);
   background-size: 200% 100%;
   animation: shimmer 1.4s ease-in-out infinite;
 }
@@ -2352,8 +2352,8 @@ button.danger-solid {
 }
 
 button.danger-solid:hover:not(:disabled) {
-  background: #8f1c13 !important;
-  border-color: #8f1c13 !important;
+  background: var(--bad) !important;
+  border-color: var(--bad) !important;
 }
 
 /* Dialogs */
@@ -2466,8 +2466,8 @@ button.danger-solid:hover:not(:disabled) {
   max-width: 420px;
   padding: 10px 10px 10px 14px;
   border-radius: var(--radius);
-  background: #111827;
-  color: #f9fafb;
+  background: var(--text);
+  color: var(--panel-2);
   font-size: 14px;
   box-shadow: var(--shadow);
   animation: toast-in 0.18s ease-out;
@@ -2943,7 +2943,7 @@ a.pipe-step:hover {
 }
 
 .status-dot.warn::before {
-  background: #f59e0b;
+  background: var(--warn-dot);
 }
 
 /* Menu */
@@ -2964,7 +2964,7 @@ a.pipe-step:hover {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14);
+  box-shadow: var(--elevation);
   animation: menu-in 0.12s ease-out;
 }
 
@@ -3485,7 +3485,7 @@ button.workspace:hover {
 
 /* Rows a step removed: shown struck through on a faint red, so it reads as "these went". */
 .removed-rows tbody td {
-  background: #fdf1f0;
+  background: var(--bad-bg);
   color: var(--bad);
   text-decoration: line-through;
   text-decoration-color: rgba(180, 35, 24, 0.45);
@@ -3736,7 +3736,7 @@ button.workspace:hover {
   font-size: 12px;
   font-weight: 600;
   color: var(--muted);
-  background: #fafbfc;
+  background: var(--panel-2);
   padding: 8px 14px;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
@@ -3758,7 +3758,7 @@ button.workspace:hover {
 }
 
 .catalog tbody tr:hover td {
-  background: #f8fafd;
+  background: var(--panel-2);
 }
 
 .catalog .num {
@@ -3844,7 +3844,7 @@ button.workspace:hover {
 .grid th {
   font-size: 12px;
   font-weight: 600;
-  background: #fafbfc;
+  background: var(--panel-2);
   color: var(--muted);
 }
 

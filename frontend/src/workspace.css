@@ -4,13 +4,91 @@
    Loaded after styles.css.
    ========================================================================== */
 
+/* Theme tokens. Every colour in the stylesheets is one of these, so the dark theme only redefines them.
+   The rail stays dark in both themes. */
+
 :root {
   --topbar-height: 46px;
   --rail-width: 54px;
+  color-scheme: light;
+
+  --panel-2: #fafbfc;
+  --hover: #f0f2f5;
   --grid-line: #eef0f3;
-  --changed: #eef4fe;
-  --ai-soft: #fef6dc;
+  --canvas: #e9ecf1;
+  --dots: #d9dde4;
+  --border-hover: #b7bfca;
+  --neutral-mark: #c7ccd4;
+  --text-2: #2b3646;
+  --faint: #8a94a3;
+  --selected-strong: #cfdcf0;
+  --accent-line: #c4d6f6;
+  --ok-bg: #e3f4ec;
+  --ok-line: #b7e3d0;
+  --bad-bg: #fdf1f0;
+  --bad-line: #f0b8b8;
+  --warn-dot: #f59e0b;
+  --ai-bg-strong: #fdeeb9;
   --ai-border: #f1d77a;
+  --ai-soft: #fef6dc;
+  --tag-date: #0b6e99;
+  --tag-date-line: #b8dcef;
+  --tag-num: #6b46c1;
+  --tag-num-line: #d8cdf3;
+  --changed: #eef4fe;
+  --chart-accent: #005a9c;
+  --elevation: 0 14px 34px rgba(15, 26, 43, 0.18);
+}
+
+/* Dark: chosen in the workspace menu, or following the computer's setting. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0d121b;
+  --panel: #141b27;
+  --panel-2: #18202d;
+  --hover: #1d2634;
+  --grid-line: #212a39;
+  --canvas: #0a0f17;
+  --dots: #263042;
+  --border: #263041;
+  --border-strong: #344055;
+  --border-hover: #46536a;
+  --neutral-mark: #3a465a;
+  --text: #e6eaf0;
+  --text-2: #c9d1dc;
+  --muted: #9aa5b4;
+  --faint: #6f7b8c;
+  --accent: #3d78e6;
+  --accent-hover: #5a8eee;
+  --selected: rgba(91, 141, 239, 0.16);
+  --selected-strong: rgba(91, 141, 239, 0.3);
+  --accent-line: #2f4a7a;
+  --notice: #172238;
+  --notice-line: #2a3d60;
+  --ok: #3fbf8f;
+  --ok-bg: rgba(63, 191, 143, 0.14);
+  --ok-line: #2a6b53;
+  --bad: #f07a6e;
+  --bad-bg: rgba(240, 122, 110, 0.13);
+  --bad-line: #7a3a35;
+  --warn: #f0a35e;
+  --warn-bg: rgba(240, 163, 94, 0.14);
+  --warn-dot: #f5a524;
+  --ai: #f2c94c;
+  --ai-bg: rgba(250, 204, 21, 0.1);
+  --ai-soft: rgba(250, 204, 21, 0.1);
+  --ai-bg-strong: rgba(250, 204, 21, 0.18);
+  --ai-border: #5c4a17;
+  --ai-line: #d9a90f;
+  --tag-date: #5cc0e8;
+  --tag-date-line: #1f4f66;
+  --tag-num: #a98bf0;
+  --tag-num-line: #3f3270;
+  --changed: rgba(91, 141, 239, 0.14);
+  --chart-accent: #5b9bd5;
+  --sidebar: #090d14;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --elevation: 0 14px 34px rgba(0, 0, 0, 0.5);
 }
 
 /* Shell */
@@ -173,7 +251,7 @@
 }
 
 .crumb-sep {
-  color: #a0a8b5;
+  color: var(--faint);
 }
 
 .topbar-slot {
@@ -297,7 +375,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #c3c9d2;
+  background: var(--neutral-mark);
 }
 
 .stage-dot.ok {
@@ -305,7 +383,7 @@
 }
 
 .stage-dot.warn {
-  background: #f59e0b;
+  background: var(--warn-dot);
 }
 
 .topbar-status {
@@ -322,7 +400,7 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #c3c9d2;
+  background: var(--neutral-mark);
 }
 
 .topbar-status.ok::before {
@@ -330,7 +408,7 @@
 }
 
 .topbar-status.warn::before {
-  background: #f59e0b;
+  background: var(--warn-dot);
 }
 
 .topbar .menu > button,
@@ -361,12 +439,12 @@ button.ai-button {
 
 button.ai-button:hover:not(:disabled),
 button.ai-button.on {
-  background: #fdeeb9;
+  background: var(--ai-bg-strong);
   border-color: var(--ai-line);
 }
 
 button.ai-button kbd {
-  background: #fff;
+  background: var(--panel);
 }
 
 button.primary-compact,
@@ -408,7 +486,7 @@ button.tool.labelled {
 }
 
 button.tool.labelled:hover:not(:disabled) {
-  border-color: #b7bfca;
+  border-color: var(--border-hover);
   background: var(--bg);
 }
 
@@ -571,7 +649,7 @@ button.small-button {
   border: none;
   border-radius: 5px;
   background: none;
-  color: #2b3646;
+  color: var(--text-2);
   font-size: 13px;
   font-weight: 450;
   text-align: left;
@@ -612,7 +690,7 @@ button.tree-row:hover {
 }
 
 .tree-row.is-hidden .tree-name {
-  color: #9aa3b0;
+  color: var(--faint);
 }
 
 .tree-row.draggable {
@@ -631,7 +709,7 @@ button.tree-row:hover {
 
 .tree-count {
   margin-left: auto;
-  color: #8a94a3;
+  color: var(--faint);
   font-size: 11px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
@@ -673,24 +751,24 @@ button.tree-row:hover {
 }
 
 .type-tag-date {
-  color: #0b6e99;
-  border-color: #b8dcef;
+  color: var(--tag-date);
+  border-color: var(--tag-date-line);
 }
 
 .type-tag-integer,
 .type-tag-decimal {
-  color: #6b46c1;
-  border-color: #d8cdf3;
+  color: var(--tag-num);
+  border-color: var(--tag-num-line);
 }
 
 .type-tag-boolean {
-  color: #067a57;
-  border-color: #b7e3d0;
+  color: var(--ok);
+  border-color: var(--ok-line);
 }
 
 .type-tag-measure {
   color: var(--accent);
-  border-color: #c4d6f6;
+  border-color: var(--accent-line);
 }
 
 /* Editor toolbars and status bars */
@@ -777,7 +855,7 @@ button.tree-row:hover {
   min-height: 34px;
   flex-shrink: 0;
   padding: 3px 10px;
-  background: #fbfcfd;
+  background: var(--panel-2);
   border-bottom: 1px solid var(--border);
   font-size: 12.5px;
 }
@@ -824,7 +902,7 @@ button.tree-row:hover {
   top: 0;
   z-index: 2;
   padding: 0;
-  background: #fafbfc;
+  background: var(--panel-2);
   border-bottom: 1px solid var(--border);
   border-right: 1px solid var(--grid-line);
   text-align: left;
@@ -839,8 +917,8 @@ button.tree-row:hover {
   z-index: 1;
   min-width: 42px;
   width: 42px;
-  background: #fbfcfd;
-  color: #9aa3b0;
+  background: var(--panel-2);
+  color: var(--faint);
   text-align: right;
   font-family: var(--font);
   font-size: 11px;
@@ -871,7 +949,7 @@ button.tree-row:hover {
 }
 
 .col-head:hover:not(:disabled) {
-  background: #f0f2f5 !important;
+  background: var(--hover) !important;
 }
 
 .col-head:disabled {
@@ -887,7 +965,7 @@ button.tree-row:hover {
 
 .col-caret {
   margin-left: auto;
-  color: #8a94a3;
+  color: var(--faint);
   flex-shrink: 0;
 }
 
@@ -909,11 +987,11 @@ button.tree-row:hover {
 }
 
 .q-issue {
-  background: #d97706;
+  background: var(--warn-dot);
 }
 
 .q-blank {
-  background: #c7ccd4;
+  background: var(--neutral-mark);
 }
 
 .quality-note {
@@ -921,7 +999,7 @@ button.tree-row:hover {
   padding: 3px 8px 6px;
   font-size: 10.5px;
   font-weight: 450;
-  color: #8a94a3;
+  color: var(--faint);
   white-space: nowrap;
 }
 
@@ -938,7 +1016,7 @@ button.tree-row:hover {
 }
 
 .data-grid tbody tr:hover td {
-  background: #fafbfd;
+  background: var(--panel-2);
 }
 
 .data-grid td.changed {
@@ -947,7 +1025,7 @@ button.tree-row:hover {
 }
 
 .data-grid .null {
-  color: #a0a8b5;
+  color: var(--faint);
   font-style: italic;
 }
 
@@ -999,7 +1077,7 @@ button.tree-row:hover {
 }
 
 .step-n {
-  color: #8a94a3;
+  color: var(--faint);
   text-align: right;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
@@ -1118,7 +1196,7 @@ button.tree-row:hover {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 14px 34px rgba(15, 26, 43, 0.18);
+  box-shadow: var(--elevation);
   font-size: 13px;
 }
 
@@ -1145,7 +1223,7 @@ button.tree-row:hover {
 .pop-menu > [role="menuitem"].has-sub::after {
   content: "›";
   margin-left: auto;
-  color: #8a94a3;
+  color: var(--faint);
 }
 
 .pop-menu > [role="menuitem"].danger {
@@ -1295,7 +1373,7 @@ button.tree-row:hover {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 14px 34px rgba(15, 26, 43, 0.18);
+  box-shadow: var(--elevation);
 }
 
 .formula-suggestions li {
@@ -1314,7 +1392,7 @@ button.tree-row:hover {
 }
 
 .formula-suggestions small {
-  color: #8a94a3;
+  color: var(--faint);
   font-size: 11px;
 }
 
@@ -1350,8 +1428,8 @@ button.tree-row:hover {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  background-color: #f8f9fb;
-  background-image: radial-gradient(#d9dde4 1px, transparent 1px);
+  background-color: var(--panel-2);
+  background-image: radial-gradient(var(--dots) 1px, transparent 1px);
   background-size: 18px 18px;
   touch-action: none;
 }
@@ -1368,7 +1446,7 @@ button.tree-row:hover {
 
 .rel .rel-line {
   fill: none;
-  stroke: #8a94a3;
+  stroke: var(--faint);
   stroke-width: 1.6;
 }
 
@@ -1448,11 +1526,11 @@ button.tree-row:hover {
 }
 
 .table-card.kind-fact header {
-  background: #eef4fe;
+  background: var(--selected);
 }
 
 .table-card.kind-date header {
-  background: #fdf7e4;
+  background: var(--ai-bg);
 }
 
 .card-name {
@@ -1465,7 +1543,7 @@ button.tree-row:hover {
   margin-left: auto;
   font-weight: 500;
   font-size: 10.5px;
-  color: #8a94a3;
+  color: var(--faint);
   white-space: nowrap;
 }
 
@@ -1496,11 +1574,11 @@ button.tree-row:hover {
 }
 
 .table-card li.is-hidden {
-  color: #9aa3b0;
+  color: var(--faint);
 }
 
 .table-card li.more {
-  color: #8a94a3;
+  color: var(--faint);
   cursor: default;
 }
 
@@ -1510,14 +1588,14 @@ button.tree-row:hover {
 }
 
 .table-card li.drop-ok {
-  background: #e3f4ec;
+  background: var(--ok-bg);
   color: var(--ok);
   outline: 1.5px dashed var(--ok);
   outline-offset: -2px;
 }
 
 .table-card li.drop-bad {
-  background: #fdf1f0;
+  background: var(--bad-bg);
   color: var(--bad);
   outline: 1.5px dashed var(--bad);
   outline-offset: -2px;
@@ -1645,7 +1723,7 @@ button.tree-row:hover {
 
 .suggest-card .ai-button {
   align-self: flex-start;
-  background: #fff;
+  background: var(--panel);
 }
 
 .pending-list {
@@ -1730,11 +1808,11 @@ button.tree-row:hover {
   box-sizing: border-box;
   border: 2px solid var(--bg);
   border-radius: 3px;
-  background: #dfe5ee;
+  background: var(--neutral-mark);
 }
 
 .mini-page i.kpi {
-  background: #cfdcf0;
+  background: var(--selected-strong);
 }
 
 .thumb-title {
@@ -1746,7 +1824,7 @@ button.tree-row:hover {
 }
 
 .report-stage {
-  background: #e9ecf1;
+  background: var(--canvas);
 }
 
 .canvas-scroll {
@@ -1801,7 +1879,7 @@ button.tree-row:hover {
 }
 
 .canvas-grid.editing .canvas-visual:hover {
-  border-color: #b9c3d1;
+  border-color: var(--border-hover);
 }
 
 .canvas-visual.on {
@@ -1843,7 +1921,7 @@ button.tree-row:hover {
 
 .canvas-visual .grip {
   flex-shrink: 0;
-  color: #b4bcc8;
+  color: var(--faint);
   margin-left: -4px;
 }
 
@@ -1889,7 +1967,7 @@ button.tree-row:hover {
   height: 11px;
   border: 1.5px solid var(--accent);
   border-radius: 2px;
-  background: #fff;
+  background: var(--panel);
   cursor: nwse-resize;
   touch-action: none;
 }
@@ -1901,7 +1979,7 @@ button.tree-row:hover {
   padding: 0 16px;
   border: 1.5px dashed var(--border-strong);
   border-radius: 6px;
-  color: #8a94a3;
+  color: var(--faint);
   font-size: 12.5px;
   text-align: center;
 }
@@ -1970,7 +2048,7 @@ button.tree-row:hover {
 
 .well-slot.filled {
   border-style: solid;
-  background: #fbfcfd;
+  background: var(--panel-2);
 }
 
 .well-slot.target {
@@ -1983,7 +2061,7 @@ button.tree-row:hover {
   align-self: center;
   padding: 0 4px;
   font-size: 12px;
-  color: #9aa3b0;
+  color: var(--faint);
 }
 
 .pill {
@@ -2007,7 +2085,7 @@ button.pill-x {
   border: none;
   border-radius: 4px;
   background: none;
-  color: #8a94a3;
+  color: var(--faint);
 }
 
 button.pill-x:hover {
@@ -2062,7 +2140,7 @@ button.pill-x:hover {
   height: min(620px, calc(100% - 32px));
   display: flex;
   border-radius: 10px;
-  box-shadow: 0 18px 48px rgba(15, 26, 43, 0.25);
+  box-shadow: var(--elevation);
   animation: dock-in 0.14s ease-out;
 }
 
@@ -2263,7 +2341,7 @@ button.pill-x:hover {
 .topbar button.secondary:hover:not(:disabled) {
   background: var(--bg);
   color: var(--text);
-  border-color: #b7bfca;
+  border-color: var(--border-hover);
 }
 
 /* Slicers and page filters */
@@ -2278,7 +2356,7 @@ button.pill-x:hover {
   padding: 6px 8px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: #fbfcfd;
+  background: var(--panel-2);
 }
 
 .slicer-bar.target {
@@ -2308,7 +2386,7 @@ button.slicer-button {
 }
 
 button.slicer-button:hover:not(:disabled) {
-  border-color: #b7bfca !important;
+  border-color: var(--border-hover) !important;
   background: var(--bg) !important;
   color: var(--text) !important;
 }
@@ -2336,14 +2414,14 @@ button.slicer-button:hover:not(:disabled) {
   min-height: 26px;
   padding: 0 8px;
   border-radius: 5px;
-  background: #eef1f5;
-  color: #2b3646;
+  background: var(--hover);
+  color: var(--text-2);
   font-size: 12px;
 }
 
 .slicer-note {
   font-size: 12px;
-  color: #8a94a3;
+  color: var(--faint);
 }
 
 .slicer-bar button.link {
@@ -2443,7 +2521,7 @@ button.slicer-button:hover:not(:disabled) {
 .drill-hint {
   margin-left: auto;
   font-size: 11px;
-  color: #9aa3b0;
+  color: var(--faint);
   white-space: nowrap;
 }
 
@@ -2484,4 +2562,37 @@ button.slicer-button:hover:not(:disabled) {
   width: 100%;
   padding-left: 24px;
   font-size: 11px;
+}
+
+/* Theme picker in the workspace menu */
+
+.theme-picker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.theme-picker .segmented button {
+  gap: 4px;
+  min-height: 24px;
+  padding: 0 7px;
+  font-size: 12px;
+}
+
+/* Form fields follow the theme rather than the browser's own dark fields. */
+:root[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+:root[data-theme="dark"] select,
+:root[data-theme="dark"] textarea {
+  background-color: var(--panel-2);
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+:root[data-theme="dark"] input::placeholder,
+:root[data-theme="dark"] textarea::placeholder {
+  color: var(--faint);
 }

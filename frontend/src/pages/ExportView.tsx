@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { exportApi, reportApi, type ReportState } from "../api";
 import { ChartVisual, KpiCard } from "./Dashboard";
+import { applyTheme } from "../components/theme";
 
 type Bullet = { text: string; unmatched: number[] };
 
@@ -15,6 +16,13 @@ export function ExportView() {
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<Bullet[] | null>(null);
   const [summarising, setSummarising] = useState(false);
+
+  // A printed page is always light, whatever theme the app is in.
+  useEffect(() => {
+    document.documentElement.dataset.theme = "light";
+    window.dispatchEvent(new Event("themechange"));
+    return () => applyTheme();
+  }, []);
 
   useEffect(() => {
     reportApi

@@ -3,6 +3,7 @@ import type { EChartsCoreOption } from "echarts/core";
 import { askApi, formatCompact, formatMeasure, type AskResponse, type AskResult, type MeasureFormat, type PageScope } from "../api";
 import { Send, Square, X } from "lucide-react";
 import { Chart, TOKENS } from "./Chart";
+import { useTheme } from "./theme";
 import { Markdown } from "./Markdown";
 
 type Turn = { question: string; response?: AskResponse; error?: string };
@@ -145,6 +146,7 @@ export function Answer({ response, onFollowUp, busy }: { response: AskResponse; 
 }
 
 function ResultCard({ result, formats }: { result: AskResult; formats: Record<string, MeasureFormat> }) {
+  useTheme(); // repaint the chart in the new theme's colours
   if (result.error) return <p className="bad small">{result.title}: {result.error}</p>;
   const groups = result.query.group_by.length;
   const measures = result.query.measures;

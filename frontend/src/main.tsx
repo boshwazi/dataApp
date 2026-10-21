@@ -22,6 +22,7 @@ import { CrumbProvider, DialogProvider, ToastProvider } from "./components/ui";
 import { AccountProvider, WorkspaceGate, useAccount } from "./components/account";
 import type { Role } from "./api";
 import "./styles.css";
+import { applyTheme } from "./components/theme";
 import "./workspace.css";
 
 // Dashboards carry the chart library, so they load only when opened.
@@ -43,6 +44,8 @@ function Need({ role, children }: { role: Role; children: ReactNode }) {
 function PlatformAdmin({ children }: { children: ReactNode }) {
   return useAccount().me.platform_admin ? children : <Navigate to="/" replace />;
 }
+
+applyTheme(); // before the first paint, so a dark screen never flashes white
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
