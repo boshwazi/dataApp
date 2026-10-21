@@ -126,7 +126,7 @@ The baseline is [OWASP ASVS 5.0](https://owasp.org/www-project-application-secur
 
 ### C. Login and accounts
 
-- **Landing page** (with M11's brand work): what datawazi does, a live demo dashboard, pricing, sign-up.
+- **Landing page** (with M13's brand work): what datawazi does, a live demo dashboard, pricing, sign-up.
 - **Sign-up flow:**
   1. Sign in.
   2. Name the company workspace.
@@ -342,8 +342,8 @@ code, for example the Uber duplicates, the refused pie chart and "which row was 
 
 | # | Delivers | Needs from you |
 | --- | --- | --- |
-| **M11** Power BI interoperability | Import `.pbix` (model and data) and `.pbip` (model, then match data); DAX to measures with an import report; export a `.pbip` project with TMDL, DAX and data files; round-trip tests | A few real `.pbix`/`.pbip` files to test with |
-| **M12** AI engines | Evaluation suite; metering per call; dashboard filters and slicers; time-intelligence measures; hierarchies and synonyms; chat read tools in a tool loop with streaming; Transform plan-check-repair loop and ordering rules; Ask relative dates and "why" analysis; personal-data detection and masking | Nothing (uses the current AI key); a second AI provider key later, for fallback |
+| **M11** Power BI interoperability ✓ done | Import `.pbix` (model and data) and `.pbip` (model, then match data); DAX to measures with an import report; export a `.pbip` project with TMDL, DAX and data files; round-trip tests | A few real `.pbix`/`.pbip` files to test with |
+| **M12** AI engines | Evaluation suite; metering per call; dashboard filters and slicers; time-intelligence measures; hierarchies and synonyms; chat read tools in a tool loop with streaming; Transform plan-check-repair loop and ordering rules; Ask relative dates and "why" analysis; personal-data detection and masking; Power Query (M) from a `.pbip` replayed as Transform steps by the AI, with review | Nothing (uses the current AI key); a second AI provider key later, for fallback |
 | **M13** Accounts and brand | Logo and brand, landing page, sign-up and onboarding, account and workspace settings, MFA, Google and Microsoft sign-in, delete and export | Logo direction; Google and Microsoft app registrations |
 | **M14** Permissions | Per-item sharing, groups, row-level security in datasets (and imported Power BI roles), share links, owners, audit log | Decide default sharing |
 | **M15** Billing | Plans and limits, AI credit metering, CHIP checkout and renewals (CHIP sandbox while local), receipts, billing page | CHIP sandbox account; final prices later |

@@ -3,11 +3,11 @@
 from pathlib import Path
 from typing import Callable
 
-from fastapi import APIRouter, HTTPException, UploadFile
+from fastapi import APIRouter, HTTPException, Response, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
-from . import activity, ai_profile, ingest, lineage, links, llm, model, publishing, refresh, transform
+from . import activity, ai_profile, ingest, lineage, links, llm, model, pbi_dax, pbi_export, pbi_import, pbi_model, publishing, refresh, transform
 from .dashboards import DashboardStore
 from .projects import NotFound, ProjectStore
 from .settings import ProviderSettings, SettingsStore
@@ -39,7 +39,7 @@ class SheetBody(BaseModel):
     name: str = ""
 
 
-HIDDEN_KEYS = ("sources", "transform", "model", "published", "report", "activity", "stage_marks", "chats")
+HIDDEN_KEYS = ("sources", "transform", "model", "published", "report", "activity", "stage_marks", "chats", "powerbi")
 
 
 def project_view(project: dict, dashboards: list[dict] | None = None, versions: dict | None = None,
@@ -55,6 +55,9 @@ def project_view(project: dict, dashboards: list[dict] | None = None, versions: 
         "stale": activity.stale(project),
         "dashboards": [{"id": d["id"], "name": d["name"]} for d in dashboards or []],
         "progress": progress(project),
+        # The last Power BI import: its report, and which tables still need data (the stored model stays hidden).
+        "powerbi": {k: v for k, v in project["powerbi"].items() if k in ("file", "kind", "imported_at", "report", "waiting_for")}
+                   if project.get("powerbi") else None,
     }
 
 
@@ -269,6 +272,97 @@ def build_router(
             raise HTTPException(400, str(exc)) from exc
         added = add_tables(project_id, [table], {"kind": "gsheet", "url": body.url.strip()})
         return {"added": [source_summary(s) for s in added], "errors": []}
+
+    # Get Data: from Power BI
+
+    def import_powerbi(project_id: str, pbi: "pbi_model.PbiModel") -> dict:
+        """Load the model's tables (with data from .pbix), then add the date table, relationships and measures."""
+        overview = pbi_import.plan(pbi)
+        names, added = {}, []
+        for table in pbi.tables:
+            role = next(t["role"] for t in overview["tables"] if t["name"] == table.name)
+            if role != "load":
+                continue
+            frame, types = pbi_import.frame_and_types(table)
+            notes = ["Calculated in Power BI; imported as values."] if table.calculated else []
+            source = store.add_source(project_id, frame, table.name,
+                                      {"kind": "powerbi", "file": pbi.name, "label": table.name}, notes, types)
+            names[table.name] = source["table"]
+            added.append(source)
+        waiting = [t["name"] for t in overview["tables"] if t["role"] == "needs_data"]
+        with store.edit(project_id) as project, store.connect(project_id) as con:
+            transform.state(project)
+            report = pbi_import.apply_model(con, project, pbi, names) if names else None
+            entry = pbi_import.record(project, pbi, report, waiting)
+            entry["names"] = names
+            activity.changed(project, "get_data", f"Imported {pbi.name} from Power BI"
+                             + (f" ({len(added)} tables)" if added else " (model only; its tables need data)"))
+            if report:
+                activity.changed(project, "model", f"Imported {len(report['measures'])} measures and "
+                                 f"{sum(r['added'] for r in report['relationships'])} relationships from {pbi.name}")
+        return {"plan": overview, "report": report, "waiting_for": waiting,
+                "added": [source_summary(s) for s in added]}
+
+    @router.post("/{project_id}/sources/powerbi")
+    async def upload_powerbi(project_id: str, file: UploadFile):
+        """A .pbix (model and data) or a .pbip project as a .zip (model; its tables' data is loaded after)."""
+        load(project_id)
+        data = await file.read(MAX_UPLOAD_BYTES + 1)
+        name = file.filename or "model"
+        if len(data) > MAX_UPLOAD_BYTES:
+            raise HTTPException(400, "The file is larger than 200 MB.")
+        stem = Path(name).stem
+        try:
+            if name.lower().endswith(".pbix"):
+                pbi = await run_in_threadpool(pbi_model.read_pbix, data, stem)
+            elif name.lower().endswith(".zip"):
+                pbi = await run_in_threadpool(pbi_model.read_pbip, data, stem)
+            elif name.lower().endswith(".pbip"):
+                raise pbi_model.PbiError("A .pbip file only points to its folders. Zip the whole project folder "
+                                         "(the .pbip file and its .SemanticModel and .Report folders) and upload the zip.")
+            else:
+                raise pbi_model.PbiError("Upload a .pbix file, or a .pbip project as a .zip.")
+        except pbi_model.PbiError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        try:
+            return await run_in_threadpool(import_powerbi, project_id, pbi)
+        except (model.ModelError, ValueError) as exc:
+            raise HTTPException(400, str(exc)) from exc
+
+    @router.post("/{project_id}/powerbi/apply")
+    def finish_powerbi(project_id: str):
+        """After loading data for a .pbip model's tables: add its relationships and measures."""
+        project = load(project_id)
+        pending = (project.get("powerbi") or {}).get("pending")
+        if not pending:
+            raise HTTPException(400, "There is no Power BI model waiting for data in this dataset.")
+        pbi = pbi_import.from_storage(pending)
+        by_name = {s["table"]: s["table"] for s in project["sources"]}
+        names = {t.name: pbi_import.dataset_name(t.name) for t in pbi.tables
+                 if pbi_import.dataset_name(t.name) in by_name}
+        waiting = [t["name"] for t in pbi_import.plan(pbi)["tables"]
+                   if t["role"] == "needs_data" and t["name"] not in names]
+        with store.edit(project_id) as project, store.connect(project_id) as con:
+            transform.state(project)
+            report = pbi_import.apply_model(con, project, pbi, names)
+            pbi_import.record(project, pbi, report, waiting)
+            activity.changed(project, "model", f"Added the {pbi.name} model from Power BI: "
+                             f"{len(report['measures'])} measures, {sum(r['added'] for r in report['relationships'])} relationships")
+        return {"report": report, "waiting_for": waiting}
+
+    @router.get("/{project_id}/powerbi/export")
+    def export_powerbi(project_id: str):
+        """The dataset as a Power BI project (.pbip) in a zip: TMDL model, DAX measures and Parquet data."""
+        load(project_id)
+        try:
+            with store.connect(project_id) as con:
+                project = load(project_id)
+                name, files = pbi_export.build(con, project)
+        except (model.ModelError, pbi_dax.Untranslatable) as exc:
+            raise HTTPException(400, str(exc)) from exc
+        data = pbi_export.zip_project(name, files)
+        return Response(data, media_type="application/zip",
+                        headers={"Content-Disposition": f'attachment; filename="{name}.zip"'})
 
     @router.get("/{project_id}/lineage")
     def get_lineage(project_id: str):

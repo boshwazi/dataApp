@@ -5,11 +5,12 @@ import {
   api,
   ApiError,
   datasetChat,
+  powerbiApi,
   type BrokenVisual,
   type Dataset as DatasetData,
   type DatasetStage,
 } from "../api";
-import { BadgeCheck, Check, GitBranch, History, MessageSquare, MoreHorizontal, Pencil, RefreshCw } from "lucide-react";
+import { BadgeCheck, Check, FileDown, GitBranch, History, MessageSquare, MoreHorizontal, Pencil, RefreshCw } from "lucide-react";
 import { ActivityDrawer } from "../components/ActivityDrawer";
 import { ChatPanel, type ChatHandle } from "../components/ChatPanel";
 import { Menu, useCrumbs, useDialogs, useToast } from "../components/ui";
@@ -199,6 +200,15 @@ export function Dataset() {
           icon={<MoreHorizontal size={18} />}
           items={[
             { label: "Activity", icon: <History size={16} aria-hidden="true" />, onSelect: () => setShowActivity(true) },
+            {
+              label: "Download for Power BI",
+              icon: <FileDown size={16} aria-hidden="true" />,
+              onSelect: () =>
+                void powerbiApi
+                  .download(dataset.id, dataset.name)
+                  .then(() => toast("Downloaded a Power BI project (.zip). Unzip it and open the .pbip in Power BI Desktop."))
+                  .catch((e) => toast((e as Error).message, "error")),
+            },
             {
               label: dataset.certified ? "Remove certification" : "Certify as trusted",
               icon: <BadgeCheck size={16} aria-hidden="true" />,

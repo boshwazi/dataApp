@@ -39,7 +39,7 @@ Add your API key either in the app's Settings page, or in a `.env` file at the r
 Development (two terminals, with hot reload):
 
 ```bash
-cd backend && ../.venv/bin/uvicorn app.main:app --reload --port 8000
+cd backend && ../.venv/bin/uvicorn app.main:default_app --factory --reload --port 8000
 cd frontend && npm run dev          # open http://localhost:5173
 ```
 
@@ -47,7 +47,7 @@ Single server (serves the built frontend):
 
 ```bash
 (cd frontend && npm run build)
-cd backend && ../.venv/bin/uvicorn app.main:app --port 8000   # open http://localhost:8000
+cd backend && ../.venv/bin/uvicorn app.main:default_app --factory --port 8000   # open http://localhost:8000
 ```
 
 Then open **Settings** and click **Test connection**. It checks the key and model, and
@@ -107,6 +107,37 @@ Moving around:
 
 Projects from earlier versions are moved over automatically. Each becomes a dataset, plus a
 dashboard if it had report pages.
+
+## Power BI import and export
+
+**Import:** in Get Data, choose **Import from Power BI**.
+
+- **A `.pbix` file** brings its model and its data:
+  - tables, already clean, because Power BI ran their steps before saving
+  - relationships, checked like any other
+  - measures
+- **A `.pbip` project** (zip the project folder) brings the model only.
+  - Load each table's data under the same name, then click **Finish import**.
+  - Or save the project as `.pbix` in Power BI Desktop and import that.
+- **DAX is translated into datawazi measures:**
+  - SUM, AVERAGE, MIN, MAX, COUNT, COUNTROWS and DISTINCTCOUNT
+  - the X iterators
+  - DIVIDE and arithmetic between measures
+  - CALCULATE with simple filters on the measure's own table
+- **Mixed measures are split.** A measure mixing an aggregation with other measures is split into a helper measure.
+- **The rest is kept, not guessed.** Anything else (IF, time intelligence, filters on other tables) stays in the import report, with its DAX and the reason.
+- **Date tables.** Power BI's date table, and its automatic date tables, become datawazi's Date table.
+- **Safety.** Nothing in the file is run. DAX and Power Query are read as text.
+
+**Export:** on a dataset, choose **⋯ → Download for Power BI**. You get a `.pbip` project in a zip:
+
+- the model in TMDL, with measures written as DAX
+- relationships, and the Date table marked as a date table
+- each table's clean data as Parquet
+
+Unzip it, open the `.pbip` in Power BI Desktop, set the `DataFolder` parameter if you unzipped it elsewhere, and click Refresh. For a `.pbix`, use **File → Save as**.
+
+Tested both ways with a real `.pbix` (60,000 sales rows): every measure gave the same result, by year, in datawazi and in Power BI Desktop.
 
 ## Linked tables, certified datasets and lineage
 

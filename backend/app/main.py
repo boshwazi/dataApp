@@ -1,6 +1,6 @@
 """FastAPI entry point.
 
-Run from the backend folder:  uvicorn app.main:app --reload
+Run from the repo root:  uvicorn app.main:default_app --factory --app-dir backend --reload
 """
 
 import logging
@@ -166,7 +166,6 @@ def create_app(
     return app
 
 
-load_dotenv(REPO_ROOT / ".env")
 def hosted_services(auth: AuthConfig) -> dict:
     """Postgres and Supabase admin services, when sign-in is on and their settings are in .env."""
     if auth.mode != "supabase":
@@ -179,5 +178,11 @@ def hosted_services(auth: AuthConfig) -> dict:
     return services
 
 
-_auth = AuthConfig.from_env()
-app = create_app(run_scheduler=True, auth=_auth, **hosted_services(_auth))
+def default_app() -> FastAPI:
+    """The server as run by uvicorn (--factory): settings from .env, with Postgres and Supabase when set.
+
+    A factory rather than a module-level app, so importing this module (as the tests do) never
+    connects to a real database."""
+    load_dotenv(REPO_ROOT / ".env")
+    auth = AuthConfig.from_env()
+    return create_app(run_scheduler=True, auth=auth, **hosted_services(auth))

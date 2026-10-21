@@ -56,6 +56,7 @@ it on DuckDB.
 | M9 | Linked tables from other datasets, certified datasets, multiple fact tables, lineage view | Done |
 | M10a | Sign-in (Supabase Auth tokens checked on every request), workspaces, admin/creator/viewer roles, invite links, a folder per workspace, isolation tests across every endpoint | Done (needs a Supabase project to sign in for real) |
 | M10b | Postgres (schema `datawazi`) for workspaces, members, hashed invites and records, with row-level security on every table and requests run as the signed-in user; invite emails via Supabase; published versions backed up to Supabase Storage; one-time import of local data | Done (draft data files still on the server's disk) |
+| M11 | Power BI: import .pbix (model and data, via PBIXRay) and .pbip (TMDL model, then data); DAX translated to measures with helper splits and an import report; export a .pbip (TMDL, DAX, Parquet data) that opens and matches in Power BI Desktop | Done |
 | UX | Direction A "Clear Analyst": new tokens and font, sidebar shell, breadcrumbs, Ctrl+K search, dialogs and toasts, pipeline stepper with a next step, Present mode, formatted chat replies with Stop, phone and tablet layouts | Done |
 | UX2 | Data-platform look (Databricks/Snowflake-like): dark console sidebar with sections, Inter and JetBrains Mono, dense catalog tables with filter, compact controls; more chart types (pie, stacked, area, scatter) with house-style tips instead of refusals; Removed rows per Transform step | Done |
 

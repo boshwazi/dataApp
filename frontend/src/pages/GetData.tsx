@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
-import { api, type AddResult, type ColumnProfile, type LinkCatalogue, type Preview, type Source, type SourceSummary } from "../api";
+import { api, powerbiApi, type AddResult, type ColumnProfile, type LinkCatalogue, type Preview, type Source, type SourceSummary } from "../api";
 import { useDialogs } from "../components/ui";
+import { PowerBIPanel } from "../components/PowerBIPanel";
 import { useDataset } from "./Dataset";
 
 const ACCEPT = ".csv,.tsv,.txt,.xlsx,.xlsm";
 const PAGE_SIZE = 100;
 
-const ORIGIN_LABEL = { csv: "CSV", excel: "Excel", gsheet: "Google Sheets", dataset: "Linked" } as const;
+const ORIGIN_LABEL = { csv: "CSV", excel: "Excel", gsheet: "Google Sheets", dataset: "Linked", powerbi: "Power BI" } as const;
 
 export function GetData() {
   const { project, refresh } = useDataset();
@@ -89,6 +90,7 @@ export function GetData() {
           ))}
         </ul>
         <AddData busy={busy} onAdd={add} projectId={project.id} />
+        {project.powerbi && <PowerBIPanel projectId={project.id} info={project.powerbi} onChanged={() => void refresh()} />}
         {messages.map((m) => (
           <p key={m} className="bad small">
             {m}
@@ -154,6 +156,16 @@ function AddData(props: { projectId: string; busy: string | null; onAdd: (label:
   const [link, setLink] = useState("");
   const [dragging, setDragging] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  const pbiInput = useRef<HTMLInputElement>(null);
+
+  function importPowerBI(files: FileList | null) {
+    const file = files?.[0];
+    if (!file) return;
+    onAdd("powerbi", async () => {
+      const result = await powerbiApi.import(projectId, file);
+      return { added: result.added, errors: [] };
+    });
+  }
 
   function upload(files: FileList | null) {
     if (!files?.length) return;
@@ -218,6 +230,19 @@ function AddData(props: { projectId: string; busy: string | null; onAdd: (label:
       </form>
       <p className="muted small">The sheet must be shared as "Anyone with the link can view".</p>
       <LinkPicker projectId={projectId} busy={busy} onAdd={onAdd} />
+      <button className="link" disabled={busy !== null} onClick={() => pbiInput.current?.click()}>
+        {busy === "powerbi" ? "Reading the Power BI model…" : "Import from Power BI (.pbix, or a .pbip project as .zip)"}
+      </button>
+      <input
+        ref={pbiInput}
+        type="file"
+        accept=".pbix,.zip"
+        hidden
+        onChange={(e) => {
+          importPowerBI(e.target.files);
+          e.target.value = "";
+        }}
+      />
       <button className="link" disabled={busy !== null} onClick={() => onAdd("sample", () => api.addSample(projectId))}>
         {busy === "sample" ? "Loading sample data…" : "Load sample data (sales, customers, products)"}
       </button>

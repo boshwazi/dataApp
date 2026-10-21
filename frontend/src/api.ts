@@ -17,7 +17,7 @@ export type ConnectionReport = {
 };
 
 export type Origin = {
-  kind: "csv" | "excel" | "gsheet" | "dataset";
+  kind: "csv" | "excel" | "gsheet" | "dataset" | "powerbi";
   label: string;
   file?: string;
   url?: string;
@@ -71,6 +71,23 @@ export type Dataset = {
   linked_by: { id: string; name: string; tables: string[] }[];
   dashboards: { id: string; name: string }[];
   progress: { sources: number; steps: number; relationships: number; measures: number };
+  powerbi: PowerBIImport | null;
+};
+
+export type PowerBIReport = {
+  relationships: { relationship: string; added: boolean; active?: boolean; match?: number; note?: string | null; why?: string }[];
+  measures: { measure: string; dax: string }[];
+  split: { measure: string; helper: string }[];
+  not_converted: { measure: string; dax: string; why: string }[];
+  notes: string[];
+};
+
+export type PowerBIImport = {
+  file: string;
+  kind: "pbix" | "pbip";
+  imported_at: string;
+  report: PowerBIReport | null;
+  waiting_for: string[];
 };
 
 export type DatasetStage = "get_data" | "transform" | "model";
@@ -131,6 +148,7 @@ export type Preview = {
 export type AddResult = { added: SourceSummary[]; errors: string[] };
 
 // Who is calling: the sign-in token and the chosen workspace ride along on every request.
+// (downloadFile below uses the same session for files that aren't JSON.)
 const session = {
   token: async (): Promise<string | null> => null,
   workspace: null as string | null,
@@ -198,6 +216,39 @@ export const accountApi = {
   showInvite: (token: string) =>
     request<{ workspace: string; email: string; role: Role; invited_by: string }>(`/api/invites/${encodeURIComponent(token)}`),
   acceptInvite: (token: string) => request<WorkspaceRef>(`/api/invites/${encodeURIComponent(token)}/accept`, { method: "POST" }),
+};
+
+/** Download a file from the API with the session's token, then save it under `filename`. */
+export async function downloadFile(path: string, filename: string): Promise<void> {
+  const token = await session.token();
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (session.workspace) headers["X-Workspace"] = session.workspace;
+  const response = await fetch(path, { headers });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new ApiError(typeof body.detail === "string" ? body.detail : `Download failed (${response.status})`, response.status, null);
+  }
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+export const powerbiApi = {
+  import: (pid: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request<{ added: SourceSummary[]; report: PowerBIReport | null; waiting_for: string[] }>(
+      `/api/datasets/${pid}/sources/powerbi`,
+      { method: "POST", body: form },
+    );
+  },
+  finish: (pid: string) =>
+    request<{ report: PowerBIReport; waiting_for: string[] }>(`/api/datasets/${pid}/powerbi/apply`, { method: "POST" }),
+  download: (pid: string, name: string) => downloadFile(`/api/datasets/${pid}/powerbi/export`, `${name}.zip`),
 };
 
 export const api = {
