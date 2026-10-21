@@ -300,15 +300,16 @@ Since CHIP has no subscription engine, we build a small one:
 
 ## Milestones from here
 
-Each milestone is committed and pushed to `main` once its tests pass and it has been checked
-in the app.
-
-| # | Delivers | You can test |
-| --- | --- | --- |
-| M11 | Landing page, sign-in and onboarding (datawazi brand) | A new company signing up |
-| M12 | Billing: plans, seats, AI credits ledger, CHIP checkout and renewals | Paying for Pro, topping up credits |
-| M13 | Launch hardening: isolation tests, security review, rate limits, monitoring, backups, PDPA documents | Launch checklist complete |
-| Later | Server-rendered PDFs for scheduled emails, alerts and digests, sharing and embeds, row-level security, data quality monitors, connectors, templates, Bahasa Malaysia, comments, forecasts, version history, usage analytics, mobile view | See the feature roadmap |
+Phase 1 (M0 to M10b) is done. The rest of the work to a paid, secure launch is in
+[PHASE2_PLAN.md](PHASE2_PLAN.md):
+- M11 Foundation
+- M12 Accounts and brand
+- M13 Permissions
+- private beta
+- M14 Billing
+- M15 Compliance and hardening
+- public launch
+- M16 Product depth
 
 ## Stack (today)
 
