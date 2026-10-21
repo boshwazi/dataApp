@@ -382,6 +382,8 @@ export const transformApi = {
     request<TransformState>(`${tf(pid)}/approve-all${qid ? `?query_id=${qid}` : ""}`, { method: "POST" }),
   undo: (pid: string) => request<TransformState>(`${tf(pid)}/undo`, { method: "POST" }),
   aiClean: (pid: string, qid: string) => request<AIRun>(`${tq(pid, qid)}/ai`, { method: "POST" }),
+  addStep: (pid: string, qid: string, op: string, params: Record<string, unknown>, position?: number) =>
+    request<TransformState>(`${tq(pid, qid)}/steps`, json("POST", { op, params, position })),
 };
 
 // Model
@@ -421,10 +423,19 @@ export type Relationship = {
 
 export type MeasureFormat = { type: "number" | "integer" | "currency" | "percent"; decimals?: number; currency?: string };
 
+export type Aggregation = "sum" | "average" | "count" | "count_distinct" | "min" | "max";
+
+export type MeasureFilter = { column: string; operator: string; value?: unknown; values?: unknown[] };
+
 export type Measure = {
   id: string;
   name: string;
   kind: "aggregate" | "formula";
+  table: string | null;
+  aggregation: Aggregation | null;
+  expression: string | null;
+  filters: MeasureFilter[];
+  folder?: string;
   label: string;
   description: string;
   reason: string;
@@ -449,8 +460,28 @@ export type ModelState = {
   relationships: Relationship[];
   measures: Measure[];
   date_table: DateTable | null;
+  layout: Record<string, { x: number; y: number }>;
   can_undo: boolean;
 };
+
+/** What the model API takes to add or change a measure. */
+export type MeasureBody = {
+  name: string;
+  kind: "aggregate" | "formula";
+  table?: string | null;
+  aggregation?: Aggregation | null;
+  expression?: string | null;
+  filters?: MeasureFilter[];
+  format: MeasureFormat;
+  description?: string;
+  folder?: string;
+};
+
+export type MeasureCheck = { ok: true; value: number | null; label: string; table: string | null } | { ok: false; error: string };
+
+export type RelationshipCheck =
+  | ({ ok: true; active: boolean; checks: Relationship["checks"] } & Pick<Relationship, "from_table" | "from_column" | "to_table" | "to_column">)
+  | { ok: false; error: string };
 
 export type ModelRun = ModelState & {
   summary: string;
@@ -472,6 +503,17 @@ export const modelApi = {
   removeDateTable: (pid: string) => request<ModelState>(`${md(pid)}/date-table`, { method: "DELETE" }),
   setHidden: (pid: string, table: string, column: string, hidden: boolean) =>
     request<ModelState>(`${md(pid)}/hidden`, json("POST", { table, column, hidden })),
+  addRelationship: (pid: string, rel: { from_table: string; from_column: string; to_table: string; to_column: string }) =>
+    request<ModelState>(`${md(pid)}/relationships`, json("POST", rel)),
+  checkRelationship: (pid: string, rel: { from_table: string; from_column: string; to_table: string; to_column: string }) =>
+    request<RelationshipCheck>(`${md(pid)}/relationships/check`, json("POST", rel)),
+  addMeasure: (pid: string, body: MeasureBody) => request<ModelState>(`${md(pid)}/measures`, json("POST", body)),
+  updateMeasure: (pid: string, id: string, body: MeasureBody) => request<ModelState>(`${md(pid)}/measures/${id}`, json("PUT", body)),
+  checkMeasure: (pid: string, body: MeasureBody & { id?: string }, signal?: AbortSignal) =>
+    request<MeasureCheck>(`${md(pid)}/measures/check`, { ...json("POST", body), signal }),
+  setDateTable: (pid: string) => request<ModelState>(`${md(pid)}/date-table`, json("PUT", {})),
+  setLayout: (pid: string, positions: Record<string, { x: number; y: number }>) =>
+    request<ModelState>(`${md(pid)}/layout`, json("PUT", { positions })),
 };
 
 export function formatMeasure(value: number | null, format: MeasureFormat): string {
@@ -516,6 +558,7 @@ export type Visual = {
   group_by: { table: string; column: string }[];
   kpi: { direction?: "higher_is_better" | "lower_is_better" };
   width: "half" | "full";
+  layout?: GridBox;
   insight: { text: string; check: { verified: boolean; unmatched: number[] } } | null;
   status: "AI" | "Approved";
   reason: string;
@@ -524,12 +567,18 @@ export type Visual = {
   advice?: string[];
 };
 
+/** A visual's place on the report canvas, in cells of a 12-column grid. */
+export type GridBox = { x: number; y: number; w: number; h: number };
+
+export type ReportField = { id: string; name: string; columns: { name: string; type: LogicalType }[]; measures: string[] };
+
 export type ReportPage = {
   id: string;
   title: string;
   question: string;
   summary: string;
   status: "AI" | "Approved";
+  reason?: string;
   visuals: Visual[];
 };
 
@@ -549,6 +598,7 @@ export type ReportState = Omit<DashboardSummary, "pages"> & {
   side: "draft" | "published";
   pages: ReportPage[];
   formats: Record<string, MeasureFormat>;
+  fields: ReportField[];
   as_of: string | null;
   can_undo: boolean;
 };
@@ -579,6 +629,20 @@ export const reportApi = {
   undo: (pid: string) => request<ReportState>(`${rp(pid)}/undo`, { method: "POST" }),
   removeVisual: (pid: string, id: string) => request<ReportState>(`${rp(pid)}/visuals/${id}`, { method: "DELETE" }),
   removePage: (pid: string, id: string) => request<ReportState>(`${rp(pid)}/pages/${id}`, { method: "DELETE" }),
+  addPage: (pid: string, title: string) => request<ReportState>(`${rp(pid)}/pages`, json("POST", { title })),
+  renamePage: (pid: string, id: string, title: string) => request<ReportState>(`${rp(pid)}/pages/${id}`, json("PATCH", { title })),
+  addVisual: (
+    pid: string,
+    pageId: string,
+    body: { type: VisualType; title: string; measures: string[]; group_by?: { table: string; column: string }[]; layout?: GridBox },
+  ) => request<ReportState>(`${rp(pid)}/pages/${pageId}/visuals`, json("POST", body)),
+  updateVisual: (
+    pid: string,
+    id: string,
+    body: Partial<Pick<Visual, "type" | "title" | "measures" | "group_by" | "kpi">>,
+  ) => request<ReportState>(`${rp(pid)}/visuals/${id}`, json("PATCH", body)),
+  setLayout: (pid: string, pageId: string, positions: Record<string, GridBox>) =>
+    request<ReportState>(`${rp(pid)}/pages/${pageId}/layout`, json("PUT", { positions })),
 };
 
 /** Rounded for cards and chart labels: RM 1.2M, 34.5K, 53%. Tables use formatMeasure (full precision). */

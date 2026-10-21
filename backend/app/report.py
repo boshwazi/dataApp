@@ -32,6 +32,8 @@ MAX_BARS = 10
 MAX_TABLE_ROWS = 50
 MAX_LINES = 5
 MAX_SLICES = 3  # the house style's limit; more is allowed with a tip
+GRID_COLUMNS = 12  # the report canvas: visuals snap to a 12-column grid of rows
+MAX_GRID_ROWS = 200
 MAX_SHARE_ROWS = 12  # beyond this a pie or donut is unreadable, so the smallest slices are cut
 ADDITIVE = ("sum", "count")
 
@@ -164,6 +166,72 @@ def advice(visual: dict, data: dict) -> list[str]:
     return tips
 
 
+def grid_box(box) -> dict:
+    values = [box.get(k) if isinstance(box, dict) else None for k in ("x", "y", "w", "h")]
+    if not all(isinstance(v, int) and not isinstance(v, bool) for v in values):
+        raise ReportError("A visual's place is given as whole grid cells {x, y, w, h}.")
+    x, y, w, h = values
+    if x < 0 or y < 0 or w < 1 or h < 2 or x + w > GRID_COLUMNS or y + h > MAX_GRID_ROWS:
+        raise ReportError(f"A visual must fit inside the {GRID_COLUMNS}-column page.")
+    return {"x": x, "y": y, "w": w, "h": h}
+
+
+def set_layout(project: dict, page_id: str, positions: dict) -> None:
+    """Move and resize visuals on a page's canvas."""
+    page = find_page(project, page_id)
+    visuals = {v["id"]: v for v in page["visuals"]}
+    for visual_id, box in (positions or {}).items():
+        if visual_id not in visuals:
+            raise ReportError("Visual not found on this page.")
+        visual = visuals[visual_id]
+        visual["layout"] = grid_box(box)
+        visual["width"] = "full" if visual["layout"]["w"] >= GRID_COLUMNS else "half"
+
+
+def update_visual(con, project: dict, visual_id: str, changes: dict) -> dict:
+    """Change a visual's type, title, fields or KPI settings; it is checked again like a new one."""
+    page, visual = find_visual(project, visual_id)
+    updated = copy.deepcopy(visual)
+    for key in ("type", "title", "measures", "group_by", "kpi"):
+        if changes.get(key) is not None:
+            updated[key] = copy.deepcopy(changes[key])
+    if updated["type"] != "kpi":
+        updated["kpi"] = {}
+    try:
+        check_visual(con, project, page, updated)
+    except model.ModelError as exc:
+        raise ReportError(str(exc)) from exc
+    if any(updated[k] != visual[k] for k in ("type", "measures", "group_by")):
+        updated["insight"] = None  # written about the old numbers
+    page["visuals"][page["visuals"].index(visual)] = updated
+    return updated
+
+
+def rename_page(project: dict, page_id: str, title: str) -> None:
+    if not isinstance(title, str) or not title.strip():
+        raise ReportError("A page needs a title.")
+    find_page(project, page_id)["title"] = title.strip()
+
+
+def fields(con, project: dict) -> list[dict]:
+    """Tables, their visible columns and their measures, for building visuals by hand."""
+    current = model.state(project)
+    hidden = {(h["table"], h["column"]) for h in current["hidden"]}
+    found = model.tables(con, project)
+    out = []
+    for table in found.values():
+        out.append({
+            "id": table.id,
+            "name": table.name,
+            "columns": [{"name": c.name, "type": c.type} for c in table.columns if (table.id, c.name) not in hidden],
+            "measures": [m["name"] for m in current["measures"] if m.get("table") == table.id and not m.get("error")],
+        })
+    loose = [m["name"] for m in current["measures"] if m.get("table") not in found and not m.get("error")]
+    if loose:
+        out.insert(0, {"id": "", "name": "Measures", "columns": [], "measures": loose})
+    return out
+
+
 def add_page(project: dict, title: str, question: str = "", status: str = "Approved", reason: str = "") -> dict:
     if not isinstance(title, str) or not title.strip():
         raise ReportError("A page needs a title.")
@@ -194,6 +262,9 @@ def add_visual(con, project: dict, page_id: str, proposal: dict, status: str) ->
         raise ReportError(str(exc)) from exc
     if visual["width"] is None:
         visual["width"] = "full" if visual["type"] == "table" else "half"
+    if proposal.get("layout"):
+        visual["layout"] = grid_box(proposal["layout"])
+        visual["width"] = "full" if visual["layout"]["w"] >= GRID_COLUMNS else "half"
     page["visuals"].append(visual)
     order = {"kpi": 0, "table": 2}
     page["visuals"].sort(key=lambda v: order.get(v["type"], 1))  # KPIs on top, detail tables last

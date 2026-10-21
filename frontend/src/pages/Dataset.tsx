@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, NavLink, Outlet, useLocation, useOutletContext, useParams, useSearchParams } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useNavigate, useOutletContext, useParams, useSearchParams } from "react-router-dom";
 import {
   activityApi,
   api,
@@ -10,10 +10,10 @@ import {
   type Dataset as DatasetData,
   type DatasetStage,
 } from "../api";
-import { BadgeCheck, Check, FileDown, GitBranch, History, MessageSquare, MoreHorizontal, Pencil, RefreshCw } from "lucide-react";
+import { BadgeCheck, FileDown, GitBranch, History, MoreHorizontal, Pencil, RefreshCw, Sparkles } from "lucide-react";
 import { ActivityDrawer } from "../components/ActivityDrawer";
 import { ChatPanel, type ChatHandle } from "../components/ChatPanel";
-import { Menu, useCrumbs, useDialogs, useToast } from "../components/ui";
+import { Menu, TopbarActions, useCrumbs, useDialogs, useShortcut, useToast } from "../components/ui";
 
 // The dataset half of the pipeline, in Power BI order. Dashboards build on what is published here.
 const STAGES: { path: string; key: DatasetStage; name: string; suggestions: string[] }[] = [
@@ -58,9 +58,9 @@ export function Dataset() {
   const [notice, setNotice] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState(() => {
     try {
-      return localStorage.getItem(CHAT_KEY) !== "closed";
+      return localStorage.getItem(CHAT_KEY) === "open";
     } catch {
-      return true;
+      return false;
     }
   });
   const [showActivity, setShowActivity] = useState(false);
@@ -69,6 +69,7 @@ export function Dataset() {
   const dialogs = useDialogs();
   const toast = useToast();
   const location = useLocation();
+  const navigate = useNavigate();
   const stage = STAGES.find((s) => location.pathname.endsWith(`/${s.path}`)) ?? STAGES[0];
   const extra = location.pathname.endsWith("/refresh") ? "Refresh" : location.pathname.endsWith("/lineage") ? "Lineage" : null;
   const onRefresh = extra !== null;
@@ -78,8 +79,8 @@ export function Dataset() {
   useCrumbs(
     dataset && [
       { label: "Datasets", to: "/datasets" },
-      { label: dataset.name, to: `/datasets/${dataset.id}/get-data` },
-      { label: extra ?? stage.name },
+      { label: dataset.name, to: `/datasets/${dataset.id}/${stage.path}` },
+      ...(extra ? [{ label: extra }] : []),
     ],
   );
 
@@ -168,37 +169,50 @@ export function Dataset() {
     );
   }
 
+  useShortcut("i", () => !onRefresh && toggleChat());
+
   if (error && !dataset) return <p className="bad">{error}</p>;
   if (!dataset) return <p className="muted">Loading…</p>;
 
-  const { status } = dataset;
+  const { status, progress, stale } = dataset;
   // Coming from "Bring new data": once published, go back to the dashboard waiting for it.
   const waiting = params.get("for");
   const nextDashboard = waiting ?? (dataset.dashboards.length === 1 ? dataset.dashboards[0].id : null);
+  const done: Record<DatasetStage, boolean> = { get_data: progress.sources > 0, transform: progress.steps > 0, model: progress.measures > 0 };
+  const statusText = status.published
+    ? status.unpublished_changes
+      ? `Draft, v${status.version} is live`
+      : `v${status.version} is live`
+    : "Not published yet";
 
   return (
-    <div className="project">
-      <header className="project-header">
-        <div className="title-block">
-          <span className="kind-label">Dataset</span>
-          <h1>
-            {dataset.name}
-            {dataset.certified && <BadgeCheck size={20} className="certified-icon" aria-label="Certified" />}
-          </h1>
-          <button className="icon" onClick={rename} aria-label="Rename dataset" title="Rename">
-            <Pencil size={15} />
-          </button>
-        </div>
-        <span className="spacer" />
+    <div className="workbench">
+      <TopbarActions>
+        <nav className="stage-tabs" aria-label="Dataset stages">
+          {STAGES.map((s) => (
+            <NavLink key={s.key} to={s.path} title={stale[s.key] ? `${stale[s.key]} changed since this stage was updated` : undefined}>
+              <span className={`stage-dot ${stale[s.key] ? "warn" : done[s.key] ? "ok" : ""}`} aria-hidden="true" />
+              {s.name}
+            </NavLink>
+          ))}
+        </nav>
+        <span className="topbar-grow" />
+        <span className={`topbar-status ${status.published ? (status.unpublished_changes ? "warn" : "ok") : ""}`}>
+          {dataset.certified && <BadgeCheck size={14} className="certified-icon" aria-label="Certified" />}
+          {statusText}
+        </span>
         {!onRefresh && (
-          <button className="secondary" onClick={toggleChat} aria-pressed={chatOpen}>
-            <MessageSquare size={16} aria-hidden="true" /> AI chat
+          <button className={`ai-button ${chatOpen ? "on" : ""}`} onClick={toggleChat} aria-pressed={chatOpen} title="Ask AI (Ctrl I)">
+            <Sparkles size={15} aria-hidden="true" /> Ask AI <kbd>Ctrl I</kbd>
           </button>
         )}
         <Menu
           label="More actions"
           icon={<MoreHorizontal size={18} />}
           items={[
+            { label: "Rename", icon: <Pencil size={16} aria-hidden="true" />, onSelect: rename },
+            { label: "Refresh data", icon: <RefreshCw size={16} aria-hidden="true" />, onSelect: () => navigate("refresh") },
+            { label: "Lineage", icon: <GitBranch size={16} aria-hidden="true" />, onSelect: () => navigate("lineage") },
             { label: "Activity", icon: <History size={16} aria-hidden="true" />, onSelect: () => setShowActivity(true) },
             {
               label: "Download for Power BI",
@@ -216,55 +230,22 @@ export function Dataset() {
             },
           ]}
         />
-        <button onClick={() => publish(false)} disabled={publishing || !dataset.sources.length || (status.published && !status.unpublished_changes)}>
-          {publishing ? "Publishing…" : status.published ? "Publish changes" : "Publish"}
+        <button className="primary-compact" onClick={() => publish(false)} disabled={publishing || !dataset.sources.length || (status.published && !status.unpublished_changes)}>
+          {publishing ? "Publishing…" : "Publish"}
         </button>
-      </header>
-      <p className="meta-line">
-        <span className={`status-dot ${status.published ? (status.unpublished_changes ? "warn" : "ok") : ""}`}>
-          {status.published
-            ? status.unpublished_changes
-              ? `Draft changes, v${status.version} is live`
-              : `Published v${status.version}`
-            : "Not published yet"}
-        </span>
-        {dataset.dashboards.length > 0 && (
-          <span>
-            Used by{" "}
-            {dataset.dashboards.map((d, i) => (
-              <span key={d.id}>
-                {i > 0 && ", "}
-                <Link to={`/dashboards/${d.id}`}>{d.name}</Link>
-              </span>
-            ))}
-          </span>
-        )}
-        {dataset.linked_by.length > 0 && (
-          <span>
-            Linked by{" "}
-            {dataset.linked_by.map((d, i) => (
-              <span key={d.id}>
-                {i > 0 && ", "}
-                <Link to={`/datasets/${d.id}/get-data`}>{d.name}</Link> ({d.tables.join(", ")})
-              </span>
-            ))}
-          </span>
-        )}
-      </p>
+      </TopbarActions>
 
-      <Pipeline
-        dataset={dataset}
-        current={onRefresh ? null : stage.key}
-        publishing={publishing}
-        onPublish={() => publish(false)}
-        nextDashboard={nextDashboard}
-      />
-
+      {(error || notice || problems || (!onRefresh && stale[stage.key])) && (
+        <div className="workbench-notices">
       {error && <p className="bad">{error}</p>}
       {notice && (
         <div className="notice small">
           {notice}{" "}
-          {nextDashboard && <Link to={`/dashboards/${nextDashboard}`}>Continue to the dashboard</Link>}
+          {nextDashboard ? (
+            <Link to={`/dashboards/${nextDashboard}`}>Continue to the dashboard</Link>
+          ) : (
+            dataset.dashboards.length === 0 && <Link to="/dashboards?new=1">Build a dashboard</Link>
+          )}
         </div>
       )}
       {problems && (
@@ -290,26 +271,29 @@ export function Dataset() {
         </div>
       )}
 
-      <div className={`project-body ${showChat ? "with-chat" : ""}`}>
-        <section className="stage">
-          {!onRefresh && dataset.stale[stage.key] && (
-            <div className="notice stale-banner small">
-              <span>
-                <strong>{dataset.stale[stage.key]}</strong> changed since {stage.name} was last updated.
-              </span>
-              <span className="actions">
-                <button className="secondary" onClick={() => askToCheck(dataset.stale[stage.key]!)}>
-                  Ask AI to check
-                </button>
-                <button className="link small" onClick={markReviewed}>
-                  Mark as reviewed
-                </button>
-              </span>
-            </div>
-          )}
-          <Outlet key={version} context={{ project: dataset, refresh } satisfies DatasetContext} />
-        </section>
+      {!onRefresh && stale[stage.key] && (
+        <div className="notice stale-banner small">
+          <span>
+            <strong>{stale[stage.key]}</strong> changed since {stage.name} was last updated.
+          </span>
+          <span className="actions">
+            <button className="secondary" onClick={() => askToCheck(stale[stage.key]!)}>
+              Ask AI to check
+            </button>
+            <button className="link small" onClick={markReviewed}>
+              Mark as reviewed
+            </button>
+          </span>
+        </div>
+      )}
+        </div>
+      )}
+
+      <div className="workbench-body">
+        <Outlet key={version} context={{ project: dataset, refresh } satisfies DatasetContext} />
+      </div>
         {showChat && (
+          <div className="ai-dock" role="dialog" aria-label={`${stage.name} AI`}>
           <ChatPanel
             title={`${stage.name} AI`}
             thread={thread}
@@ -321,114 +305,9 @@ export function Dataset() {
             }}
             handle={(h) => (chat.current = h)}
           />
+          </div>
         )}
-      </div>
       {showActivity && <ActivityDrawer load={() => activityApi.dataset(datasetId)} onClose={() => setShowActivity(false)} />}
-    </div>
-  );
-}
-
-/** Get Data → Transform → Model → Publish → Dashboard, with what is done ticked and one clear next step. */
-function Pipeline(props: {
-  dataset: DatasetData;
-  current: DatasetStage | null;
-  publishing: boolean;
-  onPublish: () => void;
-  nextDashboard: string | null;
-}) {
-  const { dataset, current, nextDashboard } = props;
-  const { progress, status, stale } = dataset;
-  const live = status.published && !status.unpublished_changes;
-  const dashboardTo = nextDashboard ? `/dashboards/${nextDashboard}` : "/dashboards?new=1";
-  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-  const steps = [
-    { key: "get_data", name: "Get Data", to: "get-data", done: progress.sources > 0, detail: plural(progress.sources, "table", "tables") },
-    { key: "transform", name: "Transform", to: "transform", done: progress.steps > 0, detail: plural(progress.steps, "step", "steps") },
-    { key: "model", name: "Model", to: "model", done: progress.measures > 0, detail: plural(progress.measures, "measure", "measures") },
-    {
-      key: "publish",
-      name: "Publish",
-      to: null,
-      done: live,
-      detail: status.published ? (status.unpublished_changes ? "Changes waiting" : `v${status.version} live`) : "Not yet",
-    },
-    {
-      key: "dashboard",
-      name: "Dashboard",
-      to: dashboardTo,
-      done: dataset.dashboards.length > 0,
-      detail: dataset.dashboards.length ? `${dataset.dashboards.length} using it` : "None yet",
-    },
-  ];
-
-  let next: { label: string; to?: string; action?: () => void; disabled?: boolean } | null = null;
-  if (current === "get_data") next = { label: "Next: Transform", to: "transform", disabled: !progress.sources };
-  else if (current === "transform") next = { label: "Next: Model", to: "model", disabled: !progress.sources };
-  else if (current === "model")
-    next = live
-      ? { label: nextDashboard ? "Open the dashboard" : "Build a dashboard", to: dashboardTo }
-      : { label: props.publishing ? "Publishing…" : "Next: Publish", action: props.onPublish, disabled: props.publishing || !progress.sources };
-
-  return (
-    <div className="pipeline-bar">
-      <ol className="pipeline" aria-label="Dataset steps">
-        {steps.map((s, i) => {
-          const here = s.key === current;
-          const needs = s.key in stale ? stale[s.key as DatasetStage] : null;
-          const body = (
-            <>
-              <span className={`pipe-dot ${s.done ? "done" : ""}`} aria-hidden="true">
-                {s.done ? <Check size={13} strokeWidth={3} /> : i + 1}
-              </span>
-              <span className="pipe-text">
-                <span className="pipe-name">{s.name}</span>
-                <span className="pipe-detail">{needs ? "Needs re-run" : s.detail}</span>
-              </span>
-            </>
-          );
-          return (
-            <li key={s.key} className={`${here ? "here" : ""} ${needs ? "needs" : ""}`}>
-              {s.to === null ? (
-                <span className="pipe-step static" title={s.done ? "Published and up to date" : "Publish makes the dataset available to dashboards"}>
-                  {body}
-                </span>
-              ) : s.key === "dashboard" ? (
-                <Link className="pipe-step" to={s.to}>
-                  {body}
-                </Link>
-              ) : (
-                <Link className="pipe-step" to={s.to} aria-current={here ? "step" : undefined}>
-                  {body}
-                </Link>
-              )}
-            </li>
-          );
-        })}
-      </ol>
-      <nav className="pipeline-extra" aria-label="Dataset tools">
-        <NavLink to="refresh">
-          <RefreshCw size={15} aria-hidden="true" /> Refresh
-        </NavLink>
-        <NavLink to="lineage">
-          <GitBranch size={15} aria-hidden="true" /> Lineage
-        </NavLink>
-      </nav>
-      {next &&
-        (next.to ? (
-          next.disabled ? (
-            <button className="next-step" disabled>
-              {next.label}
-            </button>
-          ) : (
-            <Link className="button next-step" to={next.to}>
-              {next.label}
-            </Link>
-          )
-        ) : (
-          <button className="next-step" onClick={next.action} disabled={next.disabled}>
-            {next.label}
-          </button>
-        ))}
     </div>
   );
 }

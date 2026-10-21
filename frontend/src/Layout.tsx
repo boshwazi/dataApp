@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Check, ChevronsUpDown, ChevronRight, Database, House, LayoutDashboard, LogOut, Plus, Search, Settings as SettingsIcon, Users } from "lucide-react";
+import { Check, Database, House, LayoutDashboard, LogOut, Plus, Search, Settings as SettingsIcon, Users } from "lucide-react";
 import { accountApi, api, dashboardsApi, type DashboardSummary, type Dataset, type Role } from "./api";
 import { useAccount } from "./components/account";
-import { BrandMark, useCurrentCrumbs, useDialogs, useToast } from "./components/ui";
+import { BrandMark, TopbarContext, useCurrentCrumbs, useDialogs, useShortcut, useToast } from "./components/ui";
 
 type NavItem = {
   to: string;
@@ -26,43 +26,32 @@ const NAV: NavItem[] = [
 
 export function Layout() {
   const [searching, setSearching] = useState(false);
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
   const crumbs = useCurrentCrumbs();
   const account = useAccount();
   const nav = NAV.filter(
     (n) => (!n.role || account.can(n.role)) && (!n.platform || account.me.platform_admin) && (!n.hosted || account.me.mode !== "local"),
   );
-
-  useEffect(() => {
-    const onKey = (e: globalThis.KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        setSearching(true);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  useShortcut("k", () => setSearching(true));
 
   return (
     <div className="shell">
       <a className="skip-link" href="#main">
         Skip to content
       </a>
-      <aside className="sidebar">
-        <Link to="/" className="brand" aria-label="datawazi home">
-          <BrandMark /> datawazi
+      <aside className="rail">
+        <Link to="/" className="rail-brand" aria-label="datawazi home" title="datawazi">
+          <BrandMark size={26} />
         </Link>
         <nav aria-label="Main">
           {(["Workspace", "Admin"] as const).map((section) => {
             const items = nav.filter((n) => n.section === section);
             if (!items.length) return null;
             return (
-              <div key={section} className="nav-section">
-                <span className="nav-heading">{section}</span>
+              <div key={section} className="rail-section" role="group" aria-label={section}>
                 {items.map(({ to, label, icon: Icon, end }) => (
-                  <NavLink key={to} to={to} end={end} title={label}>
-                    <Icon size={16} aria-hidden="true" />
-                    <span className="nav-label">{label}</span>
+                  <NavLink key={to} to={to} end={end} aria-label={label} data-tip={label}>
+                    <Icon size={18} aria-hidden="true" />
                   </NavLink>
                 ))}
               </div>
@@ -76,20 +65,22 @@ export function Layout() {
           <nav className="crumbs" aria-label="Breadcrumb">
             {crumbs.map((c, i) => (
               <span key={i} className="crumb">
-                {i > 0 && <ChevronRight size={14} aria-hidden="true" />}
+                {i > 0 && <span className="crumb-sep" aria-hidden="true">/</span>}
                 {c.to && i < crumbs.length - 1 ? <Link to={c.to}>{c.label}</Link> : <span aria-current={i === crumbs.length - 1 ? "page" : undefined}>{c.label}</span>}
               </span>
             ))}
           </nav>
-          <button className="search-button" onClick={() => setSearching(true)} aria-label="Search (Ctrl K)">
+          <div className="topbar-slot" ref={setSlot} />
+          <button className="search-button" onClick={() => setSearching(true)} aria-label="Search (Ctrl K)" title="Search">
             <Search size={15} aria-hidden="true" />
-            <span>Search</span>
             <kbd>Ctrl K</kbd>
           </button>
         </header>
-        <main className="content" id="main" tabIndex={-1}>
-          <Outlet />
-        </main>
+        <TopbarContext.Provider value={slot}>
+          <main className="content" id="main" tabIndex={-1}>
+            <Outlet />
+          </main>
+        </TopbarContext.Provider>
       </div>
       {searching && <QuickSearch onClose={() => setSearching(false)} />}
     </div>
@@ -139,18 +130,25 @@ function WorkspaceMenu() {
   const roleName = account.role[0].toUpperCase() + account.role.slice(1);
   return (
     <div className="workspace-menu" ref={root}>
-      <button className="workspace" onClick={() => setOpen(!open)} aria-haspopup="menu" aria-expanded={open}>
+      <button
+        className="workspace"
+        onClick={() => setOpen(!open)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`Workspace: ${account.workspace?.name ?? ""}`}
+        data-tip={`${account.workspace?.name ?? ""}, ${hosted ? roleName : "on this computer"}`}
+      >
         <span className="workspace-badge" aria-hidden="true">
           {account.workspace?.name[0]?.toUpperCase()}
         </span>
-        <span className="workspace-text">
-          <strong>{account.workspace?.name}</strong>
-          <span>{hosted ? roleName : "On this computer"}</span>
-        </span>
-        <ChevronsUpDown size={15} aria-hidden="true" />
       </button>
       {open && (
-        <div className="menu-list up" role="menu">
+        <div className="menu-list up rail-menu" role="menu">
+          <div className="menu-note">
+            <strong>{account.workspace?.name}</strong>
+            <span>{hosted ? roleName : "On this computer"}</span>
+          </div>
+          <div className="menu-separator" role="separator" />
           {account.me.workspaces.map((w) => (
             <button key={w.id} role="menuitem" onClick={() => go(w.id)}>
               <span className="workspace-badge small" aria-hidden="true">

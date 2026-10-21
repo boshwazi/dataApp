@@ -301,3 +301,44 @@ def test_ai_links_fact_dates_before_dimension_dates(tmp_path):
 
 def test_ai_model_needs_a_key(p):
     assert p.api.post(f"{p.model}/ai").status_code == 400
+
+
+# Editing in the model diagram (M13)
+
+
+def test_formula_bar_checks_a_measure_without_saving_it(p):
+    checked = ok(p.api.post(f"{p.model}/measures/check", json=REVENUE))
+    assert checked["ok"] and checked["value"] == 54.0 and checked["label"] == "sum of [qty] * [price] in sales"
+    assert p.state()["measures"] == []
+    refused = ok(p.api.post(f"{p.model}/measures/check", json={**REVENUE, "expression": "[customer] * 2"}))
+    assert not refused["ok"] and "number columns" in refused["error"]
+
+
+def test_measures_can_be_changed_and_formulas_follow_a_rename(p):
+    revenue = ok(p.measure(**REVENUE))["measures"][0]
+    ok(p.measure(name="Orders", kind="aggregate", table="sales", aggregation="count"))
+    ok(p.measure(name="Average order", kind="formula", expression="[Revenue] / [Orders]"))
+    changed = ok(p.api.put(f"{p.model}/measures/{revenue['id']}",
+                           json={**REVENUE, "name": "Sales", "description": "Money in", "folder": "Revenue"}))
+    by_name = {m["name"]: m for m in changed["measures"]}
+    assert by_name["Sales"]["id"] == revenue["id"] and by_name["Sales"]["folder"] == "Revenue"
+    assert by_name["Average order"]["expression"] == "[Sales] / [Orders]" and by_name["Average order"]["value"] == 13.5
+    assert p.api.put(f"{p.model}/measures/{revenue['id']}", json={**REVENUE, "name": "Orders"}).status_code == 400
+    assert ok(p.api.post(f"{p.model}/undo"))["measures"][0]["name"] == "Revenue"
+
+
+def test_relationship_check_before_dropping_one(p):
+    hint = ok(p.api.post(f"{p.model}/relationships/check",
+                         json={"from_table": "customers", "from_column": "customer", "to_table": "sales", "to_column": "customer"}))
+    # Dragged the wrong way round: the check turns it so sales is the many side.
+    assert hint["ok"] and hint["from_table"] == p.queries["sales"] and hint["checks"]["match_rate"] == 0.75
+    assert p.state()["relationships"] == []
+    bad = ok(p.api.post(f"{p.model}/relationships/check",
+                        json={"from_table": "sales", "from_column": "product", "to_table": "products", "to_column": "product"}))
+    assert not bad["ok"] and "repeated" in bad["error"]
+
+
+def test_diagram_positions_are_kept(p):
+    table = p.queries["sales"]
+    assert ok(p.api.put(f"{p.model}/layout", json={"positions": {table: {"x": 40.4, "y": -3}}}))["layout"] == {table: {"x": 40, "y": 0}}
+    assert p.state()["layout"][table] == {"x": 40, "y": 0}

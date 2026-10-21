@@ -2014,7 +2014,7 @@ button:disabled {
   cursor: not-allowed;
 }
 
-button:not(.link):not(.icon):not(.chip):not(.source-item):not(.step-main):not(.choice):not(.lineage-card):hover:not(:disabled) {
+button:not(.link):not(.icon):not(.chip):not(.source-item):not(.step-main):not(.choice):not(.lineage-card):not(.tool):not(.tree-row):not(.col-head):not(.step-row):not(.page-thumb):not(.ai-button):not(.pill-x):not([role="menuitem"]):not([role="tab"]):not([role="radio"]):not(.workspace):not(.search-button):hover:not(:disabled) {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
 }

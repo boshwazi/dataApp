@@ -21,7 +21,7 @@ export const TOKENS = {
 export const SERIES = ["#0072B2", "#E69F00", "#009E73", "#56B4E9", "#D55E00", "#CC79A7"];
 
 /** One ECharts instance, resized with its box and disposed on unmount. */
-export function Chart({ option, height, label }: { option: EChartsCoreOption; height: number; label: string }) {
+export function Chart({ option, height, label }: { option: EChartsCoreOption; height: number | string; label: string }) {
   const box = useRef<HTMLDivElement>(null);
   const chart = useRef<echarts.ECharts | null>(null);
 

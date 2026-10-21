@@ -300,3 +300,37 @@ def test_running_totals_of_the_top_rows_are_recognised():
     data = {"rows": [["A", 50.0], ["B", 30.0], ["C", 15.0], ["D", 5.0]], "check": None}
     assert report.check_insight("The top three bring in 95 (95% of the total).", data)["verified"]
     assert not report.check_insight("The top three bring in 120.", data)["verified"]
+
+
+# The report canvas (M13)
+
+
+def test_visuals_move_and_resize_on_the_grid(p):
+    page = p.page()
+    ok(p.visual(page, type="bar", title="By segment", measures=["Revenue"], group_by=SEGMENT,
+                layout={"x": 0, "y": 0, "w": 6, "h": 8}))
+    visual = p.visuals()[0]
+    assert visual["layout"] == {"x": 0, "y": 0, "w": 6, "h": 8} and visual["width"] == "half"
+    moved = ok(p.api.put(f"{p.base}/pages/{page}/layout", json={"positions": {visual["id"]: {"x": 0, "y": 4, "w": 12, "h": 6}}}))
+    assert moved["pages"][0]["visuals"][0]["width"] == "full"
+    off_page = p.api.put(f"{p.base}/pages/{page}/layout", json={"positions": {visual["id"]: {"x": 8, "y": 0, "w": 6, "h": 6}}})
+    assert off_page.status_code == 400 and "12-column" in off_page.json()["detail"]
+    assert ok(p.api.post(f"{p.base}/undo"))["pages"][0]["visuals"][0]["layout"]["y"] == 0
+
+
+def test_visuals_are_edited_by_hand_and_checked_again(p):
+    page = p.page()
+    ok(p.visual(page, type="bar", title="By segment", measures=["Revenue"], group_by=SEGMENT))
+    visual = p.visuals()[0]
+    changed = ok(p.api.patch(f"{p.base}/visuals/{visual['id']}", json={"type": "donut", "title": "Share by segment"}))
+    shown = changed["pages"][0]["visuals"][0]
+    assert shown["type"] == "donut" and shown["title"] == "Share by segment" and shown["data"]["rows"][0] == ["Retail", 50.0]
+    refused = p.api.patch(f"{p.base}/visuals/{visual['id']}", json={"type": "scatter"})
+    assert refused.status_code == 400 and "two measures" in refused.json()["detail"]
+    fields = {t["name"]: t for t in changed["fields"]}
+    assert "Revenue" in fields["sales"]["measures"] and {"name": "segment", "type": "text"} in fields["customers"]["columns"]
+
+
+def test_pages_can_be_renamed(p):
+    page = p.page()
+    assert ok(p.api.patch(f"{p.base}/pages/{page}", json={"title": "Customers"}))["pages"][0]["title"] == "Customers"

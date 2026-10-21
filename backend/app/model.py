@@ -372,10 +372,17 @@ def check_measure(found: dict[str, Table], measures: list[dict], measure: dict) 
         raise ModelError("A measure's kind must be 'aggregate' or 'formula'.")
 
 
-def add_measure(con, project: dict, proposal: dict, status: str) -> dict:
+def check_relationship_only(con, project: dict, proposal: dict) -> dict:
+    """What adding this relationship would do, without adding it: its direction, checks and whether it is active."""
     model = state(project)
-    measure = {
-        "id": new_id(),
+    rel = {k: proposal.get(k) for k in ("from_table", "from_column", "to_table", "to_column")}
+    checks = check_relationship(con, tables(con, project), rel, model["relationships"])
+    return {**rel, "checks": checks, "active": not connected(model["relationships"], rel["from_table"], rel["to_table"])}
+
+
+def measure_from(proposal: dict, measure_id: str, status: str) -> dict:
+    return {
+        "id": measure_id,
         "name": proposal.get("name"),
         "kind": proposal.get("kind"),
         "table": proposal.get("table"),
@@ -384,11 +391,58 @@ def add_measure(con, project: dict, proposal: dict, status: str) -> dict:
         "filters": copy.deepcopy(proposal.get("filters") or []),
         "format": copy.deepcopy(proposal.get("format") or {"type": "number", "decimals": 0}),
         "description": str(proposal.get("description") or ""),
+        "folder": str(proposal.get("folder") or ""),
         "reason": str(proposal.get("reason") or ""),
         "status": status,
         "added_at": now(),
         "error": None,
     }
+
+
+def try_measure(con, project: dict, proposal: dict, measure_id: str | None = None) -> dict:
+    """Check a new or changed measure and work out its total, without saving it (the formula bar's live check)."""
+    trial = copy.deepcopy(project)
+    measures = state(trial)["measures"]
+    measure = measure_from(proposal, measure_id or new_id(), "Approved")
+    found = tables(con, trial)
+    check_measure(found, measures, measure)
+    state(trial)["measures"] = [m for m in measures if m["id"] != measure["id"]] + [measure]
+    value = evaluate(con, trial, [measure["name"]])["rows"][0][0]
+    return {"value": value, "label": describe_measure(measure, {t.id: t.name for t in found.values()}), "table": measure["table"]}
+
+
+def update_measure(con, project: dict, measure_id: str, proposal: dict) -> dict:
+    measures = state(project)["measures"]
+    old = next((m for m in measures if m["id"] == measure_id), None)
+    if old is None:
+        raise ModelError("Measure not found.")
+    measure = measure_from(proposal, measure_id, old.get("status", "Approved"))
+    measure["added_at"] = old.get("added_at", now())
+    check_measure(tables(con, project), measures, measure)
+    if old["name"] != measure["name"]:
+        # Formulas refer to measures by name, so they follow the rename.
+        pattern = re.compile(r"\[\s*" + re.escape(old["name"]) + r"\s*\]", re.IGNORECASE)
+        for other in measures:
+            if other["kind"] == "formula" and other is not old and other.get("expression"):
+                other["expression"] = pattern.sub(f"[{measure['name']}]", other["expression"])
+    measures[measures.index(old)] = measure
+    return measure
+
+
+def set_layout(project: dict, positions: dict) -> None:
+    """Where each table card sits on the model diagram."""
+    clean = {}
+    for table_id, box in (positions or {}).items():
+        x, y = (box or {}).get("x"), (box or {}).get("y")
+        if not isinstance(x, (int, float)) or not isinstance(y, (int, float)):
+            raise ModelError("Positions are given as {x, y}.")
+        clean[str(table_id)] = {"x": max(0, round(x)), "y": max(0, round(y))}
+    state(project)["layout"] = clean
+
+
+def add_measure(con, project: dict, proposal: dict, status: str) -> dict:
+    model = state(project)
+    measure = measure_from(proposal, new_id(), status)
     check_measure(tables(con, project), model["measures"], measure)
     model["measures"].append(measure)
     return measure

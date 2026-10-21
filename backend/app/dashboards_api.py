@@ -29,6 +29,18 @@ class PageBody(BaseModel):
     question: str = ""
 
 
+class VisualPatch(BaseModel):
+    type: str | None = None
+    title: str | None = None
+    measures: list[str] | None = None
+    group_by: list[dict] | None = None
+    kpi: dict | None = None
+
+
+class LayoutBody(BaseModel):
+    positions: dict[str, dict]
+
+
 class AskBody(BaseModel):
     question: str
     history: list[dict] = []
@@ -42,6 +54,7 @@ class VisualBody(BaseModel):
     group_by: list[dict] = []
     kpi: dict = {}
     width: str | None = None
+    layout: dict | None = None
 
 
 def summary(dashboard: dict, datasets: ProjectStore) -> dict:
@@ -131,12 +144,14 @@ def build_router(
                     visuals.append(entry)
                 pages.append({**page, "visuals": visuals})
         formats = {m["name"]: m["format"] for m in model.state(frozen)["measures"]} if frozen else {}
+        fields = report.fields(con, frozen) if frozen and side == "draft" and not viewer() else []
         return {
             **summary(dash, datasets),
             "dataset_updated_to": activity.dashboard_stale(dash, dataset),
             "side": side,
             "pages": pages,
             "formats": formats,
+            "fields": fields,
             "as_of": report.as_of(con, frozen) if frozen else None,
             "can_undo": bool(dash["draft"]["history"]),
         }
@@ -262,6 +277,20 @@ def build_router(
     def add_visual(dashboard_id: str, page_id: str, body: VisualBody):
         return respond(dashboard_id, undoable(lambda p, con: report.add_visual(con, p, page_id, body.model_dump(), "Approved")),
                        summary=f"Added {body.type} '{body.title}'")
+
+    @router.patch("/{dashboard_id}/pages/{page_id}")
+    def rename_page(dashboard_id: str, page_id: str, body: PageBody):
+        return respond(dashboard_id, undoable(lambda p, con: report.rename_page(p, page_id, body.title)),
+                       summary=f"Renamed a page to '{body.title}'")
+
+    @router.put("/{dashboard_id}/pages/{page_id}/layout")
+    def set_layout(dashboard_id: str, page_id: str, body: LayoutBody):
+        return respond(dashboard_id, undoable(lambda p, con: report.set_layout(p, page_id, body.positions)))
+
+    @router.patch("/{dashboard_id}/visuals/{visual_id}")
+    def update_visual(dashboard_id: str, visual_id: str, body: VisualPatch):
+        return respond(dashboard_id, undoable(lambda p, con: report.update_visual(con, p, visual_id, body.model_dump())),
+                       summary=f"Changed visual '{body.title}'" if body.title else "Changed a visual")
 
     @router.delete("/{dashboard_id}/visuals/{visual_id}")
     def remove_visual(dashboard_id: str, visual_id: str):

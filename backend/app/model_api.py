@@ -27,7 +27,16 @@ class MeasureBody(BaseModel):
     filters: list[dict] = []
     format: dict = {"type": "number", "decimals": 0}
     description: str = ""
+    folder: str = ""
     reason: str = ""
+
+
+class MeasureTrialBody(MeasureBody):
+    id: str | None = None
+
+
+class LayoutBody(BaseModel):
+    positions: dict[str, dict]
 
 
 class DateTableBody(BaseModel):
@@ -106,6 +115,7 @@ def view(con, project: dict) -> dict:
         ],
         "measures": measures,
         "date_table": date_table,
+        "layout": current.get("layout", {}),
         "can_undo": bool(current["history"]),
     }
 
@@ -163,6 +173,18 @@ def build_router(
         return respond(project_id, undoable(lambda p, con: model.add_relationship(con, p, body.model_dump(), "Approved"),
                                             f"Added relationship {body.from_table}[{body.from_column}] → {body.to_table}[{body.to_column}]"))
 
+    @router.post("/relationships/check")
+    def check_relationship(project_id: str, body: RelationshipBody):
+        """What a relationship would look like, for the hint shown while dragging one column onto another."""
+        try:
+            project = store.get(project_id)
+            with store.connect(project_id) as con:
+                return {"ok": True, **model.check_relationship_only(con, project, body.model_dump())}
+        except NotFound as exc:
+            raise HTTPException(404, str(exc)) from exc
+        except model.ModelError as exc:
+            return {"ok": False, "error": str(exc)}
+
     @router.delete("/relationships/{rel_id}")
     def remove_relationship(project_id: str, rel_id: str):
         return respond(project_id, undoable(lambda p, con: model.state(p)["relationships"].remove(item(p, "relationships", rel_id)),
@@ -172,6 +194,27 @@ def build_router(
     def add_measure(project_id: str, body: MeasureBody):
         return respond(project_id, undoable(lambda p, con: model.add_measure(con, p, body.model_dump(), "Approved"),
                                             f"Added measure {body.name}"))
+
+    @router.post("/measures/check")
+    def check_measure(project_id: str, body: MeasureTrialBody):
+        """The formula bar's live check: is the measure valid, and what is its total? Nothing is saved."""
+        try:
+            project = store.get(project_id)
+            with store.connect(project_id) as con:
+                return {"ok": True, **model.try_measure(con, project, body.model_dump(exclude={"id"}), body.id)}
+        except NotFound as exc:
+            raise HTTPException(404, str(exc)) from exc
+        except model.ModelError as exc:
+            return {"ok": False, "error": str(exc)}
+
+    @router.put("/measures/{measure_id}")
+    def update_measure(project_id: str, measure_id: str, body: MeasureBody):
+        return respond(project_id, undoable(lambda p, con: model.update_measure(con, p, measure_id, body.model_dump()),
+                                            f"Changed measure {body.name}"))
+
+    @router.put("/layout")
+    def set_layout(project_id: str, body: LayoutBody):
+        return respond(project_id, lambda p, con: model.set_layout(p, body.positions))
 
     @router.delete("/measures/{measure_id}")
     def remove_measure(project_id: str, measure_id: str):

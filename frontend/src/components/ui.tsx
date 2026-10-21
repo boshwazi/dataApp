@@ -9,6 +9,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 // Logo
@@ -271,5 +272,60 @@ export function Skeleton({ lines = 3, height = 14 }: { lines?: number; height?: 
         <span key={i} style={{ height, width: `${92 - i * 14}%` }} />
       ))}
     </div>
+  );
+}
+
+// The top bar's right side: editors put their tabs and actions there (Layout provides the spot).
+
+export const TopbarContext = createContext<HTMLElement | null>(null);
+
+export function TopbarActions({ children }: { children: ReactNode }) {
+  const slot = useContext(TopbarContext);
+  return slot ? createPortal(children, slot) : null;
+}
+
+/** Ctrl (or Cmd) + a letter, unless the page has a dialog open. */
+export function useShortcut(key: string, handler: () => void) {
+  const latest = useRef(handler);
+  latest.current = handler;
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === key && !document.querySelector("dialog[open]")) {
+        e.preventDefault();
+        latest.current();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [key]);
+}
+
+/** A menu opened at a point (a column header, a right-click), kept on screen; Esc or a click outside closes it. */
+export function PopMenu({ x, y, onClose, label, children }: { x: number; y: number; onClose: () => void; label: string; children: ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [place, setPlace] = useState({ left: x, top: y });
+
+  useEffect(() => {
+    const el = box.current;
+    if (el) {
+      const { width, height } = el.getBoundingClientRect();
+      setPlace({ left: Math.max(8, Math.min(x, window.innerWidth - width - 8)), top: Math.max(8, Math.min(y, window.innerHeight - height - 8)) });
+      el.querySelector<HTMLElement>("button:not(:disabled), input, select")?.focus();
+    }
+    const onDown = (e: MouseEvent) => !box.current?.contains(e.target as Node) && onClose();
+    const onKey = (e: globalThis.KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [x, y, onClose]);
+
+  return createPortal(
+    <div ref={box} className="pop-menu" role="menu" aria-label={label} style={place}>
+      {children}
+    </div>,
+    document.body,
   );
 }

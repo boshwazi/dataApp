@@ -22,6 +22,7 @@ import { CrumbProvider, DialogProvider, ToastProvider } from "./components/ui";
 import { AccountProvider, WorkspaceGate, useAccount } from "./components/account";
 import type { Role } from "./api";
 import "./styles.css";
+import "./workspace.css";
 
 // Dashboards carry the chart library, so they load only when opened.
 const Dashboard = lazy(() => import("./pages/Dashboard").then((m) => ({ default: m.Dashboard })));
