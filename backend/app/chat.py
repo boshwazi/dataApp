@@ -583,6 +583,10 @@ def schema(stage: Stage) -> dict:
         "type": "object",
         "properties": {
             "reply": {"type": "string", "description": "Your answer to the user, in plain words."},
+            **({"used_visuals": {
+                "type": "array", "items": {"type": "string"},
+                "description": "Titles of the visuals whose data your reply's numbers come from (empty if none)."}}
+               if stage.data_questions else {}),
             **({"data_question": {
                 "type": "string",
                 "description": "Only when the user asks about numbers that are NOT in the visuals' data you were given: "
@@ -649,7 +653,34 @@ def ask(client, model_name: str, capabilities: dict, stage: Stage, state: dict, 
                        build_prompt(stage, state, upstream, history, message), "respond", schema(stage))
     actions = [a for a in raw.get("actions") or [] if isinstance(a, dict) and a.get("action") in stage.actions]
     question = str(raw.get("data_question") or "").strip() if stage.data_questions else ""
-    return {"reply": str(raw.get("reply") or "").strip(), "actions": actions, "data_question": question}
+    used = [str(v) for v in raw.get("used_visuals") or [] if isinstance(v, str)] if stage.data_questions else []
+    return {"reply": str(raw.get("reply") or "").strip(), "actions": actions, "data_question": question,
+            "used_visuals": used}
+
+
+def explain_reply(reply: str, used: list[str], state: dict) -> dict | None:
+    """'How this was calculated' for an answer read off the dashboard: each visual it used, with its
+    measures (and their definitions) and how it is split. Falls back to visuals the reply names."""
+    visuals = [(page["title"], v) for page in state.get("pages", []) for v in page["visuals"]]
+    wanted = {u.strip().lower() for u in used}
+    chosen = [(p, v) for p, v in visuals if v["title"].lower() in wanted]
+    if not chosen:
+        text = (reply or "").lower()
+        chosen = [(p, v) for p, v in visuals if v["title"].lower() in text]
+    if not chosen:
+        return None
+    definitions = {m["name"]: m["definition"] for m in state.get("measures", [])}
+    measures, seen = [], set()
+    for _, v in chosen:
+        for name in v["measures"]:
+            if name not in seen:
+                seen.add(name)
+                measures.append({"name": name, "definition": definitions.get(name, "")})
+    return {
+        "visuals": [{"title": v["title"], "page": p, "type": v["type"], "split_by": v["split_by"]} for p, v in chosen],
+        "measures": measures,
+        "as_of": state.get("data_as_of"),
+    }
 
 
 def check_reply(text: str, state: dict) -> dict:

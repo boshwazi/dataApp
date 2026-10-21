@@ -207,6 +207,25 @@ function Message(props: {
   return (
     <div className={`chat-msg ${message.role}`}>
       {message.content && (message.role === "assistant" ? <Markdown text={message.content} /> : <p>{message.content}</p>)}
+      {message.how && (
+        <details className="how">
+          <summary>How this was calculated</summary>
+          <ul>
+            {message.how.visuals.map((v) => (
+              <li key={v.page + v.title}>
+                From <strong>{v.title}</strong> on {v.page}
+                {v.split_by.length > 0 && <>, split by {v.split_by.join(" and ")}</>}
+              </li>
+            ))}
+            {message.how.measures.map((m) => (
+              <li key={m.name}>
+                <strong>{m.name}</strong>: {m.definition}
+              </li>
+            ))}
+            {message.how.as_of && <li>Data as of {message.how.as_of}</li>}
+          </ul>
+        </details>
+      )}
       {message.check && !message.check.verified && (
         <p className="unverified small">
           Check these numbers: {message.check.unmatched.join(", ")} {message.check.unmatched.length === 1 ? "doesn't" : "don't"} match the

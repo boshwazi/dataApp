@@ -219,7 +219,7 @@ def test_report_chat_sees_each_visuals_numbers_and_checks_its_reply(tmp_path):
     p, ai = project_with(
         tmp_path,
         {"reply": "In **Revenue by segment**, Retail leads with RM 50 against Online's RM 14.", "actions": []},
-        {"reply": "Retail made RM 70.", "actions": []},
+        {"reply": "Retail made RM 70.", "actions": [], "used_visuals": ["Revenue by segment"]},
     )
     page = p.page()
     ok(p.visual(page, type="bar", title="Revenue by segment", measures=["Revenue"], group_by=SEGMENT))
@@ -228,9 +228,14 @@ def test_report_chat_sees_each_visuals_numbers_and_checks_its_reply(tmp_path):
     assert '"rows": [["Retail", 50.0], ["Online", 14.0]]' in prompt  # the chart's numbers, not just its layout
     reply = body["messages"][-1]
     assert reply["check"] == {"verified": True, "unmatched": []} and "answer" not in reply
+    # "How this was calculated": the visual it read, its split and its measure's definition.
+    assert reply["how"]["visuals"] == [{"title": "Revenue by segment", "page": "Sales overview", "type": "bar",
+                                        "split_by": ["customers[segment]"]}]
+    assert reply["how"]["measures"][0]["name"] == "Revenue" and "qty" in reply["how"]["measures"][0]["definition"]
 
     body = ok(p.api.post(f"{p.base}/chat", json={"message": "How much did Retail make?"}))
     assert body["messages"][-1]["check"]["verified"] is False and body["messages"][-1]["check"]["unmatched"] == [70]
+    assert body["messages"][-1]["how"]["visuals"][0]["title"] == "Revenue by segment"  # named by the AI, not the text
 
 
 def test_report_chat_queries_the_model_when_the_answer_isnt_on_the_dashboard(tmp_path):

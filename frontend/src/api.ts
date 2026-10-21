@@ -608,6 +608,12 @@ export type ChatMessage = {
   answer?: AskResponse & { question: string };
   /** Whether the numbers in the reply match the visuals' data. */
   check?: { verified: boolean; unmatched: number[] };
+  /** For an answer read off the dashboard: the visuals it used and their measures. */
+  how?: {
+    visuals: { title: string; page: string; type: string; split_by: string[] }[];
+    measures: { name: string; definition: string }[];
+    as_of: string | null;
+  };
 };
 
 export type ChatResult = { messages: ChatMessage[]; applied: boolean };

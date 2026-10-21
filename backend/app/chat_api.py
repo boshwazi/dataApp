@@ -225,6 +225,9 @@ def build_router(
         else:
             reply = chat.message("assistant", answer["reply"])
             reply["check"] = chat.check_reply(answer["reply"], state)
+            how = chat.explain_reply(answer["reply"], answer["used_visuals"], state)
+            if how:
+                reply["how"] = how
         if not answer["actions"]:
             return {"messages": save_dashboard_messages(dashboard_id, user, reply), "applied": False}
         if chat.needs_approval(chat.REPORT, answer["actions"], body.mode):
