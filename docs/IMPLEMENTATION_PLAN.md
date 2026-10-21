@@ -276,28 +276,9 @@ Since CHIP has no subscription engine, we build a small one:
 
 ## Landing page, sign-in and onboarding
 
-- **Look:** calm, serious B2B, light theme. It uses the same colour tokens as the dashboards
-  (accent `#005A9C`, page `#F3F4F6`), system fonts and no gimmicks.
-- **Skills:**
-  - `design-taste-frontend` for the landing page (it avoids the generic template look; it is
-    not for dashboards).
-  - `ui-ux-pro-max` for the overall system: type scale, spacing, components.
-  - `frontend-design` for polish.
-  - `my-dashboard-style` inside the app.
-  - `web-design-guidelines` and `playwright-cli` for an accessibility audit and screenshots.
-- **Landing page:**
-  1. A headline that says what it does: "From spreadsheet to dashboard, with AI doing the work."
-  2. A live product preview of the four stages.
-  3. How it works, in 4 steps.
-  4. Why trust it: checks, approval and undo, what the AI sees.
-  5. Security and privacy summary.
-  6. Pricing, FAQ, and a footer with legal links.
-- **Sign-in and sign-up:** email magic link, Google and Microsoft. No passwords to store.
-- **Onboarding:**
-  1. Create workspace.
-  2. Invite teammates with roles.
-  3. Choose "Load sample data" or "Bring your data".
-  4. The AI builds a first dashboard.
+Superseded: the current design and process are in [PHASE2_PLAN.md](PHASE2_PLAN.md), under
+*C. Login and accounts* (milestone M15). That covers brand directions, three hero mockups to
+choose from, the data-platform look, a sign-in redesign and onboarding.
 
 ## Milestones from here
 

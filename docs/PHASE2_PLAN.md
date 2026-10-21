@@ -162,7 +162,32 @@ The baseline is [OWASP ASVS 5.0](https://owasp.org/www-project-application-secur
 
 ### C. Login and accounts
 
-- **Landing page** (with M15's brand work): what datawazi does, a live demo dashboard, pricing, sign-up.
+- **Brand, landing page (hero) and sign-in, designed before they're built (M15):**
+  1. **Brand first.** A real datawazi logo and wordmark to replace today's placeholder. Make 3 directions as a small HTML page (as with the brand directions in Phase 1), choose one, then turn it into icons, favicon, email header and social card.
+  2. **Hero directions.** 3 different hero designs as working HTML mockups, made with the `design-taste-frontend` and `frontend-design` skills, so it doesn't look like a template. The hero opens with the product itself: a short live sequence of a messy spreadsheet becoming a checked dashboard (the motion skills can make it), not a stock gradient and a big number. Choose one, then build.
+  3. **Landing page:**
+     - a headline that says what it does
+     - the product sequence
+     - how it works in 4 steps
+     - why to trust it: checks, approve and undo, what the AI sees, data kept in Singapore, PDPA
+     - Power BI import and export
+     - pricing, FAQ, and a footer with the legal pages
+     - English, with Bahasa Malaysia later
+  4. **Look:** the app's data-platform look, so the site and product feel like one thing: Inter and JetBrains Mono, the console blue, yellow only for AI. Fast and accessible: no heavy scripts, good contrast, and it works on phones.
+  5. **Sign-in page redesign:**
+     - **layout:** a two-part screen, with the sign-in form on one side and a quiet product preview, or what your company gets, on the other
+     - **sign-in options:** Google, Microsoft and the email code
+     - **care for the details:** clear errors (expired link, wrong browser), "trouble signing in?" help, and a company-domain hint for invites
+     - **matching emails:** sign-in emails in the same look, from the datawazi domain (with Resend, M18)
+  6. **Sign-up and onboarding:**
+     1. Sign in.
+     2. Name the workspace.
+     3. Invite teammates (or skip).
+     4. Choose sample data, your own file or a Power BI file.
+     5. The AI builds a first dashboard while you watch.
+     6. A short checklist shows what to try next.
+  7. **Checks:** accessibility and design audit (`web-design-guidelines`, `ui-ux-pro-max`); screenshots at phone, tablet and desktop sizes; time to first dashboard for a new user.
+  8. **Where it lives:** built and tested locally in M15. At `/` for visitors who aren't signed in, with the app behind it. Public once the app is online (M18), first on the ngrok address, then on the domain.
 - **Sign-up flow:**
   1. Sign in.
   2. Name the company workspace.
