@@ -604,6 +604,10 @@ export type ChatMessage = {
   content: string;
   at: string;
   change?: { id: string; status: "pending" | "applied" | "rejected"; mode: ChatMode; actions: ChatAction[] };
+  /** A question answered from the data model (Report chat), with the same checks as Ask. */
+  answer?: AskResponse & { question: string };
+  /** Whether the numbers in the reply match the visuals' data. */
+  check?: { verified: boolean; unmatched: number[] };
 };
 
 export type ChatResult = { messages: ChatMessage[]; applied: boolean };

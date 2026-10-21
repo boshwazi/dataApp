@@ -10,7 +10,7 @@ from typing import Callable, Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from . import activity, chat, llm, model, publishing, transform
+from . import activity, ask, chat, llm, model, publishing, report, transform
 from .dashboards import DashboardStore
 from .projects import NotFound, ProjectStore
 from .settings import ProviderSettings, SettingsStore
@@ -198,27 +198,41 @@ def build_router(
             raise HTTPException(400, "Type a message first.")
         dash = board(dashboard_id)
         with dashboard_scope(dash) as (dataset, frozen, con):
-            ctx = chat.Ctx(publishing.bind(frozen, dash["draft"]), con, True)
+            project = publishing.bind(frozen, dash["draft"])
+            ctx = chat.Ctx(project, con, True)
             state = chat.REPORT.context(ctx)
+            client = client_factory(config)
             try:
-                answer = chat.ask(client_factory(config), config.model, config.capabilities, chat.REPORT, state, {},
+                answer = chat.ask(client, config.model, config.capabilities, chat.REPORT, state, {},
                                   dash.get("chat", []), text, body.mode)
+                # Numbers not on the dashboard: answered from the data model by Ask's checked pipeline.
+                data_answer = None
+                if answer["data_question"]:
+                    history = [{"role": m["role"], "content": m["content"]} for m in dash.get("chat", [])[-6:]]
+                    found = ask.ask(client, config.model, config.capabilities, con, project, dash["draft"]["pages"],
+                                    answer["data_question"], history)
+                    formats = {m["name"]: m["format"] for m in model.state(frozen)["measures"]}
+                    data_answer = {**found, "question": answer["data_question"], "formats": formats,
+                                   "dataset_version": dataset["published"]["version"], "as_of": report.as_of(con, frozen)}
             except llm.AIError as exc:
                 raise HTTPException(502, f"The AI did not answer: {exc}") from exc
             if answer["actions"] and chat.needs_approval(chat.REPORT, answer["actions"], body.mode):
                 results = chat.check_actions(chat.REPORT, ctx, answer["actions"])
         user = chat.message("user", text)
+        if data_answer is not None:
+            reply = chat.message("assistant", data_answer["answer"] or data_answer["cannot_answer"])
+            reply["answer"] = data_answer
+        else:
+            reply = chat.message("assistant", answer["reply"])
+            reply["check"] = chat.check_reply(answer["reply"], state)
         if not answer["actions"]:
-            return {"messages": save_dashboard_messages(dashboard_id, user, chat.message("assistant", answer["reply"])),
-                    "applied": False}
+            return {"messages": save_dashboard_messages(dashboard_id, user, reply), "applied": False}
         if chat.needs_approval(chat.REPORT, answer["actions"], body.mode):
-            change = {"id": chat.new_id(), "status": "pending", "mode": body.mode, "actions": results}
-            return {"messages": save_dashboard_messages(dashboard_id, user, chat.message("assistant", answer["reply"], change)),
-                    "applied": False}
+            reply["change"] = {"id": chat.new_id(), "status": "pending", "mode": body.mode, "actions": results}
+            return {"messages": save_dashboard_messages(dashboard_id, user, reply), "applied": False}
         results = apply_report(dashboard_id, answer["actions"])
-        change = {"id": chat.new_id(), "status": "applied", "mode": body.mode, "actions": results}
-        return {"messages": save_dashboard_messages(dashboard_id, user, chat.message("assistant", answer["reply"], change)),
-                "applied": any(r["ok"] for r in results)}
+        reply["change"] = {"id": chat.new_id(), "status": "applied", "mode": body.mode, "actions": results}
+        return {"messages": save_dashboard_messages(dashboard_id, user, reply), "applied": any(r["ok"] for r in results)}
 
     @router.post("/api/dashboards/{dashboard_id}/chat/changes/{change_id}/{decision}")
     def decide_dashboard(dashboard_id: str, change_id: str, decision: Literal["approve", "reject"]):

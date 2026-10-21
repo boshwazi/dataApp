@@ -3990,3 +3990,19 @@ button.workspace:hover {
   border-radius: 4px;
   padding: 4px 6px;
 }
+
+/* A data answer inside a stage chat */
+.chat-answer {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chat-answer .answer {
+  max-width: 100%;
+}
+
+.chat-answer-note {
+  margin: 0 2px;
+}

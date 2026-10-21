@@ -210,3 +210,45 @@ def test_chat_needs_a_key_and_a_message(tmp_path):
     p.api.put("/api/settings", json={"api_key": "sk-secret-value-1234"})
     assert p.api.post(f"{p.dataset}/chat/model", json={"message": "  "}).status_code == 400
     assert p.api.post(f"{p.dataset}/chat/nope", json={"message": "hi"}).status_code == 404
+
+
+# The Report chat answers from the data
+
+
+def test_report_chat_sees_each_visuals_numbers_and_checks_its_reply(tmp_path):
+    p, ai = project_with(
+        tmp_path,
+        {"reply": "In **Revenue by segment**, Retail leads with RM 50 against Online's RM 14.", "actions": []},
+        {"reply": "Retail made RM 70.", "actions": []},
+    )
+    page = p.page()
+    ok(p.visual(page, type="bar", title="Revenue by segment", measures=["Revenue"], group_by=SEGMENT))
+    body = ok(p.api.post(f"{p.base}/chat", json={"message": "Explain the revenue by segment chart"}))
+    prompt = ai.calls[0]["messages"][-1]["content"]
+    assert '"rows": [["Retail", 50.0], ["Online", 14.0]]' in prompt  # the chart's numbers, not just its layout
+    reply = body["messages"][-1]
+    assert reply["check"] == {"verified": True, "unmatched": []} and "answer" not in reply
+
+    body = ok(p.api.post(f"{p.base}/chat", json={"message": "How much did Retail make?"}))
+    assert body["messages"][-1]["check"]["verified"] is False and body["messages"][-1]["check"]["unmatched"] == [70]
+
+
+def test_report_chat_queries_the_model_when_the_answer_isnt_on_the_dashboard(tmp_path):
+    p, ai = project_with(
+        tmp_path,
+        {"reply": "Let me check the data.", "actions": [], "data_question": "How many orders were there in 2025?"},
+        {"queries": [{"measures": ["Orders"], "filters": [{"table": "Date", "column": "Year", "operator": "equals", "value": 2025}]}]},
+        {"answer": "There were 2 orders in 2025.", "follow_ups": ["How many in 2024?"]},
+    )
+    page = p.page()
+    ok(p.visual(page, type="bar", title="Revenue by segment", measures=["Revenue"], group_by=SEGMENT))
+    body = ok(p.api.post(f"{p.base}/chat", json={"message": "How many orders did we get this year (2025)?"}))
+    reply = body["messages"][-1]
+    assert reply["content"] == "There were 2 orders in 2025."
+    answer = reply["answer"]
+    assert answer["question"] == "How many orders were there in 2025?"
+    assert answer["results"][0]["rows"] == [[2]] and answer["results"][0]["how"]["filters"] == ["Date[Year] equals 2025"]
+    assert answer["check"]["verified"] is True and answer["follow_ups"] == ["How many in 2024?"]
+    assert len(ai.calls) == 3  # the chat turn, then Ask's plan and answer
+    # Nothing on the dashboard changed.
+    assert [v["title"] for v in p.visuals()] == ["Revenue by segment"]

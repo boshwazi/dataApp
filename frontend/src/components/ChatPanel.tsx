@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 
 import { Send, Square, X } from "lucide-react";
 import type { ChatMessage, ChatMode, ChatThread } from "../api";
 import { Markdown } from "./Markdown";
+import { Answer } from "./AskPanel";
 
 const MODE_KEY = "chatMode";
 
@@ -148,7 +149,7 @@ export function ChatPanel(props: {
           </div>
         )}
         {messages.map((m) => (
-          <Message key={m.id + m.at} message={m} busy={busy} onDecide={(id, d) => run(() => thread.decide(id, d))} />
+          <Message key={m.id + m.at} message={m} busy={busy} onDecide={(id, d) => run(() => thread.decide(id, d))} onAsk={send} />
         ))}
         {busy && <div className="chat-msg assistant thinking">Thinking…</div>}
         {stopped && (
@@ -186,11 +187,32 @@ export function ChatPanel(props: {
   );
 }
 
-function Message({ message, busy, onDecide }: { message: ChatMessage; busy: boolean; onDecide: (id: string, d: "approve" | "reject") => void }) {
+function Message(props: {
+  message: ChatMessage;
+  busy: boolean;
+  onDecide: (id: string, d: "approve" | "reject") => void;
+  onAsk: (question: string) => void;
+}) {
+  const { message, busy, onDecide } = props;
   const change = message.change;
+  if (message.answer) {
+    // Answered from the data model: the same view as Ask, with results and "how this was calculated".
+    return (
+      <div className="chat-answer">
+        <p className="muted small chat-answer-note">From the data model: {message.answer.question}</p>
+        <Answer response={message.answer} onFollowUp={props.onAsk} busy={busy} />
+      </div>
+    );
+  }
   return (
     <div className={`chat-msg ${message.role}`}>
       {message.content && (message.role === "assistant" ? <Markdown text={message.content} /> : <p>{message.content}</p>)}
+      {message.check && !message.check.verified && (
+        <p className="unverified small">
+          Check these numbers: {message.check.unmatched.join(", ")} {message.check.unmatched.length === 1 ? "doesn't" : "don't"} match the
+          dashboard's data.
+        </p>
+      )}
       {change && (
         <div className={`chat-change ${change.status}`}>
           <div className="chat-change-head">

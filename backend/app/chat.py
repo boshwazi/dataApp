@@ -13,6 +13,7 @@ Removing data always waits for approval, whatever the mode.
 
 import copy
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Callable
 
@@ -56,6 +57,7 @@ class Stage:
     begin: Callable[[Ctx], object] = lambda ctx: None  # before a change set (undo snapshot)
     finish: Callable[[Ctx, object], None] = lambda ctx, token: None  # after it (re-run, collapse undo)
     extra: dict = field(default_factory=dict)
+    data_questions: bool = False  # may hand a question to the Ask pipeline (the Report stage)
 
 
 def need(params: dict, key: str):
@@ -490,6 +492,33 @@ def rp_replace_visual(ctx: Ctx, p: dict) -> str:
     return f"Replace '{old['title']}' with a {new['type']} '{new['title']}'"
 
 
+VISUAL_ROWS = 24  # rows of each visual's data the agent sees; enough for 2 years of months
+
+
+def _round(value):
+    if isinstance(value, float):
+        return round(value, 4) if abs(value) < 1 else round(value, 2)
+    return value
+
+
+def visual_numbers(con, project: dict, visual: dict) -> dict:
+    """The numbers behind one visual, trimmed for the prompt: what the chart shows, so questions about it
+    are answered from real values rather than guessed."""
+    try:
+        data = report.visual_data(con, project, visual)
+    except (report.ReportError, model.ModelError) as exc:
+        return {"error": str(exc)}
+    if visual["type"] == "kpi":
+        card = {k: _round(data.get(k)) for k in ("value", "previous", "delta", "delta_pct", "comparison", "period", "note")}
+        card["monthly"] = [[p["label"], _round(p["value"])] for p in data.get("sparkline", [])][-VISUAL_ROWS:]
+        return card
+    rows = [[_round(v) for v in row] for row in data["rows"][:VISUAL_ROWS]]
+    out = {"columns": data["columns"], "rows": rows, "total_rows": data["total_rows"]}
+    if data["total_rows"] > VISUAL_ROWS:
+        out["note"] = f"showing the first {VISUAL_ROWS} of {data['total_rows']} rows"
+    return out
+
+
 def rp_context(ctx: Ctx) -> dict:
     found = model.tables(ctx.con, ctx.project)
     current = model.state(ctx.project)
@@ -498,10 +527,12 @@ def rp_context(ctx: Ctx) -> dict:
         "pages": [
             {"title": page["title"], "question": page["question"],
              "visuals": [{"title": v["title"], "type": v["type"], "measures": v["measures"],
-                          "split_by": [f"{names.get(g['table'])}[{g['column']}]" for g in v["group_by"]]}
+                          "split_by": [f"{names.get(g['table'])}[{g['column']}]" for g in v["group_by"]],
+                          "data": visual_numbers(ctx.con, ctx.project, v)}
                          for v in page["visuals"]]}
             for page in report.state(ctx.project)["pages"]
         ],
+        "data_as_of": report.as_of(ctx.con, ctx.project),
         "measures": [{"name": m["name"], "definition": model.describe_measure(m, names)}
                      for m in current["measures"] if not m.get("error")],
         "columns_to_split_by": [f"{t.name}[{c.name}] ({c.type})" for t in found.values() for c in t.columns],
@@ -537,6 +568,7 @@ REPORT = Stage(
     },
     context=rp_context,
     begin=rp_begin,
+    data_questions=True,
 )
 
 STAGES = {s.name: s for s in (GET_DATA, TRANSFORM, MODEL, REPORT)}
@@ -551,6 +583,11 @@ def schema(stage: Stage) -> dict:
         "type": "object",
         "properties": {
             "reply": {"type": "string", "description": "Your answer to the user, in plain words."},
+            **({"data_question": {
+                "type": "string",
+                "description": "Only when the user asks about numbers that are NOT in the visuals' data you were given: "
+                               "the question, rephrased to stand on its own. The app answers it from the data model "
+                               "with checked numbers. Leave empty otherwise."}} if stage.data_questions else {}),
             "actions": {
                 "type": "array",
                 "items": {
@@ -582,6 +619,14 @@ def system_prompt(stage: Stage, mode: str = "full") -> str:
         "say which stage and return no actions. Every action is checked by the app before it runs, so keep them "
         "exact: use names exactly as they appear in the state. Be concise and friendly; no jargon. "
         "For three or more items use a short Markdown bullet list (\"- item\"), with **bold** for names; no headings or tables."
+    ) + (
+        " Each visual comes with its data (the numbers it shows). Answer questions about what's on the dashboard "
+        "from those numbers: trends, peaks, dips, comparisons, how two measures move together. Quote numbers "
+        "exactly as given, rounded sensibly, and name the visual you mean. When the answer needs numbers that "
+        "aren't in any visual (another split, a filter, a period, a measure not shown), put the question in "
+        "data_question and keep your reply to one short line; the app will answer it from the data model. "
+        "Never say you can't see the data."
+        if stage.data_questions else ""
     )
 
 
@@ -603,7 +648,26 @@ def ask(client, model_name: str, capabilities: dict, stage: Stage, state: dict, 
     raw = llm.ask_json(client, model_name, capabilities, system_prompt(stage, mode),
                        build_prompt(stage, state, upstream, history, message), "respond", schema(stage))
     actions = [a for a in raw.get("actions") or [] if isinstance(a, dict) and a.get("action") in stage.actions]
-    return {"reply": str(raw.get("reply") or "").strip(), "actions": actions}
+    question = str(raw.get("data_question") or "").strip() if stage.data_questions else ""
+    return {"reply": str(raw.get("reply") or "").strip(), "actions": actions, "data_question": question}
+
+
+def check_reply(text: str, state: dict) -> dict:
+    """Numbers in a Report chat reply must come from the visuals' data, as insights and Ask answers do."""
+    rows = []
+    for page in state.get("pages", []):
+        for visual in page["visuals"]:
+            data = visual.get("data") or {}
+            if "rows" in data:
+                rows += data["rows"]
+            elif "value" in data:
+                pct = data.get("delta_pct")
+                rows.append([data.get("value"), data.get("previous"), data.get("delta"),
+                             pct * 100 if isinstance(pct, (int, float)) else None])
+                rows += data.get("monthly", [])
+    if not rows or not re.search(r"\d", text or ""):
+        return {"verified": True, "unmatched": []}
+    return report.check_insight(text, {"rows": rows, "check": None})
 
 
 # Running actions

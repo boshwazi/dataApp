@@ -116,7 +116,7 @@ export function AskPanel({ dashboardId, side, onClose }: { dashboardId: string; 
   );
 }
 
-function Answer({ response, onFollowUp, busy }: { response: AskResponse; onFollowUp: (q: string) => void; busy: boolean }) {
+export function Answer({ response, onFollowUp, busy }: { response: AskResponse; onFollowUp: (q: string) => void; busy: boolean }) {
   return (
     <div className="chat-msg assistant answer">
       <Markdown text={response.answer || response.cannot_answer || ""} />
