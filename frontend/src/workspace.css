@@ -2415,3 +2415,45 @@ button.slicer-button:hover:not(:disabled) {
   color: var(--muted);
   max-width: 100%;
 }
+
+/* Clicks: cross-filtering and drilling down */
+
+.filter-chip.picked {
+  background: var(--selected);
+  color: var(--accent);
+}
+
+.drill-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.drill-state .tool {
+  min-height: 22px;
+  min-width: 22px;
+}
+
+.drill-hint {
+  margin-left: auto;
+  font-size: 11px;
+  color: #9aa3b0;
+  white-space: nowrap;
+}
+
+.data-grid tr.pickable,
+.report-table tr.pickable {
+  cursor: pointer;
+}
+
+.report-table tr.faded td {
+  opacity: 0.4;
+}
+
+.report-table tr.picked td {
+  background: var(--selected);
+}

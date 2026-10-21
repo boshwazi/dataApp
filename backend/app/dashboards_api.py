@@ -107,7 +107,8 @@ def build_router(
             yield dataset, frozen, con
 
     def respond(dashboard_id: str, change=None, side: str = "draft", with_data: bool = True,
-                summary: str | None = None, actor: str = "You", selection: tuple | None = None) -> dict:
+                summary: str | None = None, actor: str = "You", selection: tuple | None = None,
+                drill: dict | None = None) -> dict:
         """Apply `change(project, con)` to the draft (if any) as one locked edit, log it, then return the dashboard.
 
         Without a change it only reads, so viewers never write: only a creator's first look is recorded."""
@@ -116,7 +117,7 @@ def build_router(
                 dash = boards.get(dashboard_id)
                 if dash.get("reviewed_version") is not None or not workspaces.current().at_least("creator"):
                     with opened(dash) as (dataset, frozen, con):
-                        return view(dash, dataset, frozen, con, side, with_data, selection)
+                        return view(dash, dataset, frozen, con, side, with_data, selection, drill)
             with boards.edit(dashboard_id) as dash, opened(dash) as (dataset, frozen, con):
                 if dash.get("reviewed_version") is None:
                     activity.dashboard_reviewed(dash, dataset)  # first sight of the data counts as reviewed
@@ -127,14 +128,14 @@ def build_router(
                     activity.dashboard_reviewed(dash, dataset)
                     if summary:
                         activity.log(dash, "report", summary, actor)
-                return view(dash, dataset, frozen, con, side, with_data, selection)
+                return view(dash, dataset, frozen, con, side, with_data, selection, drill)
         except NotFound as exc:
             raise HTTPException(404, str(exc)) from exc
         except (report.ReportError, model.ModelError) as exc:
             raise HTTPException(400, str(exc)) from exc
 
     def view(dash: dict, dataset: dict, frozen: dict | None, con, side: str, with_data: bool,
-             selection: tuple | None = None) -> dict:
+             selection: tuple | None = None, drill: dict | None = None) -> dict:
         source = dash["draft"] if side == "draft" else (dash["published"] or {"pages": []})
         pages = []
         if frozen is not None:
@@ -142,17 +143,24 @@ def build_router(
             for page in source["pages"]:
                 # The page's own filters for everyone; a viewer's slicer choices on the page they are looking at.
                 chosen = selection[1] if selection and selection[0] == page["id"] else []
-                project[model.PAGE_FILTERS] = list(page.get("filters") or []) + chosen
                 visuals = []
                 for visual in page["visuals"]:
-                    entry = dict(visual)
+                    # A choice made by clicking a visual filters the rest of the page, not that visual itself.
+                    project[model.PAGE_FILTERS] = list(page.get("filters") or []) + [
+                        f for f in chosen if f.get("source") != visual["id"]]
+                    shown = visual
+                    if drill and visual["id"] in drill:
+                        shown = report.drilled(visual, drill[visual["id"]])
+                        project[model.PAGE_FILTERS] += drill[visual["id"]]["filters"]
+                    entry = {**visual, "group_by": shown["group_by"], "drill": (drill or {}).get(visual["id"]),
+                             "drill_next": report.next_level(shown)}
                     if with_data:
                         try:
-                            entry["data"], entry["error"] = report.visual_data(con, project, visual), None
+                            entry["data"], entry["error"] = report.visual_data(con, project, shown), None
                             entry["advice"] = report.advice(visual, entry["data"])
                         except (report.ReportError, model.ModelError) as exc:
                             entry["data"], entry["error"] = None, str(exc)
-                        if chosen:
+                        if chosen or entry["drill"]:
                             entry["insight"] = None  # written about the whole page, not this selection
                         elif entry["data"] and visual.get("insight"):
                             # Checked against today's data, so an insight that went stale is flagged.
@@ -200,7 +208,8 @@ def build_router(
         return summary(boards.create(body.name, body.dataset_id), datasets)
 
     @router.get("/{dashboard_id}")
-    def get_dashboard(dashboard_id: str, side: str = "draft", page: str | None = None, filters: str | None = None):
+    def get_dashboard(dashboard_id: str, side: str = "draft", page: str | None = None, filters: str | None = None,
+                      drill: str | None = None):
         if side not in ("draft", "published"):
             raise HTTPException(400, "side is draft or published.")
         if viewer():
@@ -219,7 +228,17 @@ def build_router(
             except ValueError as exc:
                 raise HTTPException(400, "filters must be JSON.") from exc
             selection = (page, checked_filters(dashboard_id, side, chosen))
-        return respond(dashboard_id, side=side, selection=selection)
+        drills = None
+        if drill:
+            try:
+                wanted = json.loads(drill)
+            except ValueError as exc:
+                raise HTTPException(400, "drill must be JSON.") from exc
+            if not isinstance(wanted, dict):
+                raise HTTPException(400, "drill maps visual ids to a level and filters.")
+            drills = {vid: {"column": d.get("column"), "filters": checked_filters(dashboard_id, side, d.get("filters") or [])}
+                      for vid, d in wanted.items() if isinstance(d, dict)}
+        return respond(dashboard_id, side=side, selection=selection, drill=drills)
 
     def checked_filters(dashboard_id: str, side: str, chosen) -> list[dict]:
         """A viewer's slicer choices, checked against the dataset; nothing is saved."""

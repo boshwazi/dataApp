@@ -228,6 +228,8 @@ def check_filters(con, project: dict, filters) -> list[dict]:
         if operator not in model.FILTER_OPERATORS:
             raise ReportError(f"Filter operator must be one of: {', '.join(model.FILTER_OPERATORS)}.")
         clean = {**ref, "operator": operator}
+        if isinstance(item.get("source"), str):
+            clean["source"] = item["source"]  # the visual it was picked in, which stays unfiltered
         if operator in ("in", "not_in"):
             values = item.get("values")
             if not isinstance(values, list) or not values:
@@ -277,6 +279,30 @@ def slicer_values(con, project: dict, table_ref: str, column: str) -> dict:
     values = [model.plain(r[0]) for r in rows]
     return {"table": table.id, "column": col.name, "type": col.type,
             "values": values[:MAX_SLICER_VALUES], "truncated": len(values) > MAX_SLICER_VALUES}
+
+
+DATE_LEVELS = ("Year", "Year Month", "Date")  # drill-down through the date table
+
+
+def next_level(visual: dict) -> str | None:
+    """The date level a chart can drill down to from where it is, or None."""
+    groups = visual.get("group_by") or []
+    if visual.get("type") == "kpi" or not groups or groups[0]["table"] != model.DATE_ID:
+        return None
+    column = groups[0]["column"]
+    if column not in DATE_LEVELS[:-1]:
+        return None
+    return DATE_LEVELS[DATE_LEVELS.index(column) + 1]
+
+
+def drilled(visual: dict, drill: dict) -> dict:
+    """A copy of a date chart shown one or two levels down, for one viewer; the saved visual is unchanged."""
+    groups = visual.get("group_by") or []
+    if not groups or groups[0]["table"] != model.DATE_ID or drill.get("column") not in DATE_LEVELS:
+        raise ReportError("Only charts by the date table drill down.")
+    if any(f["table"] != model.DATE_ID for f in drill.get("filters") or []):
+        raise ReportError("Drill-down filters are on the date table.")
+    return {**visual, "group_by": [{"table": model.DATE_ID, "column": drill["column"]}] + groups[1:]}
 
 
 def describe_filters(con, project: dict, filters: list[dict]) -> list[str]:

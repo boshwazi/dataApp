@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import type { EChartsCoreOption } from "echarts/core";
-import { Calendar, ChevronDown, FileDown, Filter, GripVertical, History, LayoutDashboard, Maximize2, Minimize2, MoreHorizontal, Pencil, Plus, Sparkles, Table2, Trash2, Undo2, X } from "lucide-react";
+import { ArrowUp, Calendar, ChevronDown, FileDown, Filter, GripVertical, History, LayoutDashboard, Maximize2, Minimize2, MoreHorizontal, Pencil, Plus, Sparkles, Table2, Trash2, Undo2, X } from "lucide-react";
 import {
   activityApi,
   api,
@@ -14,6 +14,7 @@ import {
   type GridBox,
   type KpiData,
   type MeasureFormat,
+  type Drill,
   type PageFilter,
   type PageScope,
   type ReportField,
@@ -54,10 +55,13 @@ export function Dashboard() {
   const [selected, setSelected] = useState<string | null>(null);
   // Slicer choices per page. They are this viewer's own: never saved, sent with each look, Ask and chat.
   const [chosen, setChosen] = useState<Record<string, PageFilter[]>>({});
+  const [drills, setDrills] = useState<Record<string, Drill[]>>({});
   const pageParam = params.get("page");
   const scope = useRef<PageScope>({ page_id: null, filters: [] });
   scope.current = { page_id: pageParam, filters: (pageParam && chosen[pageParam]) || [] };
-  const chosenKey = JSON.stringify(scope.current);
+  const drillNow = useRef<Record<string, Drill>>({});
+  drillNow.current = Object.fromEntries(Object.entries(drills).filter(([, s]) => s.length).map(([id, s]) => [id, s[s.length - 1]]));
+  const chosenKey = JSON.stringify([scope.current, drillNow.current]);
   const stageRef = useRef<HTMLDivElement>(null);
   const chat = useRef<ChatHandle | null>(null);
   const thread = useMemo(() => dashboardChat(dashboardId, () => scope.current), [dashboardId]);
@@ -70,7 +74,7 @@ export function Dashboard() {
 
   const fetchState = useCallback(() => {
     const { page_id, filters } = scope.current;
-    return reportApi.state(dashboardId, side, page_id ?? undefined, filters);
+    return reportApi.state(dashboardId, side, page_id ?? undefined, filters, drillNow.current);
   }, [dashboardId, side]);
 
   const load = useCallback(() => {
@@ -110,7 +114,7 @@ export function Dashboard() {
     setError(null);
     try {
       let next = await action();
-      if (scope.current.filters.length) next = await fetchState(); // keep showing the viewer's slicer choices
+      if (scope.current.filters.length || Object.keys(drillNow.current).length) next = await fetchState(); // keep the viewer's choices
       setState(next);
       return next;
     } catch (e) {
@@ -122,6 +126,27 @@ export function Dashboard() {
   function choose(pageId: string, filters: PageFilter[]) {
     setChosen((current) => ({ ...current, [pageId]: filters }));
     if (pageParam !== pageId) go({ page: pageId });
+  }
+
+  /** A click on a chart: a date chart drills down; any other picks that category for the rest of the page. */
+  function pick(pageId: string, visual: Visual, value: Value) {
+    const group = visual.group_by[0];
+    if (!group) return;
+    if (visual.drill_next) {
+      const stack = drills[visual.id] ?? [];
+      const filters = [...(stack[stack.length - 1]?.filters ?? []), { table: group.table, column: group.column, operator: "in", values: [value] }];
+      setDrills((d) => ({ ...d, [visual.id]: [...stack, { column: visual.drill_next!, filters }] }));
+      return;
+    }
+    const current = chosen[pageId] ?? [];
+    const mine = current.find((f) => f.source === visual.id);
+    const rest = current.filter((f) => f.source !== visual.id);
+    const same = mine && mine.values?.length === 1 && mine.values[0] === value;
+    choose(pageId, same ? rest : [...rest, { table: group.table, column: group.column, operator: "in", values: [value], source: visual.id }]);
+  }
+
+  function drillUp(visualId: string) {
+    setDrills((d) => ({ ...d, [visualId]: (d[visualId] ?? []).slice(0, -1) }));
   }
 
   async function build() {
@@ -335,6 +360,8 @@ export function Dashboard() {
                   onChange={change}
                   chosen={chosen[page.id] ?? []}
                   onChoose={(filters) => choose(page.id, filters)}
+                  onPick={(visual, value) => pick(page.id, visual, value)}
+                  onDrillUp={drillUp}
                 />
               </div>
             )}
@@ -502,6 +529,8 @@ function ReportCanvas(props: {
   onChange: Change;
   chosen: PageFilter[];
   onChoose: (filters: PageFilter[]) => void;
+  onPick: (visual: Visual, value: Value) => void;
+  onDrillUp: (visualId: string) => void;
 }) {
   const { dashboardId, page, formats, editing, selected, onSelect, onChange } = props;
   const grid = useRef<HTMLDivElement>(null);
@@ -618,8 +647,18 @@ function ReportCanvas(props: {
                 if (editing) onSelect(v.id);
               }}
             >
-              <VisualFrame visual={v} editing={editing} onGrab={(e) => begin(e, v.id, "move")}>
-                {v.type === "kpi" ? <KpiCard visual={v} format={formats[v.measures[0]]} /> : <ChartVisual visual={v} formats={formats} fill />}
+              <VisualFrame visual={v} editing={editing} onGrab={(e) => begin(e, v.id, "move")} onDrillUp={() => props.onDrillUp(v.id)}>
+                {v.type === "kpi" ? (
+                  <KpiCard visual={v} format={formats[v.measures[0]]} />
+                ) : (
+                  <ChartVisual
+                    visual={v}
+                    formats={formats}
+                    fill
+                    picked={props.chosen.find((f) => f.source === v.id)?.values}
+                    onPick={v.group_by.length === 1 || v.type === "table" ? (value) => props.onPick(v, value) : undefined}
+                  />
+                )}
               </VisualFrame>
               {editing && selected === v.id && <span className="resize-handle" onPointerDown={(e) => begin(e, v.id, "resize")} title="Drag to resize" aria-hidden="true" />}
             </article>
@@ -636,7 +675,7 @@ function ReportCanvas(props: {
   );
 }
 
-function VisualFrame(props: { visual: Visual; editing: boolean; onGrab: (e: ReactPointerEvent) => void; children: ReactNode }) {
+function VisualFrame(props: { visual: Visual; editing: boolean; onGrab: (e: ReactPointerEvent) => void; onDrillUp: () => void; children: ReactNode }) {
   const { visual, editing } = props;
   // The AI sometimes titles a card just "KPI"; the measure name says more.
   const title = visual.type === "kpi" && /^\s*kpi\s*$/i.test(visual.title) ? visual.measures[0] ?? visual.title : visual.title;
@@ -646,6 +685,16 @@ function VisualFrame(props: { visual: Visual; editing: boolean; onGrab: (e: Reac
         {editing && <GripVertical size={13} className="grip" aria-hidden="true" />}
         <h3>{title}</h3>
         {editing && visual.status === "AI" && <span className="badge ai">AI</span>}
+        {visual.drill ? (
+          <span className="drill-state">
+            <span className="drill-path">{visual.drill.filters.map((f) => f.values?.join(", ")).join(" › ")}</span>
+            <button className="tool" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => (e.stopPropagation(), props.onDrillUp())} title="Drill up" aria-label="Drill up">
+              <ArrowUp size={13} />
+            </button>
+          </span>
+        ) : (
+          visual.drill_next && <span className="drill-hint" title={`Click a point to see it by ${visual.drill_next}`}>Click to drill</span>
+        )}
       </header>
       <div className="visual-body">{visual.error ? <p className="bad small">{visual.error}</p> : props.children}</div>
       {editing && visual.advice?.map((tip) => (
@@ -1098,7 +1147,7 @@ function SlicerBar(props: {
   const [over, setOver] = useState(false);
   const slicers = page.slicers ?? [];
   const fixed = page.filters ?? [];
-  if (!slicers.length && !fixed.length && !editing) return null;
+  if (!slicers.length && !fixed.length && !chosen.length && !editing) return null;
 
   const setSlicers = (next: { table: string; column: string }[]) => onChange(() => reportApi.setSlicers(dashboardId, page.id, next));
 
@@ -1157,6 +1206,16 @@ function SlicerBar(props: {
           </span>
         );
       })}
+      {chosen
+        .filter((f) => f.source && !slicers.some((sl) => sameColumn(sl, f)))
+        .map((f) => (
+          <span key={`${f.source}${f.column}`} className="filter-chip picked" title="Picked by clicking a visual">
+            {filterText(f)}
+            <button className="pill-x" aria-label={`Remove ${filterText(f)}`} onClick={() => onChoose(chosen.filter((x) => x !== f))}>
+              <X size={11} />
+            </button>
+          </span>
+        ))}
       {chosen.length > 0 && (
         <>
           <button className="link small" onClick={() => onChoose([])}>
@@ -1333,21 +1392,66 @@ function axisValue(format: MeasureFormat | undefined) {
 }
 
 /** A chart; `fill` makes it take its box on the canvas instead of a height of its own. */
-export function ChartVisual({ visual, formats, fill = false }: { visual: Visual; formats: Record<string, MeasureFormat>; fill?: boolean }) {
+export function ChartVisual(props: {
+  visual: Visual;
+  formats: Record<string, MeasureFormat>;
+  fill?: boolean;
+  picked?: Value[];
+  onPick?: (value: Value) => void;
+}) {
+  const { visual, formats, fill = false, picked } = props;
   const data = visual.data as ChartData;
   const groups = visual.group_by.length;
-  const option = useMemo(() => chartOption(visual, data, formats), [visual, data, formats]);
+  const pickedKey = JSON.stringify(picked ?? null);
+  const option = useMemo(
+    () => highlight(chartOption(visual, data, formats), visual, data, picked),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [visual, data, formats, pickedKey],
+  );
+  const onPick = props.onPick;
+  const pickName = onPick
+    ? (name: string) => {
+        const row = data.rows.find((r) => (r[0] === null ? "(blank)" : String(r[0])) === name);
+        if (row && row[0] !== null) onPick(row[0] as Value);
+      }
+    : undefined;
 
-  if (visual.type === "table") return <DetailTable visual={visual} data={data} formats={formats} />;
+  if (visual.type === "table") return <DetailTable visual={visual} data={data} formats={formats} picked={picked} onPick={onPick} />;
   const rows = data.rows.length;
   const bars = visual.type === "stacked_bar" ? new Set(data.rows.map((r) => r[0])).size : rows;
   const height = visual.type === "bar" || visual.type === "stacked_bar" ? Math.max(160, bars * 32 + 56) : 260;
   return (
     <>
-      {option && (fill ? <div className="chart-fill"><Chart option={option} height="100%" label={`${visual.title} chart`} /></div> : <Chart option={option} height={height} label={`${visual.title} chart`} />)}
+      {option &&
+        (fill ? (
+          <div className="chart-fill">
+            <Chart option={option} height="100%" label={`${visual.title} chart`} onPick={pickName} />
+          </div>
+        ) : (
+          <Chart option={option} height={height} label={`${visual.title} chart`} onPick={pickName} />
+        ))}
       <Footnotes data={data} groups={groups} />
     </>
   );
+}
+
+/** The category picked in this chart stays bright; the others fade, as in Power BI. */
+function highlight(option: EChartsCoreOption | null, visual: Visual, data: ChartData, picked: Value[] | undefined) {
+  if (!option || !picked?.length || visual.group_by.length !== 1) return option;
+  const on = new Set(picked.map(String));
+  const labels = data.rows.map((r) => (r[0] === null ? "(blank)" : String(r[0])));
+  const series = (option as { series?: { type: string; data: unknown[] }[] }).series ?? [];
+  return {
+    ...option,
+    series: series.map((s) => ({
+      ...s,
+      data: s.data.map((point, i) => {
+        const label = s.type === "pie" ? (point as { name: string }).name : visual.type === "bar" ? [...labels].reverse()[i] : labels[i];
+        const base = typeof point === "object" && point !== null ? point : { value: point };
+        return on.has(label) ? base : { ...(base as object), itemStyle: { ...((base as { itemStyle?: object }).itemStyle ?? {}), opacity: 0.3 } };
+      }),
+    })),
+  };
 }
 
 function Footnotes({ data, groups }: { data: ChartData; groups: number }) {
@@ -1490,7 +1594,8 @@ function chartOption(visual: Visual, data: ChartData, formats: Record<string, Me
   };
 }
 
-function DetailTable({ visual, data, formats }: { visual: Visual; data: ChartData; formats: Record<string, MeasureFormat> }) {
+function DetailTable(props: { visual: Visual; data: ChartData; formats: Record<string, MeasureFormat>; picked?: Value[]; onPick?: (value: Value) => void }) {
+  const { visual, data, formats, picked, onPick } = props;
   const groups = visual.group_by.length;
   const key = data.rows.map((r) => Math.abs((r[groups] as number) ?? 0));
   const max = Math.max(...key, 0) || 1;
@@ -1509,7 +1614,11 @@ function DetailTable({ visual, data, formats }: { visual: Visual; data: ChartDat
           </thead>
           <tbody>
             {data.rows.map((row, r) => (
-              <tr key={r}>
+              <tr
+                key={r}
+                className={`${onPick ? "pickable" : ""} ${picked?.length ? (picked.includes(row[0] as Value) ? "picked" : "faded") : ""}`}
+                onClick={onPick && row[0] !== null ? () => onPick(row[0] as Value) : undefined}
+              >
                 {row.map((value, i) =>
                   i < groups ? (
                     <td key={i}>{value === null ? <span className="null">(blank)</span> : String(value)}</td>

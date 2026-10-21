@@ -383,3 +383,26 @@ def test_page_filters_apply_for_everyone_and_are_checked(p):
     wrong_type = p.api.put(f"{p.base}/pages/{page}/filters",
                            json={"filters": [{"table": "Date", "column": "Year", "operator": "equals", "value": "soon"}]})
     assert wrong_type.status_code == 400
+
+
+def test_a_click_filters_the_rest_of_the_page_but_not_the_visual_clicked(p):
+    page = p.page()
+    ok(p.visual(page, type="bar", title="By segment", measures=["Revenue"], group_by=SEGMENT))
+    ok(p.visual(page, type="kpi", title="Orders", measures=["Orders"]))
+    bar = next(v for v in p.visuals() if v["type"] == "bar")
+    picked = [{**RETAIL[0], "source": bar["id"]}]
+    shown = {v["type"]: v for v in view_with(p, page, picked)["pages"][0]["visuals"]}
+    assert shown["bar"]["data"]["rows"] == [["Retail", 50.0], ["Online", 14.0]]  # the clicked chart keeps every bar
+    assert shown["kpi"]["data"]["value"] == 1  # Retail orders in 2025 to date; the card follows the click
+
+
+def test_date_charts_drill_down_for_one_viewer(p):
+    page = p.page()
+    ok(p.visual(page, type="column", title="Revenue by year", measures=["Revenue"], group_by=[{"table": "Date", "column": "Year"}]))
+    visual = p.visuals()[0]
+    assert visual["drill_next"] == "Year Month" and visual["data"]["rows"] == [[2024, 40.0], [2025, 24.0]]
+    drill = {visual["id"]: {"column": "Year Month", "filters": [{"table": "Date", "column": "Year", "operator": "in", "values": [2024]}]}}
+    down = ok(p.api.get(p.base, params={"drill": json.dumps(drill)}))["pages"][0]["visuals"][0]
+    assert down["group_by"][0]["column"] == "Year Month" and down["drill_next"] == "Date"
+    assert [r[0] for r in down["data"]["rows"] if r[1]] == ["2024-01", "2024-02", "2024-11"]
+    assert p.visuals()[0]["group_by"][0]["column"] == "Year"  # saved visual unchanged

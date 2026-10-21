@@ -559,6 +559,8 @@ export type Visual = {
   kpi: { direction?: "higher_is_better" | "lower_is_better" };
   width: "half" | "full";
   layout?: GridBox;
+  drill?: Drill | null;
+  drill_next?: string | null;
   insight: { text: string; check: { verified: boolean; unmatched: number[] } } | null;
   status: "AI" | "Approved";
   reason: string;
@@ -571,7 +573,18 @@ export type Visual = {
 export type GridBox = { x: number; y: number; w: number; h: number };
 
 /** A filter on a report page: fixed by its creator, or chosen in a slicer by whoever is looking. */
-export type PageFilter = { table: string; column: string; operator: string; values?: (string | number | boolean)[]; value?: string | number };
+export type PageFilter = {
+  table: string;
+  column: string;
+  operator: string;
+  values?: (string | number | boolean)[];
+  value?: string | number;
+  /** The visual it was picked in by a click; that visual itself stays unfiltered. */
+  source?: string;
+};
+
+/** A date chart shown further down (Year → Year Month → Date) for one viewer. */
+export type Drill = { column: string; filters: PageFilter[] };
 
 /** The page on show and its slicer choices, sent with Ask and Report chat questions so they answer for them. */
 export type PageScope = { page_id: string | null; filters: PageFilter[] };
@@ -633,9 +646,11 @@ export const dashboardsApi = {
 };
 
 export const reportApi = {
-  state: (id: string, side: "draft" | "published" = "draft", page?: string, filters?: PageFilter[]) =>
+  state: (id: string, side: "draft" | "published" = "draft", page?: string, filters?: PageFilter[], drill?: Record<string, Drill>) =>
     request<ReportState>(
-      `${rp(id)}?side=${side}${page && filters?.length ? `&page=${encodeURIComponent(page)}&filters=${encodeURIComponent(JSON.stringify(filters))}` : ""}`,
+      `${rp(id)}?side=${side}` +
+        (page && filters?.length ? `&page=${encodeURIComponent(page)}&filters=${encodeURIComponent(JSON.stringify(filters))}` : "") +
+        (drill && Object.keys(drill).length ? `&drill=${encodeURIComponent(JSON.stringify(drill))}` : ""),
     ),
   values: (id: string, table: string, column: string) =>
     request<SlicerValues>(`${rp(id)}/values?table=${encodeURIComponent(table)}&column=${encodeURIComponent(column)}`),
