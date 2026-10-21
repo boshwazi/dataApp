@@ -303,19 +303,20 @@ Since CHIP has no subscription engine, we build a small one:
 
 Phase 1 (M0 to M10b) is done. The rest of the work to a paid, secure launch is in
 [PHASE2_PLAN.md](PHASE2_PLAN.md):
-- M11 Power BI import and export
-- M11b Power BI follow-ups (connector labels, refresh from a newer .pbix)
+- M11b Power BI follow-ups
 - M12 AI engines and model depth
-- M13 Accounts and brand
-- M14 Permissions
-- M15 Billing
-- M16 Go online
+- M13 Professional workspace UI
+- M14 Performance and code health
+- M15 Accounts and brand
+- M16 Permissions and RLS
+- M17 Billing
+- M18 Go online
 - private beta
-- M17 Compliance and hardening
+- M19 Compliance and hardening
 - public launch
-- M18 Product depth
+- M20 Product depth
 
-Development stays local until M16.
+Development stays local until M18.
 
 ## Stack (today)
 

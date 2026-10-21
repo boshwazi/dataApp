@@ -5,10 +5,10 @@ chats in every stage, publishing, refresh, PDF export, lineage, sign-in, workspa
 invites and Postgres with row-level security.
 
 Phase 2 makes it something Malaysian companies can sign up for, trust with their data and pay
-for. It has ten workstreams, delivered as eight milestones (M11 to M18).
+for. It has twelve workstreams, delivered as ten milestones (M11 to M20).
 
 Development stays on this computer (local testing, no domain or hosting) until the product is
-further along. Going online is M16, just before the private beta.
+further along. Going online is M18, just before the private beta.
 
 ## Where the gaps are
 
@@ -91,7 +91,7 @@ open ports. The app is reachable only while the PC is on and the tunnel runs.
 | --- | --- | --- | --- |
 | [ngrok](https://ngrok.com/docs/pricing-limits/free-plan-limits) | One **stable** dev domain, `<name>.ngrok-free.app` | 1 GB out a month, 20,000 requests, 3 endpoints; no session time limit | Easiest stable address. Visitors' browsers see an ngrok warning page once, then a cookie hides it for days ([write-up](https://merginit.com/blog/19062026-free-developer-tunnels-comparison)) |
 | [Cloudflare quick tunnel](https://flaviocopes.com/cloudflare-quick-tunnels/) | Random `*.trycloudflare.com`, new each run | No published cap | No account, no warning page; but the address changes, so sign-in settings need updating each time |
-| Cloudflare named tunnel | Stable, on **your own** domain | Free plan | Best once a domain is bought (M16); no warning page |
+| Cloudflare named tunnel | Stable, on **your own** domain | Free plan | Best once a domain is bought (M18); no warning page |
 | [Tailscale Funnel](https://tailscale.com/docs/features/tailscale-funnel.md) | Stable `<machine>.<tailnet>.ts.net` | Unpublished bandwidth limits; ports 443, 8443, 10000 only; still in beta | Fine for a few testers; not a brand |
 
 **How to share datawazi with ngrok** (about 10 minutes, nothing to buy)
@@ -148,6 +148,13 @@ The baseline is [OWASP ASVS 5.0](https://owasp.org/www-project-application-secur
   - **Output handling.** AI text is rendered as text and safe Markdown only. This is done.
 - **Files.** Keep the 200 MB cap but enforce it per plan. Reject zip bombs and huge sheet counts, and parse in a worker with a time limit. Excel macros and formulas already don't run.
 - **Dependencies.** Weekly `pip-audit` and `npm audit` in CI, with Dependabot updates.
+- **Found while building Phase 2, to fix:**
+  - **Parse in a sandbox.** Power BI files are parsed in the API process. Move parsing to a sandboxed worker with time and memory limits, like the other uploads.
+  - **Encrypt the AI key.** It sits in a local settings file. Move it to the secret store with the other keys.
+  - **Re-check Google Sheets links after redirects.** Fetching is limited to `docs.google.com`; make sure redirects can't lead elsewhere (server-side request forgery).
+  - **Review the admin powers.** The service account used for background jobs bypasses row-level security. Keep its use to named jobs, log each use, and never use it for a user's request.
+  - **Sign-in brute force.** Supabase limits sign-in attempts. Add the app's own limits on invites and password-less code checks.
+- **Secure coding review:** an OWASP review skill against Top 10:2025, ASVS 5.0 and the LLM Top 10 on every milestone, plus the external penetration test before launch.
 - **Reviews.**
   - Run `/security-review` on every milestone's changes.
   - Add an OWASP review skill (below).
@@ -155,7 +162,7 @@ The baseline is [OWASP ASVS 5.0](https://owasp.org/www-project-application-secur
 
 ### C. Login and accounts
 
-- **Landing page** (with M13's brand work): what datawazi does, a live demo dashboard, pricing, sign-up.
+- **Landing page** (with M15's brand work): what datawazi does, a live demo dashboard, pricing, sign-up.
 - **Sign-up flow:**
   1. Sign in.
   2. Name the company workspace.
@@ -179,9 +186,17 @@ The baseline is [OWASP ASVS 5.0](https://owasp.org/www-project-application-secur
   - specific people and groups
   - owner only (a private draft)
 - **Groups.** "Finance" or "Sales team", so sharing doesn't mean picking people one by one.
-- **Row-level security inside datasets.** Rules such as "viewers in group Northern see `Region = Northern`".
-  - The engine adds the filter to every query for that viewer, including Ask and PDF export.
-  - Creators can preview a dashboard "as" a group to check it. This was "Later" in the Phase 1 plan; Team customers will expect it.
+- **Row-level security (RLS) inside datasets.** There are two kinds, and both matter:
+  - **Between companies (done in M10b).** Postgres row-level security and the API keep each workspace's records apart, tested on every endpoint and directly in the database.
+  - **Within a company's data (this milestone).** Who sees which rows of a dataset.
+    - **Roles:** a dataset defines roles such as "Northern region" with a rule (`sales[Region] = "Northern"`) or a dynamic rule tied to the person (`Managers[Email] = the signed-in user's email`, like Power BI's `USERPRINCIPALNAME()`).
+    - **Assignment:** roles are given to groups or people in the dataset's settings. Someone with no role sees nothing, unless a rule allows all.
+    - **Enforcement:** the rule filters the table it names and flows through relationships to related tables. That's the same model as Power BI, and it uses the engine's existing relationship paths.
+    - **Everywhere:** the filter is added by the engine to every query for that viewer, including visuals, KPI comparisons, Ask, PDF export, share links and exports. The AI never sees rows a viewer couldn't.
+    - **Testing:** creators can **view as** a role or a person to check it. Each role shows how many rows it allows per table.
+    - **Power BI roles** from imported files become these roles.
+    - **Tests:** every query path is tested with a restricted viewer, including totals that must not leak (a KPI's "vs last year" must use only allowed rows).
+  - This was "Later" in the Phase 1 plan. Team customers will expect it.
 - **Share links.** A signed, expiring, revocable link to one published dashboard for people outside the workspace. Read-only, with Ask optional. Admins can switch this off.
 - **Embedding (later).** Signed embed URLs for intranets, after share links.
 - **Ownership.** Datasets and dashboards record an owner. Ownership can be transferred when someone leaves.
@@ -302,7 +317,7 @@ rather than a rival to it.
    - **Deterministic for common patterns:** `SUM`, `AVERAGE`, `MIN`, `MAX`, `COUNT`, `COUNTROWS`, `DISTINCTCOUNT`, `DIVIDE`, arithmetic between measures, `SUMX('t', [a] * [b])`, and `CALCULATE` with simple column filters.
    - **The rest go to the Model AI,** which proposes catalogue measures. The engine checks them, and the user approves each one in Review mode.
    - **Anything that can't be expressed** (time intelligence, iterators over virtual tables, and similar) is kept as "Power BI measure, not converted", with its DAX shown, so nothing is silently lost.
-6. **Roles** (Power BI row-level security) become row-level security rules in the dataset (M14).
+6. **Roles** (Power BI row-level security) become row-level security rules in the dataset (M16).
 7. **An import report** says what came across, what was converted by rule, what by the AI, and what was left behind.
    - Lineage shows "imported from Sales.pbix".
    - Every converted measure's total is computed, so the user can compare it with Power BI.
@@ -367,7 +382,7 @@ code, for example the Uber duplicates, the refused pie chart and "which row was 
 | **Model** (`ai_model`) | Relationships, date table and measures in one pass, from checked key candidates | Measures limited to sum, average, count, distinct count, min, max and arithmetic, with filters only on the measure's own table. No calculated columns, no IF/SWITCH, no way to use an inactive relationship. No time intelligence beyond KPI cards. No hierarchies, display folders or synonyms. No review of model quality | **Time-intelligence measure kinds:** YTD, previous year, year-on-year %, rolling 3 or 12 months, month-to-date, each checked by the engine. **Hierarchies** (Year → Quarter → Month, Category → Product). **Synonyms** for Ask ("revenue" = "sales"). A **model best-practice check**, like Tabular Editor's analyser: unused columns, missing formats, ambiguous paths, many-to-many risks |
 | **Report** (`ai_report`) | Designs pages from house-style rules; writes checked insights | **No filters or slicers on dashboards** (the biggest gap for business users). No drill-down. Insights are one sentence per visual. No consistent colour per category across visuals | **Page filters and slicers** (date range, segment, region) that every visual and Ask respect. **Drill-down** on hierarchies. **Anomaly notes:** the engine finds outliers and changes with statistics, and the AI only explains what it found. The same category keeps the same colour everywhere. Alt text for every chart |
 | **Stage chats** (`chat.py`) | One request, one reply with checked actions; Full AI or Review | Can't look things up mid-answer (only summaries in context, which is why it couldn't show the duplicate). Wide tables crowd the prompt. Replies arrive all at once | **Read tools in a short tool loop:** preview rows, run a measure, show removed rows, explain a step. Called by the AI, run by the engine, read-only. **Streaming replies.** Context trimmed to the columns that matter. Clarifying questions when a request is ambiguous |
-| **Ask** (`ask.py`) | Plans up to 3 queries over measures, answers with "how this was calculated" and checked numbers | No relative dates ("last quarter", "this year so far"). Can't use dashboard filters. Bar and line answers only. No "why" analysis | **Relative dates** resolved by the engine against the data's latest date. Respect page filters and row-level security (M14). **"Why did X change?"**: the engine splits the change by each dimension, and the AI narrates the biggest contributors. **Pin an answer** to the dashboard as a visual. Saved questions |
+| **Ask** (`ask.py`) | Plans up to 3 queries over measures, answers with "how this was calculated" and checked numbers | No relative dates ("last quarter", "this year so far"). Can't use dashboard filters. Bar and line answers only. No "why" analysis | **Relative dates** resolved by the engine against the data's latest date. Respect page filters and row-level security (M16). **"Why did X change?"**: the engine splits the change by each dimension, and the AI narrates the biggest contributors. **Pin an answer** to the dashboard as a visual. Saved questions |
 | **Export summary** (`export.py`) | 3 to 5 checked bullets for the PDF | One tone. Whole dashboard only | Per-page summaries; audience choice (executive or analyst); comparison with the last export ("since last month…") |
 | **Refresh** (`refresh.py`) | Rule checks after each refresh (rows, blanks, totals) | No narrative. No alerts on unusual values | A plain-words summary of what changed. Alerts when a measure moves beyond its usual range |
 
@@ -388,6 +403,104 @@ code, for example the Uber duplicates, the refused pie chart and "which row was 
 - **Feedback.** Thumbs up or down and approve or reject rates per engine, so weak spots show up in numbers.
 - **Bahasa Malaysia.** Every engine replies in the user's chosen language, and numbers keep their checked values.
 
+### K. Product design: from guided tool to professional workspace
+
+**Why it still feels like a toy.** The look is cleaner now, but the app behaves like a wizard: the
+AI does each step and the user mostly approves. Professional tools (Power BI, Databricks, Hex,
+Tableau) let people **work directly**, with the AI as a fast assistant rather than the only way in.
+The signs that read as "toy" today:
+
+- **No direct manipulation.** You can't drag a field onto a chart, drag a visual to move or resize it, drag between columns to make a relationship, or right-click a column for its actions.
+- **No properties panes.** A chart's fields, sort, colours and labels can only be changed by asking the AI.
+- **Thin data views.** Tables don't sort, filter, resize columns or scroll smoothly through large data.
+- **Chatty tone and many "AI" badges**, where pro tools are terse and precise.
+- **No formula bar** with autocomplete and inline errors for measures.
+- **Dashboards with no filters or slicers** (in M12), no cross-highlighting, no drill-down.
+- **No object explorer.** There's no tree of datasets → tables → columns → measures to browse and search, like Databricks' catalog or Power BI's Data pane.
+- **No dark mode and no density setting.**
+
+**What to build**
+
+1. **Design system first.** A small component library with one look, written once and used everywhere:
+   - data grid (virtualised, sortable, filterable, resizable columns, copy cells)
+   - resizable split panes, tabs, tree, popover menus and right-click menus
+   - tooltips, formula input, toolbar
+   - light and dark themes; comfortable and compact density
+   - keyboard shortcuts with a cheat sheet (`?`)
+
+   It replaces the current stylesheet. A component gallery page keeps it consistent.
+2. **Three-pane editors, like Power BI Desktop:**
+   - **Transform (like Power Query):**
+     - the data grid in the middle
+     - column-header menus for every step (change type, rename, remove, replace, fill)
+     - Applied Steps on the right
+     - a step's effect highlighted in the grid (changed cells, removed rows)
+   - **Model:**
+     - a diagram you can drag tables around in
+     - drag a column onto another table to make a relationship, with the engine's checks shown as you drop
+     - a properties pane for tables, columns and measures
+     - a **formula bar** for measures with autocomplete of tables, columns and measures, live checking and a preview value
+   - **Report:**
+     - a **canvas** with a snap grid: drag to place, resize, align and distribute visuals
+     - a **Fields pane**: drag fields onto a visual's slots (axis, values, legend)
+     - a **Format pane** for titles, labels, colours and sort
+     - page and visual filters, slicers, cross-highlighting, drill-down
+     - undo and redo for every edit
+3. **The AI as an assistant, not the only path.** Every AI action becomes an ordinary edit you can see and change in those panes. AI suggestions appear inline, in the grid, the diagram or on the canvas, as reviewable changes. The "AI" badge stays only for changes still waiting for review.
+4. **Workspace navigation:**
+   - an **object explorer** tree on the left of each editor
+   - global search across tables, columns, measures and visuals
+   - recent items and favourites on Home
+   - tabs for open datasets and dashboards
+5. **Tone and polish:**
+   - Shorter, precise copy.
+   - Numbers right-aligned in tabular figures everywhere.
+   - Consistent empty, loading and error states.
+   - Optimistic updates with undo toasts.
+   - Motion only where it explains a change.
+6. **How it's checked.**
+   - An audit with the installed `ui-ux-pro-max`, `design-taste-frontend` and `web-design-guidelines` skills.
+   - Screenshots at three widths.
+   - Testing with 3 to 5 real analysts on three tasks each: clean a file, build a model, make a dashboard. Fix what they stumble on.
+   - Benchmark side by side against Power BI Desktop for the same tasks.
+
+### L. Performance and code health
+
+Measured in October 2026:
+- The stylesheet is about 4,000 lines of layered overrides (30 `!important`).
+- Every Transform change re-runs and re-profiles every table.
+- The DuckDB file is reopened on each request.
+- Undo history keeps up to 30 full copies inside each dataset record.
+- Dashboards recompute every visual each time they open.
+- The main JavaScript bundle is about 590 KB.
+
+**Backend speed**
+- **Incremental Transform.** Re-run only the changed table and the tables that depend on it. Profile lazily: a cheap row count straight away, the full profile in the background.
+- **Cached results.** Visual data, KPI comparisons and Ask queries are cached per dataset version and filter set. Published versions never change, so their cache never goes stale. Dashboards then open instantly.
+- **Connection reuse.** A small pool of DuckDB connections per dataset instead of reopening the file on each request. Read-only connections for published versions.
+- **Lighter records.** Undo history and the activity log move out of the dataset record into their own Postgres tables. Saves write only what changed.
+- **Background work.** AI runs, refreshes, Power BI parsing and exports go to the job queue, with progress in the browser and nothing blocking a request.
+- **Scale tests.** Load 1 million and 10 million row tables. Measure time to import, clean, model and open a dashboard, and set limits per plan from the results.
+
+**Frontend speed**
+- Split the bundle so each page loads only what it uses: the Supabase client, charts and editors load on demand.
+- A request cache (stale-while-revalidate) so moving between pages doesn't refetch everything.
+- Virtualised grids and lists.
+- Skip re-rendering charts whose data didn't change.
+
+**Code health**
+- **One API contract:** generate the TypeScript client and types from the backend's OpenAPI schema, so frontend and backend can't drift.
+- **Checks in CI:**
+  - Ruff and Pyright (type checking) for Python.
+  - ESLint and the TypeScript compiler for the frontend.
+  - Playwright end-to-end tests for the key journeys.
+  - Dependency audits.
+- **Split large modules** by concern: `chat.py` (650 lines), `model.py`, `transform.py`, and `Dashboard.tsx` (700 lines). Same behaviour, smaller files, tests kept green.
+- **Rewrite the stylesheet** on the design system's tokens and components (K). Delete the override layers.
+- **One error model:** structured error codes from the API, the same error component everywhere, and messages that say what to do.
+- **Hunt the flaky test** seen in Phase 1. Make every test independent of timing.
+
+
 ## Milestones
 
 | # | Delivers | Needs from you |
@@ -395,18 +508,20 @@ code, for example the Uber duplicates, the refused pie chart and "which row was 
 | **M11** Power BI interoperability ✓ done | Import `.pbix` (model and data) and `.pbip` (model, then match data); DAX to measures with an import report; export a `.pbip` project with TMDL, DAX and data files; round-trip tests | A few real `.pbix`/`.pbip` files to test with |
 | **M11b** Power BI follow-ups | Connector and "snapshot as of" labels per table; DirectQuery and live-connection files flagged; refresh a dataset by uploading a newer `.pbix` | Nothing |
 | **M12** AI engines and model depth | **Model depth:** calculated columns (a Transform "add column" step and model columns), measure filters on other tables (Revenue where Customers[Segment] = Retail), conditional measures (IF/SWITCH), measures that use an inactive relationship (order date vs ship date); later many-to-many, two-way filtering and display folders. **AI:** evaluation suite; metering per call; dashboard filters and slicers; time-intelligence measures; hierarchies and synonyms; chat read tools in a tool loop with streaming; Transform plan-check-repair loop and ordering rules; Ask relative dates and "why" analysis; personal-data detection and masking; Power Query (M) from a `.pbip` replayed as Transform steps by the AI, with review | Nothing (uses the current AI key); a second AI provider key later, for fallback |
-| **M13** Accounts and brand | Logo and brand, landing page, sign-up and onboarding, account and workspace settings, MFA, Google and Microsoft sign-in, delete and export | Logo direction; Google and Microsoft app registrations |
-| **M14** Permissions | Per-item sharing, groups, row-level security in datasets (and imported Power BI roles), share links, owners, audit log | Decide default sharing |
-| **M15** Billing | Plans and limits, AI credit metering, CHIP checkout and renewals (CHIP sandbox while local), receipts, billing page | CHIP sandbox account; final prices later |
-| **M16** Go online | Beta: an ngrok free address (or Cloudflare Tunnel, or Oracle Always Free) with a Supabase Free project in Singapore (RM 0). Launch: domain, Resend email, Fly.io with HTTPS, Supabase Pro. Both: staging, CI, secrets, durable data files, job queue, rate limits, security headers | Beta: nothing to buy. Launch: the domain, a Fly.io account, Supabase Pro |
+| **M13** Professional workspace UI | Design system (data grid, split panes, tree, menus, formula input, light and dark, density, shortcuts) replacing the current stylesheet; three-pane editors: Power Query-style Transform grid, draggable model diagram with a formula bar, report canvas with Fields and Format panes, filters, slicers and drill-down; object explorer and global search; terser copy; tested with 3 to 5 analysts | 3 to 5 analysts for an hour each |
+| **M14** Performance and code health | Incremental Transform, cached results per version and filter, connection reuse, history out of records, job queue, 1M and 10M row tests; split bundles and request cache; generated API client, Ruff, Pyright, ESLint and Playwright in CI, large modules split, one error model | Nothing |
+| **M15** Accounts and brand | Logo and brand, landing page, sign-up and onboarding, account and workspace settings, MFA, Google and Microsoft sign-in, delete and export | Logo direction; Google and Microsoft app registrations |
+| **M16** Permissions and RLS | Per-item sharing, groups, row-level security in datasets with static and per-person roles, view-as, enforced in every query path (and imported Power BI roles), share links, owners, audit log | Decide default sharing |
+| **M17** Billing | Plans and limits, AI credit metering, CHIP checkout and renewals (CHIP sandbox while local), receipts, billing page | CHIP sandbox account; final prices later |
+| **M18** Go online | Beta: an ngrok free address (or Cloudflare Tunnel, or Oracle Always Free) with a Supabase Free project in Singapore (RM 0). Launch: domain, Resend email, Fly.io with HTTPS, Supabase Pro. Both: staging, CI, secrets, durable data files, job queue, rate limits, security headers | Beta: nothing to buy. Launch: the domain, a Fly.io account, Supabase Pro |
 | **Private beta** | 5 to 10 friendly companies on Free, invited by you, with feedback built in | Pick the beta companies |
-| **M17** Compliance and hardening | Legal documents, DPO, breach procedure, transfer assessment, monitoring, backup drill, load test, security review, external penetration test | Lawyer review; DPO named; pen-test budget |
+| **M19** Compliance and hardening | Legal documents, DPO, breach procedure, transfer assessment, monitoring, backup drill, load test, security review, external penetration test | Lawyer review; DPO named; pen-test budget |
 | **Public launch** | Billing switched to live CHIP | CHIP live account (registered business, SSM) |
-| **M18** Product depth | Extend a dataset, Power BI report export (dashboards as report pages), database connectors with a gateway agent, Power BI service connector, notifications, scheduled digests, templates, Bahasa Malaysia, help docs | Template priorities |
+| **M20** Product depth | Extend a dataset, Power BI report export (dashboards as report pages), database connectors with a gateway agent, Power BI service connector, notifications, scheduled digests, templates, Bahasa Malaysia, help docs | Template priorities |
 
 Why this order:
-- **Local first.** M11 to M15 build and test on this computer with the current Seoul test project and Gmail sender. Nothing there needs a domain.
-- **Some security work can start early.** Parts of M16 (CI, rate limits, security headers, the job queue) don't need hosting and can be pulled forward whenever convenient.
+- **Local first.** M11 to M17 build and test on this computer with the current Seoul test project and Gmail sender. Nothing there needs a domain.
+- **Some security work can start early.** Parts of M18 (CI, rate limits, security headers) and of M14 (the job queue) don't need hosting and can be pulled forward whenever convenient.
 - **Going online comes before the beta,** because beta companies need a real address, reliable email and data in Singapore.
 - **Billing is built before the beta and switched on at launch,** after the beta has shown which limits matter.
 
@@ -438,11 +553,11 @@ No suitable skills for payments or Supabase came up in your claude.ai skill cata
 
 ## Decisions needed
 
-1. **Domain name (at M16):** until then, an ngrok free address or another free option works (see *Free and low-cost options*). `datawazi.com`, `.my`, `.ai` or `.io`? `.com.my` needs a registered Malaysian business.
+1. **Domain name (at M18):** until then, an ngrok free address or another free option works (see *Free and low-cost options*). `datawazi.com`, `.my`, `.ai` or `.io`? `.com.my` needs a registered Malaysian business.
 2. **Hosting:** Fly.io in Singapore (recommended), or AWS or Azure for enterprise buyers who ask.
 3. **Default sharing:** new dashboards visible to the whole workspace, or private until shared?
 4. **Beta:** which 5 to 10 companies, and when.
 5. **Business registration** for CHIP and for issuing invoices: an existing company, or a new Sdn Bhd?
 6. **Prices:** finalised after measuring AI cost per workspace in the beta.
-7. **Power BI scope for M11:** model import and export first (recommended), with dashboards as Power BI report pages in M18. Or both in M11.
+7. **Power BI scope for M11:** model import and export first (recommended), with dashboards as Power BI report pages in M20. Or both in M11.
 8. **AI engine priorities for M12:** recommended order is evaluation suite and metering, then dashboard filters, then time intelligence, then chat read tools.
