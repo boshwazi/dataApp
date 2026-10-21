@@ -5,10 +5,10 @@ chats in every stage, publishing, refresh, PDF export, lineage, sign-in, workspa
 invites and Postgres with row-level security.
 
 Phase 2 makes it something Malaysian companies can sign up for, trust with their data and pay
-for. It has nine workstreams, delivered as seven milestones (M11 to M17).
+for. It has ten workstreams, delivered as eight milestones (M11 to M18).
 
 Development stays on this computer (local testing, no domain or hosting) until the product is
-further along. Going online is M15, just before the private beta.
+further along. Going online is M16, just before the private beta.
 
 ## Where the gaps are
 
@@ -43,6 +43,58 @@ further along. Going online is M15, just before the private beta.
   - **CI:** GitHub Actions runs the 195 tests and the build on every push.
   - **Deploys:** pushes to `main` deploy to staging; production deploys after a check.
 - **Secrets.** The AI key, database URL and Supabase secret key go to Fly secrets. The Settings page stops writing the AI key to a file.
+
+#### Free and low-cost options (for testing and the beta)
+
+Free offers change often. These were checked in October 2026 and should be confirmed on each
+provider's own page before relying on them.
+
+**Show the app to testers without hosting it: Cloudflare Tunnel (free)**
+- `cloudflared` makes an outbound connection from this computer and gives a public HTTPS address. No server, and no open ports ([guide](https://flaviocopes.com/cloudflare-quick-tunnels/)).
+- A **quick tunnel** needs no account. It gives a random `*.trycloudflare.com` address that lasts while it runs, which is fine for a demo call.
+- A **named tunnel** gives a stable address on your own domain, and needs that domain's DNS on Cloudflare (still free) ([guide](https://flaviocopes.com/cloudflare-tunnel/)).
+- Limits: the app is only reachable while this computer is on. Sign-in redirect URLs must include the tunnel address.
+- This is the recommended way to start the private beta at no cost.
+
+**Free domains and subdomains**
+
+| Option | What you get | Good for | Catch |
+| --- | --- | --- | --- |
+| Platform subdomains (`*.trycloudflare.com`, `*.onrender.com`, `*.fly.dev`, `*.pages.dev`) | An address on the host's domain | Testing | Looks temporary; you can't set up email sending (no DNS control) |
+| [is-a.dev](https://unicorn.is-a.dev/posts/free-domains/) | `datawazi.is-a.dev`, set up through a GitHub pull request | A developer preview | Meant for personal and developer projects, not a commercial product; approval takes time |
+| [Open Domains](https://www.alternativeto.net/software/freenom/) (`is-cool.dev` and similar) | Subdomains with A, CNAME, MX and TXT records | Testing email setup | Not a brand customers will trust |
+| eu.org | A free `*.eu.org` name with full DNS | Long-term free name | Slow manual approval; not a business brand |
+| A paid `.com` through Cloudflare | `datawazi.com` at cost, about US$10/year | **Launch** | Costs a little; needed for Resend email, customer trust and Google/Microsoft sign-in verification |
+
+Free domains work for testing. For a product companies pay for, the US$10/year `.com` is the
+one paid item worth having. Freenom, the old source of free `.tk` and `.ml` domains, no longer
+offers them.
+
+**Free or near-free hosting**
+
+| Option | Free part | Fits datawazi? |
+| --- | --- | --- |
+| This computer + Cloudflare Tunnel | Everything | **Yes, for testing and an early beta.** Only up while the PC is on |
+| [Oracle Cloud Always Free](https://docs.oracle.com/en-us/iaas/Content/FreeTier/resourceref.htm) | ARM virtual machines that stay up, with a disk | **Yes:** a real server with persistent disk for the DuckDB files. Reports say new accounts got 2 CPUs and 12 GB from mid-2026, down from 4 and 24 ([report](https://braindetox.kr/en/posts/oracle_always_free_tier_reduced_2026.html)). Idle machines can be reclaimed, and Singapore capacity isn't confirmed |
+| Render free web service | Sleeps after 15 minutes idle; free Postgres deleted after 90 days ([Render](https://render.com/articles/platforms-with-a-real-free-tier-for-developers-in-2026.md)) | Not really: slow cold starts, and no persistent disk on free |
+| Koyeb free | One very small instance | Too small for DuckDB with real files |
+| Railway | A US$5 trial credit, then pay | Trial only |
+| Fly.io | No free tier for new accounts; small machines from about US$2–5/month ([comparison](https://agentdeals.dev/hosting-free-tier-comparison-2026)) | **The cheapest paid choice in Singapore**, as planned for launch |
+| Supabase Free | 2 projects, small database; pauses after a week idle; no downloadable backups | Fine for testing and staging; production needs Pro (US$25/month) |
+
+**Suggested path**
+
+1. **Now:** local only, as today.
+2. **Private beta:**
+   - Cloudflare quick tunnel from this computer for demos.
+   - Or Oracle Cloud Always Free in Singapore if beta users need it always on.
+   - A Supabase Free project in Singapore.
+   - Cost: RM 0.
+3. **Public launch:**
+   - Buy `datawazi.com` (about US$10/year).
+   - Fly.io Singapore (about US$5–40/month).
+   - Supabase Pro (US$25/month).
+   - Resend Free.
 
 ### B. Security
 
@@ -221,7 +273,7 @@ rather than a rival to it.
    - **Deterministic for common patterns:** `SUM`, `AVERAGE`, `MIN`, `MAX`, `COUNT`, `COUNTROWS`, `DISTINCTCOUNT`, `DIVIDE`, arithmetic between measures, `SUMX('t', [a] * [b])`, and `CALCULATE` with simple column filters.
    - **The rest go to the Model AI,** which proposes catalogue measures. The engine checks them, and the user approves each one in Review mode.
    - **Anything that can't be expressed** (time intelligence, iterators over virtual tables, and similar) is kept as "Power BI measure, not converted", with its DAX shown, so nothing is silently lost.
-6. **Roles** (Power BI row-level security) become row-level security rules in the dataset (M13).
+6. **Roles** (Power BI row-level security) become row-level security rules in the dataset (M14).
 7. **An import report** says what came across, what was converted by rule, what by the AI, and what was left behind.
    - Lineage shows "imported from Sales.pbix".
    - Every converted measure's total is computed, so the user can compare it with Power BI.
@@ -252,23 +304,58 @@ rather than a rival to it.
   - PBIX passwords or embedded credentials are never read or stored.
 - **Limits by plan:** import and export are in Pro and Team. Free can import one `.pbix` to try it.
 
+### J. AI engines: gaps and improvements
+
+Every engine follows the same rule: the AI proposes structured operations and the engine checks
+and runs them. That rule stays. The gaps below come from testing with the real AI and reading the
+code, for example the Uber duplicates, the refused pie chart and "which row was removed?".
+
+| Engine | What it does today | Gaps | Improvements |
+| --- | --- | --- | --- |
+| **Get Data** (`ai_profile`) | Describes each table and column from profiles and 5 sample rows | No semantic types (currency, email, phone, IC number, postcode). No personal-data detection. No hints between tables | Detect semantic types and **personal data** (names, IC numbers, phones, emails), flag it for PDPA, offer masking. Suggest keys across tables at load time. Detect Bahasa Malaysia headers and values |
+| **Transform** (`ai_transform`) | Proposes cleaning steps from the profile, distinct values and samples | Plans in one pass without seeing effects. Step order can lose data (the Uber case). Doesn't know what the model needs | **Plan, check, repair loop:** dry-run every step, show row and value changes, and send any failed check back to the AI once. Built-in ordering rules (remove duplicates before casting, trim before matching). Learn from rejected steps per workspace. Data-quality rules that run on every refresh, such as "order_id unique" and "amount > 0" |
+| **Model** (`ai_model`) | Relationships, date table and measures in one pass, from checked key candidates | Measures limited to sum, average, count, distinct count, min, max and arithmetic. No time intelligence beyond KPI cards. No hierarchies, display folders or synonyms. No review of model quality | **Time-intelligence measure kinds:** YTD, previous year, year-on-year %, rolling 3 or 12 months, month-to-date, each checked by the engine. **Hierarchies** (Year → Quarter → Month, Category → Product). **Synonyms** for Ask ("revenue" = "sales"). A **model best-practice check**, like Tabular Editor's analyser: unused columns, missing formats, ambiguous paths, many-to-many risks |
+| **Report** (`ai_report`) | Designs pages from house-style rules; writes checked insights | **No filters or slicers on dashboards** (the biggest gap for business users). No drill-down. Insights are one sentence per visual. No consistent colour per category across visuals | **Page filters and slicers** (date range, segment, region) that every visual and Ask respect. **Drill-down** on hierarchies. **Anomaly notes:** the engine finds outliers and changes with statistics, and the AI only explains what it found. The same category keeps the same colour everywhere. Alt text for every chart |
+| **Stage chats** (`chat.py`) | One request, one reply with checked actions; Full AI or Review | Can't look things up mid-answer (only summaries in context, which is why it couldn't show the duplicate). Wide tables crowd the prompt. Replies arrive all at once | **Read tools in a short tool loop:** preview rows, run a measure, show removed rows, explain a step. Called by the AI, run by the engine, read-only. **Streaming replies.** Context trimmed to the columns that matter. Clarifying questions when a request is ambiguous |
+| **Ask** (`ask.py`) | Plans up to 3 queries over measures, answers with "how this was calculated" and checked numbers | No relative dates ("last quarter", "this year so far"). Can't use dashboard filters. Bar and line answers only. No "why" analysis | **Relative dates** resolved by the engine against the data's latest date. Respect page filters and row-level security (M14). **"Why did X change?"**: the engine splits the change by each dimension, and the AI narrates the biggest contributors. **Pin an answer** to the dashboard as a visual. Saved questions |
+| **Export summary** (`export.py`) | 3 to 5 checked bullets for the PDF | One tone. Whole dashboard only | Per-page summaries; audience choice (executive or analyst); comparison with the last export ("since last month…") |
+| **Refresh** (`refresh.py`) | Rule checks after each refresh (rows, blanks, totals) | No narrative. No alerts on unusual values | A plain-words summary of what changed. Alerts when a measure moves beyond its usual range |
+
+**Across all engines**
+
+- **Evaluation suite.** A fixed set of sample datasets, such as sales, the Uber trips and an HR file, with expected outcomes:
+  - steps that must or must not appear
+  - relationships that must be found
+  - Ask questions with known answers
+
+  Run it on every prompt change and every model or provider change, with a score per engine. Without it, AI quality can only be judged by hand.
+- **Provider choice and fallback.** Only ilmu GLM 5.1 is tested so far. Add a second provider, with per-engine choice (a cheaper model for profiling, a stronger one for modelling) and automatic fallback when one fails or times out.
+- **Cost and speed metering.** Tokens, time and cost per call per engine. This feeds AI credits (billing) and shows which engine to optimise.
+- **Personal data and prompt safety.**
+  - Mask personal-data columns before samples go to the AI.
+  - A workspace switch to send no sample rows at all.
+  - Treat cell values as data in every prompt, which defends against prompt injection hidden in uploaded files.
+- **Feedback.** Thumbs up or down and approve or reject rates per engine, so weak spots show up in numbers.
+- **Bahasa Malaysia.** Every engine replies in the user's chosen language, and numbers keep their checked values.
+
 ## Milestones
 
 | # | Delivers | Needs from you |
 | --- | --- | --- |
 | **M11** Power BI interoperability | Import `.pbix` (model and data) and `.pbip` (model, then match data); DAX to measures with an import report; export a `.pbip` project with TMDL, DAX and data files; round-trip tests | A few real `.pbix`/`.pbip` files to test with |
-| **M12** Accounts and brand | Logo and brand, landing page, sign-up and onboarding, account and workspace settings, MFA, Google and Microsoft sign-in, delete and export | Logo direction; Google and Microsoft app registrations |
-| **M13** Permissions | Per-item sharing, groups, row-level security in datasets (and imported Power BI roles), share links, owners, audit log | Decide default sharing |
-| **M14** Billing | Plans and limits, AI credit metering, CHIP checkout and renewals (CHIP sandbox while local), receipts, billing page | CHIP sandbox account; final prices later |
-| **M15** Go online | Domain, Resend email, Singapore Supabase, Fly.io hosting with HTTPS, staging, CI, secrets, durable data files, job queue, rate limits, security headers | Buy the domain; Fly.io account; Supabase Pro on production |
+| **M12** AI engines | Evaluation suite; metering per call; dashboard filters and slicers; time-intelligence measures; hierarchies and synonyms; chat read tools in a tool loop with streaming; Transform plan-check-repair loop and ordering rules; Ask relative dates and "why" analysis; personal-data detection and masking | Nothing (uses the current AI key); a second AI provider key later, for fallback |
+| **M13** Accounts and brand | Logo and brand, landing page, sign-up and onboarding, account and workspace settings, MFA, Google and Microsoft sign-in, delete and export | Logo direction; Google and Microsoft app registrations |
+| **M14** Permissions | Per-item sharing, groups, row-level security in datasets (and imported Power BI roles), share links, owners, audit log | Decide default sharing |
+| **M15** Billing | Plans and limits, AI credit metering, CHIP checkout and renewals (CHIP sandbox while local), receipts, billing page | CHIP sandbox account; final prices later |
+| **M16** Go online | Beta: Cloudflare Tunnel or Oracle Always Free with a Supabase Free project in Singapore (RM 0). Launch: domain, Resend email, Fly.io with HTTPS, Supabase Pro. Both: staging, CI, secrets, durable data files, job queue, rate limits, security headers | Beta: nothing to buy. Launch: the domain, a Fly.io account, Supabase Pro |
 | **Private beta** | 5 to 10 friendly companies on Free, invited by you, with feedback built in | Pick the beta companies |
-| **M16** Compliance and hardening | Legal documents, DPO, breach procedure, transfer assessment, monitoring, backup drill, load test, security review, external penetration test | Lawyer review; DPO named; pen-test budget |
+| **M17** Compliance and hardening | Legal documents, DPO, breach procedure, transfer assessment, monitoring, backup drill, load test, security review, external penetration test | Lawyer review; DPO named; pen-test budget |
 | **Public launch** | Billing switched to live CHIP | CHIP live account (registered business, SSM) |
-| **M17** Product depth | Extend a dataset, Power BI report export (dashboards as report pages), notifications, scheduled digests, templates, Bahasa Malaysia, help docs | Template priorities |
+| **M18** Product depth | Extend a dataset, Power BI report export (dashboards as report pages), notifications, scheduled digests, templates, Bahasa Malaysia, help docs | Template priorities |
 
 Why this order:
-- **Local first.** M11 to M14 build and test on this computer with the current Seoul test project and Gmail sender. Nothing there needs a domain.
-- **Some security work can start early.** Parts of M15 (CI, rate limits, security headers, the job queue) don't need hosting and can be pulled forward whenever convenient.
+- **Local first.** M11 to M15 build and test on this computer with the current Seoul test project and Gmail sender. Nothing there needs a domain.
+- **Some security work can start early.** Parts of M16 (CI, rate limits, security headers, the job queue) don't need hosting and can be pulled forward whenever convenient.
 - **Going online comes before the beta,** because beta companies need a real address, reliable email and data in Singapore.
 - **Billing is built before the beta and switched on at launch,** after the beta has shown which limits matter.
 
@@ -300,10 +387,11 @@ No suitable skills for payments or Supabase came up in your claude.ai skill cata
 
 ## Decisions needed
 
-1. **Domain name (at M15):** `datawazi.com`, `.my`, `.ai` or `.io`? `.com.my` needs a registered Malaysian business.
+1. **Domain name (at M16):** free subdomains work until then (see *Free and low-cost options*). `datawazi.com`, `.my`, `.ai` or `.io`? `.com.my` needs a registered Malaysian business.
 2. **Hosting:** Fly.io in Singapore (recommended), or AWS or Azure for enterprise buyers who ask.
 3. **Default sharing:** new dashboards visible to the whole workspace, or private until shared?
 4. **Beta:** which 5 to 10 companies, and when.
 5. **Business registration** for CHIP and for issuing invoices: an existing company, or a new Sdn Bhd?
 6. **Prices:** finalised after measuring AI cost per workspace in the beta.
-7. **Power BI scope for M11:** model import and export first (recommended), with dashboards as Power BI report pages in M17. Or both in M11.
+7. **Power BI scope for M11:** model import and export first (recommended), with dashboards as Power BI report pages in M18. Or both in M11.
+8. **AI engine priorities for M12:** recommended order is evaluation suite and metering, then dashboard filters, then time intelligence, then chat read tools.
