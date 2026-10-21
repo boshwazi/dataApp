@@ -82,11 +82,40 @@ offers them.
 | Fly.io | No free tier for new accounts; small machines from about US$2–5/month ([comparison](https://agentdeals.dev/hosting-free-tier-comparison-2026)) | **The cheapest paid choice in Singapore**, as planned for launch |
 | Supabase Free | 2 projects, small database; pauses after a week idle; no downloadable backups | Fine for testing and staging; production needs Pro (US$25/month) |
 
+**Free tunnels compared** (checked October 2026; confirm on each provider's page)
+
+A tunnel gives this computer's datawazi a public HTTPS address with no server, no domain and no
+open ports. The app is reachable only while the PC is on and the tunnel runs.
+
+| Tunnel | Free address | Free limits | Notes |
+| --- | --- | --- | --- |
+| [ngrok](https://ngrok.com/docs/pricing-limits/free-plan-limits) | One **stable** dev domain, `<name>.ngrok-free.app` | 1 GB out a month, 20,000 requests, 3 endpoints; no session time limit | Easiest stable address. Visitors' browsers see an ngrok warning page once, then a cookie hides it for days ([write-up](https://merginit.com/blog/19062026-free-developer-tunnels-comparison)) |
+| [Cloudflare quick tunnel](https://flaviocopes.com/cloudflare-quick-tunnels/) | Random `*.trycloudflare.com`, new each run | No published cap | No account, no warning page; but the address changes, so sign-in settings need updating each time |
+| Cloudflare named tunnel | Stable, on **your own** domain | Free plan | Best once a domain is bought (M16); no warning page |
+| [Tailscale Funnel](https://tailscale.com/docs/features/tailscale-funnel.md) | Stable `<machine>.<tailnet>.ts.net` | Unpublished bandwidth limits; ports 443, 8443, 10000 only; still in beta | Fine for a few testers; not a brand |
+
+**How to share datawazi with ngrok** (about 10 minutes, nothing to buy)
+
+1. Sign up at ngrok.com (free), install the agent, and add your auth token (`ngrok config add-authtoken …`).
+2. Run datawazi on port 8000 as usual, then run `ngrok http 8000`. The dashboard shows your `https://<name>.ngrok-free.app` address, which stays the same each time.
+3. Set `PUBLIC_URL=https://<name>.ngrok-free.app` in `.env` and restart datawazi, so invite emails link to the public address.
+4. In Supabase, go to **Authentication → URL Configuration**: add `https://<name>.ngrok-free.app/**` to Redirect URLs, and set it as the Site URL while testing.
+5. Send testers the address.
+   - Sign-in, invites and dashboards work as they do locally.
+   - 1 GB a month covers demos and a small beta. Big uploads count against it.
+
+**Limits to keep in mind**
+- The app is down when this PC sleeps or the tunnel stops.
+- The warning page and the `ngrok-free.app` name look temporary to customers.
+- Free tunnels are for testing and beta, not for paying customers.
+- None of this changes security: sign-in, roles and row-level security apply as usual.
+
 **Suggested path**
 
 1. **Now:** local only, as today.
 2. **Private beta:**
-   - Cloudflare quick tunnel from this computer for demos.
+   - **ngrok's free stable address** from this computer: the simplest setup, recommended.
+   - Or a Cloudflare quick tunnel for one-off demos.
    - Or Oracle Cloud Always Free in Singapore if beta users need it always on.
    - A Supabase Free project in Singapore.
    - Cost: RM 0.
@@ -294,6 +323,27 @@ rather than a rival to it.
   - An optional `.pbit` template gives a single file instead. It opens in Desktop and loads from the same data files.
 - **Dashboards.** Report pages as Power BI report pages (PBIR): KPI cards become cards, bar, column, line, area, pie and donut charts keep their types, tables become tables, and titles and sort orders carry over. This comes after the model export works.
 
+**After import: sources and refresh**
+
+A `.pbix` holds data for **Import-mode** tables only: the result of Power BI's last refresh, whatever
+connector produced it. datawazi reads that copy, so it needs no connector or credentials, and none
+are stored in the file. Planned follow-ups:
+
+1. **Honest labels.**
+   - Show each imported table's original connector, read from its Power Query text (SQL Server, SharePoint, Salesforce, Excel…), and "snapshot as of <last refresh>", so nobody mistakes it for live data.
+   - **DirectQuery tables** carry no data. Flag them clearly as needing data.
+   - **Live-connection `.pbix` files** (a report on a model in the Power BI service) have no model inside. Say so up front, instead of importing an empty model.
+2. **Refresh from a newer `.pbix`.**
+   - Refresh in Power BI Desktop, then upload the file to the same dataset. Its tables are replaced by name through the existing refresh checks (row changes, totals) and history.
+   - Measures and relationships are re-checked, not re-imported, so edits made in datawazi stay.
+3. **datawazi's own connectors** (later): SQL Server, PostgreSQL, MySQL and SharePoint/OneDrive Excel.
+   - Credentials encrypted per workspace.
+   - Scheduled refresh as with Google Sheets.
+   - For databases inside a company network, a small **gateway agent** the company runs, like Power BI's on-premises data gateway, because a hosted service can't reach inside.
+4. **Power BI service connector** (later): sign in with Microsoft and read a published semantic model's tables through the Power BI REST and XMLA APIs.
+   - Covers live-connection reports.
+   - Refresh stays in Power BI, and datawazi pulls the latest data.
+
 **Checks and safety**
 
 - **Round trip:** exporting a dataset and importing it again gives the same tables, relationships and measure results. This is an automated test.
@@ -343,15 +393,16 @@ code, for example the Uber duplicates, the refused pie chart and "which row was 
 | # | Delivers | Needs from you |
 | --- | --- | --- |
 | **M11** Power BI interoperability ✓ done | Import `.pbix` (model and data) and `.pbip` (model, then match data); DAX to measures with an import report; export a `.pbip` project with TMDL, DAX and data files; round-trip tests | A few real `.pbix`/`.pbip` files to test with |
+| **M11b** Power BI follow-ups | Connector and "snapshot as of" labels per table; DirectQuery and live-connection files flagged; refresh a dataset by uploading a newer `.pbix` | Nothing |
 | **M12** AI engines | Evaluation suite; metering per call; dashboard filters and slicers; time-intelligence measures; hierarchies and synonyms; chat read tools in a tool loop with streaming; Transform plan-check-repair loop and ordering rules; Ask relative dates and "why" analysis; personal-data detection and masking; Power Query (M) from a `.pbip` replayed as Transform steps by the AI, with review | Nothing (uses the current AI key); a second AI provider key later, for fallback |
 | **M13** Accounts and brand | Logo and brand, landing page, sign-up and onboarding, account and workspace settings, MFA, Google and Microsoft sign-in, delete and export | Logo direction; Google and Microsoft app registrations |
 | **M14** Permissions | Per-item sharing, groups, row-level security in datasets (and imported Power BI roles), share links, owners, audit log | Decide default sharing |
 | **M15** Billing | Plans and limits, AI credit metering, CHIP checkout and renewals (CHIP sandbox while local), receipts, billing page | CHIP sandbox account; final prices later |
-| **M16** Go online | Beta: Cloudflare Tunnel or Oracle Always Free with a Supabase Free project in Singapore (RM 0). Launch: domain, Resend email, Fly.io with HTTPS, Supabase Pro. Both: staging, CI, secrets, durable data files, job queue, rate limits, security headers | Beta: nothing to buy. Launch: the domain, a Fly.io account, Supabase Pro |
+| **M16** Go online | Beta: an ngrok free address (or Cloudflare Tunnel, or Oracle Always Free) with a Supabase Free project in Singapore (RM 0). Launch: domain, Resend email, Fly.io with HTTPS, Supabase Pro. Both: staging, CI, secrets, durable data files, job queue, rate limits, security headers | Beta: nothing to buy. Launch: the domain, a Fly.io account, Supabase Pro |
 | **Private beta** | 5 to 10 friendly companies on Free, invited by you, with feedback built in | Pick the beta companies |
 | **M17** Compliance and hardening | Legal documents, DPO, breach procedure, transfer assessment, monitoring, backup drill, load test, security review, external penetration test | Lawyer review; DPO named; pen-test budget |
 | **Public launch** | Billing switched to live CHIP | CHIP live account (registered business, SSM) |
-| **M18** Product depth | Extend a dataset, Power BI report export (dashboards as report pages), notifications, scheduled digests, templates, Bahasa Malaysia, help docs | Template priorities |
+| **M18** Product depth | Extend a dataset, Power BI report export (dashboards as report pages), database connectors with a gateway agent, Power BI service connector, notifications, scheduled digests, templates, Bahasa Malaysia, help docs | Template priorities |
 
 Why this order:
 - **Local first.** M11 to M15 build and test on this computer with the current Seoul test project and Gmail sender. Nothing there needs a domain.
@@ -387,7 +438,7 @@ No suitable skills for payments or Supabase came up in your claude.ai skill cata
 
 ## Decisions needed
 
-1. **Domain name (at M16):** free subdomains work until then (see *Free and low-cost options*). `datawazi.com`, `.my`, `.ai` or `.io`? `.com.my` needs a registered Malaysian business.
+1. **Domain name (at M16):** until then, an ngrok free address or another free option works (see *Free and low-cost options*). `datawazi.com`, `.my`, `.ai` or `.io`? `.com.my` needs a registered Malaysian business.
 2. **Hosting:** Fly.io in Singapore (recommended), or AWS or Azure for enterprise buyers who ask.
 3. **Default sharing:** new dashboards visible to the whole workspace, or private until shared?
 4. **Beta:** which 5 to 10 companies, and when.

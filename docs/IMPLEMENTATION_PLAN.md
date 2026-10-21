@@ -304,6 +304,7 @@ Since CHIP has no subscription engine, we build a small one:
 Phase 1 (M0 to M10b) is done. The rest of the work to a paid, secure launch is in
 [PHASE2_PLAN.md](PHASE2_PLAN.md):
 - M11 Power BI import and export
+- M11b Power BI follow-ups (connector labels, refresh from a newer .pbix)
 - M12 AI engines
 - M13 Accounts and brand
 - M14 Permissions
