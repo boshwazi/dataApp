@@ -471,3 +471,33 @@ def test_the_transform_chat_sees_removed_rows(p):
     assert table["rows_removed_by_steps"] == [
         {"step": 1, "rows_removed": 1, "examples": [{"id": "3", "day": "2024-03-01", "price": "N/A", "region": "N/A", "qty": "x"}]}
     ]
+
+
+SAME_DAY_TRIPS = (
+    "start,miles\n"
+    "1/5/2016 9:10,5.1\n"
+    "1/5/2016 17:45,5.1\n"   # same day, same miles, different trip
+    "1/6/2016 8:00,3.0\n"
+    "1/6/2016 8:00,3.0\n"    # a real duplicate
+)
+
+
+def test_removing_duplicates_after_dropping_times_is_flagged(tmp_path):
+    p = Project(tmp_path)
+    p.upload("trips.csv", SAME_DAY_TRIPS)
+    ok(p.add("trips", "change_type", column="start", to="date", date_order="mdy"))
+    ok(p.add("trips", "remove_duplicates"))  # allowed, but merges the two 5 Jan trips
+    warnings = p.query("trips")["warnings"]
+    assert len(warnings) == 1 and warnings[0]["step"] == 2
+    text = warnings[0]["text"]
+    assert "Removes 2 rows, but only 1 was a duplicate" in text and "step 1 (Change start to date" in text
+    assert "made 1 different row identical" in text and "Move this step before step 1" in text
+
+
+def test_removing_duplicates_first_keeps_real_records_without_a_warning(tmp_path):
+    p = Project(tmp_path)
+    p.upload("trips.csv", SAME_DAY_TRIPS)
+    ok(p.add("trips", "remove_duplicates"))
+    ok(p.add("trips", "change_type", column="start", to="date", date_order="mdy"))
+    trips = p.query("trips")
+    assert trips["warnings"] == [] and trips["rows"] == 3  # only the real duplicate went

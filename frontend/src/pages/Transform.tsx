@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { AlertTriangle } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import {
   api,
@@ -257,6 +258,13 @@ function QueryDetailView({ projectId, query, hasKey, cleaning, run, onClean, onC
               <span>
                 <span className="step-label">{s.label}</span>
                 {s.reason && <span className="muted small step-reason">{s.reason}</span>}
+                {query.warnings
+                  ?.filter((w) => w.step === i + 1)
+                  .map((w) => (
+                    <span key={w.text} className="step-warning" role="note">
+                      <AlertTriangle size={13} aria-hidden="true" /> {w.text}
+                    </span>
+                  ))}
               </span>
             </button>
             <span className="step-tools">

@@ -61,6 +61,7 @@ def query_summary(project: dict, query: dict) -> dict:
         "source_table": source["table"] if source else None,
         "steps": [step_view(s, names) for s in query["steps"]],
         "error": query["error"],
+        "warnings": query.get("warnings", []),
         "rows": profile["rows"] if profile else None,
         "columns": (query["output"] or {}).get("columns", []),
         "issue_count": (

@@ -3902,3 +3902,21 @@ button.workspace:hover {
 .pipeline::-webkit-scrollbar {
   display: none;
 }
+
+.step-warning {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin-top: 4px;
+  padding: 5px 8px;
+  border-radius: var(--radius);
+  background: var(--warn-bg);
+  color: var(--warn);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.step-warning svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}

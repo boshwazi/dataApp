@@ -220,6 +220,7 @@ def tf_context(ctx: Ctx) -> dict:
             "steps": [f"{i}. {describe(s['op'], s['params'], names)} [{s['status']}]" for i, s in enumerate(q["steps"], 1)],
             # Which rows each step dropped, so the agent can show a removed duplicate or a filtered row.
             "rows_removed_by_steps": transform.removals(ctx.con, ctx.project, q),
+            "warnings": q.get("warnings", []),
             "columns": [
                 {"name": c["name"], "type": t["type"], "issues": c["issues"], "distinct": c["distinct"],
                  "top_values": [v["value"] for v in c["top_values"][:3]]}

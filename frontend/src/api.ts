@@ -264,6 +264,7 @@ export type QuerySummary = {
   source_table: string | null;
   steps: Step[];
   error: string | null;
+  warnings?: { step: number; text: string }[];
   rows: number | null;
   columns: { name: string; type: LogicalType }[];
   issue_count: number | null;

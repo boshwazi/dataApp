@@ -443,6 +443,7 @@ def apply_all(con, project: dict) -> None:
             continue
         keep.add(query["name"])
         query["error"] = None
+        query["warnings"] = step_warnings(con, project, query, compiled)
         query["output"] = {
             "columns": [{"name": c.name, "type": c.type} for c in compiled.columns[-1]],
             "profile": profiling.profile_table(con, query["name"], OUTPUT_SCHEMA),
@@ -453,6 +454,46 @@ def apply_all(con, project: dict) -> None:
     for (name,) in existing:
         if name not in keep:
             con.execute(f"DROP TABLE {OUTPUT_SCHEMA}.{quote(name)}")
+
+
+def step_warnings(con, project: dict, query: dict, compiled: Compiled) -> list[dict]:
+    """Things a step does that are allowed but worth a second look. Never blocks the step.
+
+    Today: a "Remove duplicate rows" step that removes more rows than were duplicates in the source,
+    because an earlier step (often turning date-and-time into date only) made different rows identical."""
+    warnings = []
+    steps = query["steps"]
+    exact = [i for i, s in enumerate(steps, 1) if s["op"] == "remove_duplicates" and not (s["params"] or {}).get("columns")]
+    if not exact:
+        return warnings
+    names = query_names(project)
+
+    def rows(k):
+        return con.execute(f"SELECT count(*) FROM ({compiled.sql(k)})").fetchone()[0]
+
+    def distinct(k):
+        return con.execute(f"SELECT count(*) FROM (SELECT DISTINCT * FROM ({compiled.sql(k)}))").fetchone()[0]
+
+    for step in exact:
+        removed = rows(step - 1) - rows(step)
+        in_source = rows(0) - distinct(0)
+        if removed <= in_source:
+            continue
+        # Steps before this one that kept every row but made some rows identical.
+        culprits = []
+        for k in range(1, step):
+            if rows(k) == rows(k - 1) and distinct(k) < distinct(k - 1):
+                culprits.append(f"step {k} ({describe(steps[k - 1]['op'], steps[k - 1]['params'], names)})")
+        merged = removed - max(in_source, 0)
+        cause = (f" {', '.join(culprits)} made {merged} different "
+                 f"{'row' if merged == 1 else 'rows'} identical.") if culprits else ""
+        warnings.append({
+            "step": step,
+            "text": f"Removes {removed} rows, but only {max(in_source, 0)} {'was a duplicate' if in_source == 1 else 'were duplicates'} "
+                    f"in the source.{cause} Move this step before {culprits[0].split(' (')[0] if culprits else 'those steps'}, "
+                    "or keep the detail (such as the time), so real records aren't merged.",
+        })
+    return warnings
 
 
 def needs_apply(project: dict) -> bool:
