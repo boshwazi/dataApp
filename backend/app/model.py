@@ -32,6 +32,8 @@ FILTER_OPERATORS = (
     "equals", "not_equals", "in", "not_in", "is_blank", "is_not_blank", "greater_than", "less_than", "at_least", "at_most",
 )
 MAX_GROUPS = 1000
+# A dashboard page's slicers and filters, put on the bound project; every evaluate() adds them.
+PAGE_FILTERS = "page_filters"
 
 
 class ModelError(ValueError):
@@ -568,11 +570,16 @@ def aggregate_sql(found, relationships, measure: dict, group_by: list[dict], fil
 
 
 def evaluate(con, project: dict, measure_names: list[str], group_by: list[dict] | None = None,
-             filters: list[dict] | None = None, limit: int = MAX_GROUPS) -> dict:
+             filters: list[dict] | None = None, limit: int = MAX_GROUPS, page_filters: str = "all") -> dict:
+    """`page_filters`: "all" adds the page's slicers and filters; "except_dates" leaves out those on the
+    date table (a KPI's comparison with last year); "none" ignores them."""
     model = state(project)
     found = tables(con, project)
     by_name = {m["name"].lower(): m for m in model["measures"]}
-    group_by, filters = group_by or [], filters or []
+    extra = [] if page_filters == "none" else list(project.get(PAGE_FILTERS) or [])
+    if page_filters == "except_dates":
+        extra = [f for f in extra if f.get("table") != DATE_ID]
+    group_by, filters = group_by or [], list(filters or []) + extra
     results: dict[str, dict[tuple, object]] = {}
 
     def compute(name: str) -> dict[tuple, object]:

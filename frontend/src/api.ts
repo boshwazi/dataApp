@@ -570,6 +570,14 @@ export type Visual = {
 /** A visual's place on the report canvas, in cells of a 12-column grid. */
 export type GridBox = { x: number; y: number; w: number; h: number };
 
+/** A filter on a report page: fixed by its creator, or chosen in a slicer by whoever is looking. */
+export type PageFilter = { table: string; column: string; operator: string; values?: (string | number | boolean)[]; value?: string | number };
+
+/** The page on show and its slicer choices, sent with Ask and Report chat questions so they answer for them. */
+export type PageScope = { page_id: string | null; filters: PageFilter[] };
+
+export type SlicerValues = { table: string; column: string; type: LogicalType; values: (string | number | boolean)[]; truncated: boolean };
+
 export type ReportField = { id: string; name: string; columns: { name: string; type: LogicalType }[]; measures: string[] };
 
 export type ReportPage = {
@@ -579,6 +587,9 @@ export type ReportPage = {
   summary: string;
   status: "AI" | "Approved";
   reason?: string;
+  slicers: { table: string; column: string }[];
+  filters: PageFilter[];
+  selected: PageFilter[];
   visuals: Visual[];
 };
 
@@ -622,7 +633,16 @@ export const dashboardsApi = {
 };
 
 export const reportApi = {
-  state: (id: string, side: "draft" | "published" = "draft") => request<ReportState>(`${rp(id)}?side=${side}`),
+  state: (id: string, side: "draft" | "published" = "draft", page?: string, filters?: PageFilter[]) =>
+    request<ReportState>(
+      `${rp(id)}?side=${side}${page && filters?.length ? `&page=${encodeURIComponent(page)}&filters=${encodeURIComponent(JSON.stringify(filters))}` : ""}`,
+    ),
+  values: (id: string, table: string, column: string) =>
+    request<SlicerValues>(`${rp(id)}/values?table=${encodeURIComponent(table)}&column=${encodeURIComponent(column)}`),
+  setSlicers: (id: string, pageId: string, slicers: { table: string; column: string }[]) =>
+    request<ReportState>(`${rp(id)}/pages/${pageId}/slicers`, json("PUT", { slicers })),
+  setFilters: (id: string, pageId: string, filters: PageFilter[]) =>
+    request<ReportState>(`${rp(id)}/pages/${pageId}/filters`, json("PUT", { filters })),
   ai: (pid: string) => request<ReportRun>(`${rp(pid)}/ai`, { method: "POST" }),
   approve: (pid: string, itemId?: string) =>
     request<ReportState>(`${rp(pid)}/approve${itemId ? `?item_id=${itemId}` : ""}`, { method: "POST" }),
@@ -709,11 +729,11 @@ export function datasetChat(datasetId: string, stage: DatasetStage): ChatThread 
   };
 }
 
-export function dashboardChat(dashboardId: string): ChatThread {
+export function dashboardChat(dashboardId: string, scope?: () => PageScope): ChatThread {
   const base = `/api/dashboards/${dashboardId}/chat`;
   return {
     load: () => request(base),
-    send: (message, mode, signal) => request(base, { ...json("POST", { message, mode }), signal }),
+    send: (message, mode, signal) => request(base, { ...json("POST", { message, mode, ...scope?.() }), signal }),
     decide: (changeId, decision) => request(`${base}/changes/${changeId}/${decision}`, { method: "POST" }),
   };
 }
@@ -748,11 +768,18 @@ export type AskResponse = {
   formats: Record<string, MeasureFormat>;
   dataset_version: number;
   as_of: string | null;
+  scope?: string[];
 };
 
 export const askApi = {
-  ask: (dashboardId: string, question: string, history: { role: string; content: string }[], side: "draft" | "published", signal?: AbortSignal) =>
-    request<AskResponse>(`/api/dashboards/${dashboardId}/ask`, { ...json("POST", { question, history, side }), signal }),
+  ask: (
+    dashboardId: string,
+    question: string,
+    history: { role: string; content: string }[],
+    side: "draft" | "published",
+    signal?: AbortSignal,
+    scope?: PageScope,
+  ) => request<AskResponse>(`/api/dashboards/${dashboardId}/ask`, { ...json("POST", { question, history, side, ...scope }), signal }),
 };
 
 // Refresh

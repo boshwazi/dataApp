@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { EChartsCoreOption } from "echarts/core";
-import { askApi, formatCompact, formatMeasure, type AskResponse, type AskResult, type MeasureFormat } from "../api";
+import { askApi, formatCompact, formatMeasure, type AskResponse, type AskResult, type MeasureFormat, type PageScope } from "../api";
 import { Send, Square, X } from "lucide-react";
 import { Chart, TOKENS } from "./Chart";
 import { Markdown } from "./Markdown";
@@ -13,7 +13,8 @@ const STARTERS = ["What stands out on this dashboard?", "Which category is growi
  * Ask questions about a dashboard's data. Read-only: answers come from the same measures the
  * dashboard uses, each with "how this was calculated". The conversation lives in this browser tab.
  */
-export function AskPanel({ dashboardId, side, onClose }: { dashboardId: string; side: "draft" | "published"; onClose?: () => void }) {
+export function AskPanel(props: { dashboardId: string; side: "draft" | "published"; onClose?: () => void; scope?: () => PageScope }) {
+  const { dashboardId, side, onClose } = props;
   const [turns, setTurns] = useState<Turn[]>([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -37,7 +38,7 @@ export function AskPanel({ dashboardId, side, onClose }: { dashboardId: string; 
     const abort = new AbortController();
     controller.current = abort;
     try {
-      const response = await askApi.ask(dashboardId, clean, history, side, abort.signal);
+      const response = await askApi.ask(dashboardId, clean, history, side, abort.signal, props.scope?.());
       setTurns((current) => current.map((t, i) => (i === current.length - 1 ? { ...t, response } : t)));
     } catch (e) {
       const error = abort.signal.aborted ? "Stopped." : (e as Error).message;
@@ -128,6 +129,7 @@ export function Answer({ response, onFollowUp, busy }: { response: AskResponse; 
       ))}
       <p className="muted small">
         Data as of {response.as_of ?? "unknown"}, dataset v{response.dataset_version}
+        {response.scope?.length ? `, for ${response.scope.join("; ")}` : ""}
       </p>
       {response.follow_ups.length > 0 && (
         <div className="chat-empty">

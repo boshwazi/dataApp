@@ -334,3 +334,52 @@ def test_visuals_are_edited_by_hand_and_checked_again(p):
 def test_pages_can_be_renamed(p):
     page = p.page()
     assert ok(p.api.patch(f"{p.base}/pages/{page}", json={"title": "Customers"}))["pages"][0]["title"] == "Customers"
+
+
+# Slicers and page filters
+
+
+RETAIL = [{"table": "customers", "column": "segment", "operator": "in", "values": ["Retail"]}]
+
+
+def view_with(p, page, filters, side="draft"):
+    return ok(p.api.get(p.base, params={"side": side, "page": page, "filters": json.dumps(filters)}))
+
+
+def test_slicers_offer_values_and_filter_the_page_for_one_viewer(p):
+    page = p.page()
+    ok(p.visual(page, type="bar", title="By segment", measures=["Revenue"], group_by=SEGMENT))
+    shown = ok(p.api.put(f"{p.base}/pages/{page}/slicers",
+                         json={"slicers": [{"table": "customers", "column": "segment"}, {"table": "Date", "column": "Year"}]}))
+    assert [s["column"] for s in shown["pages"][0]["slicers"]] == ["segment", "Year"]
+    assert ok(p.api.get(f"{p.base}/values", params={"table": "customers", "column": "segment"}))["values"] == ["Online", "Retail"]
+
+    filtered = view_with(p, page, RETAIL)["pages"][0]
+    assert filtered["visuals"][0]["data"]["rows"] == [["Retail", 50.0]] and filtered["selected"][0]["values"] == ["Retail"]
+    # Nothing is saved: the next look without choices shows everything.
+    assert ok(p.api.get(p.base))["pages"][0]["visuals"][0]["data"]["rows"] == [["Retail", 50.0], ["Online", 14.0]]
+    bad = p.api.get(p.base, params={"page": page, "filters": json.dumps([{"table": "customers", "column": "nope", "values": ["x"]}])})
+    assert bad.status_code == 400
+
+
+def test_a_year_slicer_keeps_kpi_comparisons(p):
+    page = p.page()
+    ok(p.visual(page, type="kpi", title="Revenue", measures=["Revenue"]))
+    card = view_with(p, page, [{"table": "Date", "column": "Year", "operator": "in", "values": [2025]}])["pages"][0]["visuals"][0]["data"]
+    # 2025 to date (to 2 Feb) against 2024 to 2 Feb: the slicer picks the year, last year is still compared.
+    assert card["value"] == 24.0 and card["previous"] == 20.0 and card["delta"] == 4.0
+    earlier = view_with(p, page, [{"table": "Date", "column": "Year", "operator": "in", "values": [2024]}])["pages"][0]["visuals"][0]["data"]
+    assert earlier["value"] == 40.0 and earlier["previous"] is None
+
+
+def test_page_filters_apply_for_everyone_and_are_checked(p):
+    page = p.page()
+    ok(p.visual(page, type="bar", title="By segment", measures=["Revenue"], group_by=SEGMENT))
+    ok(p.api.put(f"{p.base}/pages/{page}/filters",
+                 json={"filters": [{"table": "customers", "column": "segment", "operator": "in", "values": ["Online"]}]}))
+    ok(p.api.post(f"{p.base}/publish"))
+    published = ok(p.api.get(p.base, params={"side": "published"}))["pages"][0]
+    assert published["visuals"][0]["data"]["rows"] == [["Online", 14.0]]
+    wrong_type = p.api.put(f"{p.base}/pages/{page}/filters",
+                           json={"filters": [{"table": "Date", "column": "Year", "operator": "equals", "value": "soon"}]})
+    assert wrong_type.status_code == 400

@@ -19,6 +19,8 @@ import math
 import re
 from datetime import date, timedelta
 
+import duckdb
+
 from . import model
 from .projects import new_id, now
 
@@ -34,6 +36,9 @@ MAX_LINES = 5
 MAX_SLICES = 3  # the house style's limit; more is allowed with a tip
 GRID_COLUMNS = 12  # the report canvas: visuals snap to a 12-column grid of rows
 MAX_GRID_ROWS = 200
+MAX_SLICERS = 4
+MAX_PAGE_FILTERS = 10
+MAX_SLICER_VALUES = 500
 MAX_SHARE_ROWS = 12  # beyond this a pie or donut is unreadable, so the smallest slices are cut
 ADDITIVE = ("sum", "count")
 
@@ -207,6 +212,84 @@ def update_visual(con, project: dict, visual_id: str, changes: dict) -> dict:
     return updated
 
 
+def check_filters(con, project: dict, filters) -> list[dict]:
+    """Slicer choices or page filters, checked against the model: {table, column, operator, value(s)}."""
+    if not isinstance(filters, list):
+        raise ReportError("Filters are a list.")
+    if len(filters) > MAX_PAGE_FILTERS:
+        raise ReportError(f"A page takes at most {MAX_PAGE_FILTERS} filters.")
+    found = model.tables(con, project)
+    out = []
+    for item in filters:
+        if not isinstance(item, dict):
+            raise ReportError("Each filter is {table, column, operator, values}.")
+        ref = column_ref(found, item)
+        operator = item.get("operator", "in")
+        if operator not in model.FILTER_OPERATORS:
+            raise ReportError(f"Filter operator must be one of: {', '.join(model.FILTER_OPERATORS)}.")
+        clean = {**ref, "operator": operator}
+        if operator in ("in", "not_in"):
+            values = item.get("values")
+            if not isinstance(values, list) or not values:
+                raise ReportError(f"Choose at least one value for {item.get('column')}.")
+            clean["values"] = values[:MAX_SLICER_VALUES]
+        elif operator not in ("is_blank", "is_not_blank"):
+            if item.get("value") is None:
+                raise ReportError(f"The filter on {item.get('column')} needs a value.")
+            clean["value"] = item["value"]
+        table = found[clean["table"]]
+        try:  # values must suit the column's type
+            con.execute(f"SELECT 1 FROM {table.sql} t WHERE {model.filter_sql(table, 't', clean)} LIMIT 1").fetchall()
+        except model.ModelError as exc:
+            raise ReportError(str(exc)) from exc
+        except duckdb.Error as exc:
+            raise ReportError(f"{item.get('column')} is {table.column(clean['column']).type}; the filter's value doesn't fit it.") from exc
+        out.append(clean)
+    return out
+
+
+def set_page_filters(con, project: dict, page_id: str, filters: list) -> None:
+    find_page(project, page_id)["filters"] = check_filters(con, project, filters)
+
+
+def set_slicers(con, project: dict, page_id: str, slicers: list) -> None:
+    """Columns a page offers as slicers; each viewer picks the values."""
+    if not isinstance(slicers, list) or len(slicers) > MAX_SLICERS:
+        raise ReportError(f"A page has at most {MAX_SLICERS} slicers.")
+    found = model.tables(con, project)
+    out = []
+    for item in slicers:
+        ref = column_ref(found, item)
+        if ref not in out:
+            out.append(ref)
+    find_page(project, page_id)["slicers"] = out
+
+
+def slicer_values(con, project: dict, table_ref: str, column: str) -> dict:
+    """The values a slicer offers, sorted, for picking from."""
+    found = model.tables(con, project)
+    table = model.find_table(found, table_ref)
+    col = table.column(column)
+    c = model.quote(col.name)
+    rows = con.execute(
+        f"SELECT DISTINCT {c} FROM {table.sql} WHERE {c} IS NOT NULL ORDER BY 1 LIMIT {MAX_SLICER_VALUES + 1}"
+    ).fetchall()
+    values = [model.plain(r[0]) for r in rows]
+    return {"table": table.id, "column": col.name, "type": col.type,
+            "values": values[:MAX_SLICER_VALUES], "truncated": len(values) > MAX_SLICER_VALUES}
+
+
+def describe_filters(con, project: dict, filters: list[dict]) -> list[str]:
+    names = {t.id: t.name for t in model.tables(con, project).values()}
+    out = []
+    for f in filters:
+        values = f.get("values") if f.get("operator") in ("in", "not_in") else f.get("value")
+        shown = ", ".join(str(v) for v in values) if isinstance(values, list) else values
+        verb = {"in": "is", "not_in": "is not", "equals": "is", "not_equals": "is not"}.get(f["operator"], f["operator"].replace("_", " "))
+        out.append(f"{names.get(f['table'], f['table'])}[{f['column']}] {verb}" + ("" if shown is None else f" {shown}"))
+    return out
+
+
 def rename_page(project: dict, page_id: str, title: str) -> None:
     if not isinstance(title, str) or not title.strip():
         raise ReportError("A page needs a title.")
@@ -359,7 +442,9 @@ def kpi_data(con, project: dict, visual: dict) -> dict:
     start = date(last.year, 1, 1)
     py_start, py_end = date(last.year - 1, 1, 1), same_day_last_year(last)
     value = model.evaluate(con, project, [name], filters=date_filters(start, last))["rows"][0][0]
-    previous = model.evaluate(con, project, [name], filters=date_filters(py_start, py_end))["rows"][0][0]
+    # Last year's period ignores date slicers (a Year slicer would leave it empty); other slicers apply.
+    previous = model.evaluate(con, project, [name], filters=date_filters(py_start, py_end),
+                              page_filters="except_dates")["rows"][0][0]
     card.update(value=value, period=f"{last.year} to date (to {last.isoformat()})", previous=previous,
                 comparison=f"vs same period {last.year - 1}")
     if previous is None or value is None:
@@ -378,7 +463,8 @@ def kpi_data(con, project: dict, visual: dict) -> dict:
     if driver and card["delta"] and measure["kind"] == "aggregate" and measure["aggregation"] in ADDITIVE:
         group = [driver]
         now_by = dict(map(tuple, model.evaluate(con, project, [name], group, date_filters(start, last))["rows"]))
-        then_by = dict(map(tuple, model.evaluate(con, project, [name], group, date_filters(py_start, py_end))["rows"]))
+        then_by = dict(map(tuple, model.evaluate(con, project, [name], group, date_filters(py_start, py_end),
+                                                 page_filters="except_dates")["rows"]))
         changes = [(k, (now_by.get(k) or 0) - (then_by.get(k) or 0)) for k in set(now_by) | set(then_by)]
         same_way = [c for c in changes if c[1] and (c[1] > 0) == (card["delta"] > 0)]
         if same_way:

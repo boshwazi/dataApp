@@ -3,6 +3,7 @@
 A dashboard's pages always read its dataset's published copy, opened read-only.
 """
 
+import json
 from contextlib import contextmanager
 from typing import Callable
 
@@ -41,10 +42,20 @@ class LayoutBody(BaseModel):
     positions: dict[str, dict]
 
 
+class SlicersBody(BaseModel):
+    slicers: list[dict]
+
+
+class FiltersBody(BaseModel):
+    filters: list[dict]
+
+
 class AskBody(BaseModel):
     question: str
     history: list[dict] = []
     side: str = "published"
+    page_id: str | None = None
+    filters: list[dict] = []
 
 
 class VisualBody(BaseModel):
@@ -96,7 +107,7 @@ def build_router(
             yield dataset, frozen, con
 
     def respond(dashboard_id: str, change=None, side: str = "draft", with_data: bool = True,
-                summary: str | None = None, actor: str = "You") -> dict:
+                summary: str | None = None, actor: str = "You", selection: tuple | None = None) -> dict:
         """Apply `change(project, con)` to the draft (if any) as one locked edit, log it, then return the dashboard.
 
         Without a change it only reads, so viewers never write: only a creator's first look is recorded."""
@@ -105,7 +116,7 @@ def build_router(
                 dash = boards.get(dashboard_id)
                 if dash.get("reviewed_version") is not None or not workspaces.current().at_least("creator"):
                     with opened(dash) as (dataset, frozen, con):
-                        return view(dash, dataset, frozen, con, side, with_data)
+                        return view(dash, dataset, frozen, con, side, with_data, selection)
             with boards.edit(dashboard_id) as dash, opened(dash) as (dataset, frozen, con):
                 if dash.get("reviewed_version") is None:
                     activity.dashboard_reviewed(dash, dataset)  # first sight of the data counts as reviewed
@@ -116,18 +127,22 @@ def build_router(
                     activity.dashboard_reviewed(dash, dataset)
                     if summary:
                         activity.log(dash, "report", summary, actor)
-                return view(dash, dataset, frozen, con, side, with_data)
+                return view(dash, dataset, frozen, con, side, with_data, selection)
         except NotFound as exc:
             raise HTTPException(404, str(exc)) from exc
         except (report.ReportError, model.ModelError) as exc:
             raise HTTPException(400, str(exc)) from exc
 
-    def view(dash: dict, dataset: dict, frozen: dict | None, con, side: str, with_data: bool) -> dict:
+    def view(dash: dict, dataset: dict, frozen: dict | None, con, side: str, with_data: bool,
+             selection: tuple | None = None) -> dict:
         source = dash["draft"] if side == "draft" else (dash["published"] or {"pages": []})
         pages = []
         if frozen is not None:
             project = publishing.bind(frozen, {"pages": source["pages"], "history": []})
             for page in source["pages"]:
+                # The page's own filters for everyone; a viewer's slicer choices on the page they are looking at.
+                chosen = selection[1] if selection and selection[0] == page["id"] else []
+                project[model.PAGE_FILTERS] = list(page.get("filters") or []) + chosen
                 visuals = []
                 for visual in page["visuals"]:
                     entry = dict(visual)
@@ -137,12 +152,16 @@ def build_router(
                             entry["advice"] = report.advice(visual, entry["data"])
                         except (report.ReportError, model.ModelError) as exc:
                             entry["data"], entry["error"] = None, str(exc)
-                        if entry["data"] and visual.get("insight"):
+                        if chosen:
+                            entry["insight"] = None  # written about the whole page, not this selection
+                        elif entry["data"] and visual.get("insight"):
                             # Checked against today's data, so an insight that went stale is flagged.
                             text = visual["insight"]["text"]
                             entry["insight"] = {"text": text, "check": report.check_insight(text, entry["data"])}
                     visuals.append(entry)
-                pages.append({**page, "visuals": visuals})
+                pages.append({**page, "slicers": page.get("slicers", []), "filters": page.get("filters", []),
+                              "selected": chosen, "visuals": visuals})
+            project.pop(model.PAGE_FILTERS, None)
         formats = {m["name"]: m["format"] for m in model.state(frozen)["measures"]} if frozen else {}
         fields = report.fields(con, frozen) if frozen and side == "draft" and not viewer() else []
         return {
@@ -181,7 +200,7 @@ def build_router(
         return summary(boards.create(body.name, body.dataset_id), datasets)
 
     @router.get("/{dashboard_id}")
-    def get_dashboard(dashboard_id: str, side: str = "draft"):
+    def get_dashboard(dashboard_id: str, side: str = "draft", page: str | None = None, filters: str | None = None):
         if side not in ("draft", "published"):
             raise HTTPException(400, "side is draft or published.")
         if viewer():
@@ -193,7 +212,45 @@ def build_router(
             if not published:
                 raise HTTPException(404, "Dashboard not found.")
             side = "published"
-        return respond(dashboard_id, side=side)
+        selection = None
+        if page and filters:
+            try:
+                chosen = json.loads(filters)
+            except ValueError as exc:
+                raise HTTPException(400, "filters must be JSON.") from exc
+            selection = (page, checked_filters(dashboard_id, side, chosen))
+        return respond(dashboard_id, side=side, selection=selection)
+
+    def checked_filters(dashboard_id: str, side: str, chosen) -> list[dict]:
+        """A viewer's slicer choices, checked against the dataset; nothing is saved."""
+        try:
+            dash = boards.get(dashboard_id)
+        except NotFound as exc:
+            raise HTTPException(404, str(exc)) from exc
+        with opened(dash) as (dataset, frozen, con):
+            if frozen is None:
+                return []
+            try:
+                return report.check_filters(con, frozen, chosen)
+            except (report.ReportError, model.ModelError) as exc:
+                raise HTTPException(400, str(exc)) from exc
+
+    @router.get("/{dashboard_id}/values")
+    def slicer_values(dashboard_id: str, table: str, column: str):
+        """The values a slicer offers, from the dataset's published version."""
+        try:
+            dash = boards.get(dashboard_id)
+        except NotFound as exc:
+            raise HTTPException(404, str(exc)) from exc
+        if viewer() and not dash.get("published"):
+            raise HTTPException(404, "Dashboard not found.")
+        with opened(dash) as (dataset, frozen, con):
+            if frozen is None:
+                raise HTTPException(400, "This dashboard's data isn't published yet.")
+            try:
+                return report.slicer_values(con, frozen, table, column)
+            except (report.ReportError, model.ModelError) as exc:
+                raise HTTPException(400, str(exc)) from exc
 
     @router.patch("/{dashboard_id}")
     def rename(dashboard_id: str, body: NameBody):
@@ -282,6 +339,16 @@ def build_router(
     def rename_page(dashboard_id: str, page_id: str, body: PageBody):
         return respond(dashboard_id, undoable(lambda p, con: report.rename_page(p, page_id, body.title)),
                        summary=f"Renamed a page to '{body.title}'")
+
+    @router.put("/{dashboard_id}/pages/{page_id}/slicers")
+    def set_slicers(dashboard_id: str, page_id: str, body: SlicersBody):
+        return respond(dashboard_id, undoable(lambda p, con: report.set_slicers(con, p, page_id, body.slicers)),
+                       summary="Changed the page's slicers")
+
+    @router.put("/{dashboard_id}/pages/{page_id}/filters")
+    def set_filters(dashboard_id: str, page_id: str, body: FiltersBody):
+        return respond(dashboard_id, undoable(lambda p, con: report.set_page_filters(con, p, page_id, body.filters)),
+                       summary="Changed the page's filters")
 
     @router.put("/{dashboard_id}/pages/{page_id}/layout")
     def set_layout(dashboard_id: str, page_id: str, body: LayoutBody):
@@ -422,13 +489,21 @@ def build_router(
         with opened(dash) as (dataset, frozen, con):
             if frozen is None:
                 raise HTTPException(400, "This dashboard's data isn't published yet.")
+            project = publishing.bind(frozen, {"pages": pages, "history": []})
+            page = next((p for p in pages if p["id"] == body.page_id), None)
+            try:
+                chosen = report.check_filters(con, frozen, body.filters) if body.filters else []
+            except (report.ReportError, model.ModelError) as exc:
+                raise HTTPException(400, str(exc)) from exc
+            project[model.PAGE_FILTERS] = list((page or {}).get("filters") or []) + chosen
             try:
                 result = ask.ask(client_factory(settings), settings.model, settings.capabilities, con,
-                                 publishing.bind(frozen, {"pages": pages, "history": []}), pages, question, body.history)
+                                 project, pages, question, body.history)
             except llm.AIError as exc:
                 raise HTTPException(502, f"The AI did not answer: {exc}") from exc
             formats = {m["name"]: m["format"] for m in model.state(frozen)["measures"]}
             return {**result, "formats": formats, "dataset_version": dataset["published"]["version"],
-                    "as_of": report.as_of(con, frozen)}
+                    "as_of": report.as_of(con, frozen),
+                    "scope": report.describe_filters(con, frozen, project[model.PAGE_FILTERS])}
 
     return router

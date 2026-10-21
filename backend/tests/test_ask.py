@@ -85,3 +85,19 @@ def test_question_limits(tmp_path, question, status):
 def test_ask_needs_a_key(tmp_path):
     p = Project(tmp_path)
     assert ask(p, "Hi?").status_code == 400
+
+
+def test_ask_answers_for_the_slicer_selection(tmp_path):
+    p, ai = published_project(
+        tmp_path,
+        {"queries": [{"measures": ["Revenue"]}]},
+        {"answer": "Revenue is RM 50 for Retail."},
+    )
+    page = ok(p.api.get(p.base, params={"side": "published"}))["pages"][0]["id"]
+    body = ok(p.api.post(f"{p.base}/ask", json={"question": "What's revenue?", "page_id": page, "filters": SLICED}))
+    assert body["results"][0]["rows"] == [[50.0]] and body["scope"] == ["customers[segment] is Retail"]
+    assert body["results"][0]["how"]["filters"] == ["customers[segment] is Retail (page filter)"]
+    assert "filtered to customers[segment] is Retail" in ai.calls[0]["messages"][-1]["content"]
+
+
+SLICED = [{"table": "customers", "column": "segment", "operator": "in", "values": ["Retail"]}]

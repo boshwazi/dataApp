@@ -104,10 +104,13 @@ def pages_summary(pages: list[dict]) -> list[dict]:
 def plan(client, model_name: str, capabilities: dict, con, project: dict, pages: list[dict],
          question: str, history: list[dict]) -> dict:
     turns = [{"role": h.get("role"), "text": str(h.get("content", ""))[:500]} for h in history[-HISTORY_TURNS:]]
+    scope = report.describe_filters(con, project, project.get(model.PAGE_FILTERS) or [])
     prompt = (
         f"Model:\n{json.dumps(model_summary(con, project), default=str)}\n\n"
         f"Dashboard pages:\n{json.dumps(pages_summary(pages))}\n\n"
-        f"Conversation so far:\n{json.dumps(turns)}\n\nQuestion: {question}"
+        + (f"The page is filtered to {'; '.join(scope)}. Every query result already respects this; "
+           "do not add these filters again.\n\n" if scope else "")
+        + f"Conversation so far:\n{json.dumps(turns)}\n\nQuestion: {question}"
     )
     raw = llm.ask_json(client, model_name, capabilities, PLAN_SYSTEM, prompt, "plan_queries", PLAN_SCHEMA)
     queries = [q for q in raw.get("queries") or [] if isinstance(q, dict)][:MAX_QUERIES]
@@ -140,7 +143,8 @@ def explain(con, project: dict, query: dict) -> dict:
     return {
         "measures": measures,
         "split_by": [f"{g.get('table')}[{g.get('column')}]" for g in query.get("group_by") or []],
-        "filters": [filter_text(f) for f in query.get("filters") or []],
+        "filters": [filter_text(f) for f in query.get("filters") or []]
+        + [f"{t} (page filter)" for t in report.describe_filters(con, project, project.get(model.PAGE_FILTERS) or [])],
         "tables": sorted(t for t in tables if t and t != "None"),
     }
 
@@ -196,5 +200,7 @@ def ask(client, model_name: str, capabilities: dict, con, project: dict, pages: 
     results = run(con, project, planned["queries"])
     if not results and not planned["cannot_answer"]:
         planned["cannot_answer"] = "The question could not be turned into a query on this data."
-    written = answer(client, model_name, capabilities, question, results, planned["cannot_answer"])
+    scope = report.describe_filters(con, project, project.get(model.PAGE_FILTERS) or [])
+    asked = f"{question}\n(The page is filtered to {'; '.join(scope)}; say the numbers are for this selection.)" if scope else question
+    written = answer(client, model_name, capabilities, asked, results, planned["cannot_answer"])
     return {**written, "results": results, "cannot_answer": planned["cannot_answer"]}

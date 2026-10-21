@@ -2263,3 +2263,155 @@ button.pill-x:hover {
   color: var(--text);
   border-color: #b7bfca;
 }
+
+/* Slicers and page filters */
+
+.slicer-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  margin: 0 0 12px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fbfcfd;
+}
+
+.slicer-bar.target {
+  border-color: var(--accent);
+  border-style: dashed;
+  background: var(--selected);
+}
+
+.slicer {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+button.slicer-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+button.slicer-button:hover:not(:disabled) {
+  border-color: #b7bfca !important;
+  background: var(--bg) !important;
+  color: var(--text) !important;
+}
+
+.slicer.on button.slicer-button,
+.slicer.on button.slicer-button:hover:not(:disabled) {
+  border-color: var(--accent) !important;
+  background: var(--selected) !important;
+}
+
+.slicer-label {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.slicer.on .slicer-value {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 26px;
+  padding: 0 8px;
+  border-radius: 5px;
+  background: #eef1f5;
+  color: #2b3646;
+  font-size: 12px;
+}
+
+.slicer-note {
+  font-size: 12px;
+  color: #8a94a3;
+}
+
+.slicer-bar button.link {
+  min-height: 0;
+  padding: 0;
+}
+
+.value-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 260px;
+}
+
+.value-picker .field-search {
+  margin: 0 6px;
+}
+
+.value-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 4px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.value-list label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 5px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.value-list label:hover {
+  background: var(--bg);
+}
+
+.value-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 6px 6px 2px;
+  border-top: 1px solid var(--border);
+}
+
+.page-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.page-filters p {
+  margin: 0;
+}
+
+.page-filters .well-slot + .well-label {
+  margin-top: 8px;
+}
+
+.add-select {
+  font: inherit;
+  font-size: 12px;
+  min-height: 24px;
+  padding: 0 4px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 5px;
+  background: none;
+  color: var(--muted);
+  max-width: 100%;
+}

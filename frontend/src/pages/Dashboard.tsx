@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import type { EChartsCoreOption } from "echarts/core";
-import { Calendar, FileDown, GripVertical, History, LayoutDashboard, Maximize2, Minimize2, MoreHorizontal, Pencil, Plus, Sparkles, Table2, Trash2, Undo2, X } from "lucide-react";
+import { Calendar, ChevronDown, FileDown, Filter, GripVertical, History, LayoutDashboard, Maximize2, Minimize2, MoreHorizontal, Pencil, Plus, Sparkles, Table2, Trash2, Undo2, X } from "lucide-react";
 import {
   activityApi,
   api,
@@ -14,6 +14,8 @@ import {
   type GridBox,
   type KpiData,
   type MeasureFormat,
+  type PageFilter,
+  type PageScope,
   type ReportField,
   type ReportPage,
   type ReportRun,
@@ -25,7 +27,7 @@ import { ActivityDrawer } from "../components/ActivityDrawer";
 import { AskPanel } from "../components/AskPanel";
 import { Chart, SERIES, TOKENS } from "../components/Chart";
 import { ChatPanel, type ChatHandle } from "../components/ChatPanel";
-import { EmptyState, Menu, TopbarActions, type MenuItem, useCrumbs, useDialogs, useShortcut, useToast } from "../components/ui";
+import { EmptyState, Menu, PopMenu, TopbarActions, type MenuItem, useCrumbs, useDialogs, useShortcut, useToast } from "../components/ui";
 import { useAccount } from "../components/account";
 import { TypeTag } from "./Transform";
 
@@ -50,9 +52,15 @@ export function Dashboard() {
   const [showActivity, setShowActivity] = useState(false);
   const [presenting, setPresenting] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
+  // Slicer choices per page. They are this viewer's own: never saved, sent with each look, Ask and chat.
+  const [chosen, setChosen] = useState<Record<string, PageFilter[]>>({});
+  const pageParam = params.get("page");
+  const scope = useRef<PageScope>({ page_id: null, filters: [] });
+  scope.current = { page_id: pageParam, filters: (pageParam && chosen[pageParam]) || [] };
+  const chosenKey = JSON.stringify(scope.current);
   const stageRef = useRef<HTMLDivElement>(null);
   const chat = useRef<ChatHandle | null>(null);
-  const thread = useMemo(() => dashboardChat(dashboardId), [dashboardId]);
+  const thread = useMemo(() => dashboardChat(dashboardId, () => scope.current), [dashboardId]);
   const dialogs = useDialogs();
   const toast = useToast();
   const navigate = useNavigate();
@@ -60,9 +68,15 @@ export function Dashboard() {
   useCrumbs(state && [{ label: "Dashboards", to: "/dashboards" }, { label: state.name }]);
   useShortcut("i", () => setAiOpen((o) => !o));
 
-  const load = useCallback(() => {
-    reportApi.state(dashboardId, side).then(setState).catch((e) => setError(e.message));
+  const fetchState = useCallback(() => {
+    const { page_id, filters } = scope.current;
+    return reportApi.state(dashboardId, side, page_id ?? undefined, filters);
   }, [dashboardId, side]);
+
+  const load = useCallback(() => {
+    fetchState().then(setState).catch((e) => setError(e.message));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchState, chosenKey]);
 
   useEffect(() => {
     load();
@@ -95,14 +109,20 @@ export function Dashboard() {
   const change: Change = useCallback(async (action) => {
     setError(null);
     try {
-      const next = await action();
+      let next = await action();
+      if (scope.current.filters.length) next = await fetchState(); // keep showing the viewer's slicer choices
       setState(next);
       return next;
     } catch (e) {
       setError((e as Error).message);
       return null;
     }
-  }, []);
+  }, [fetchState]);
+
+  function choose(pageId: string, filters: PageFilter[]) {
+    setChosen((current) => ({ ...current, [pageId]: filters }));
+    if (pageParam !== pageId) go({ page: pageId });
+  }
 
   async function build() {
     setBuilding(true);
@@ -313,6 +333,8 @@ export function Dashboard() {
                   selected={selected}
                   onSelect={setSelected}
                   onChange={change}
+                  chosen={chosen[page.id] ?? []}
+                  onChoose={(filters) => choose(page.id, filters)}
                 />
               </div>
             )}
@@ -356,7 +378,7 @@ export function Dashboard() {
       )}
       {aiOpen && !editing && state.published && (
         <div className="ai-dock" role="dialog" aria-label="Ask">
-          <AskPanel dashboardId={dashboardId} side="published" onClose={() => setAiOpen(false)} />
+          <AskPanel dashboardId={dashboardId} side="published" onClose={() => setAiOpen(false)} scope={() => scope.current} />
         </div>
       )}
       {showActivity && <ActivityDrawer load={() => activityApi.dashboard(dashboardId)} onClose={() => setShowActivity(false)} />}
@@ -478,6 +500,8 @@ function ReportCanvas(props: {
   selected: string | null;
   onSelect: (id: string | null) => void;
   onChange: Change;
+  chosen: PageFilter[];
+  onChoose: (filters: PageFilter[]) => void;
 }) {
   const { dashboardId, page, formats, editing, selected, onSelect, onChange } = props;
   const grid = useRef<HTMLDivElement>(null);
@@ -564,6 +588,7 @@ function ReportCanvas(props: {
           </p>
         )}
       </header>
+      <SlicerBar dashboardId={dashboardId} page={page} fields={props.fields} editing={editing} chosen={props.chosen} onChoose={props.onChoose} onChange={onChange} />
       <div
         ref={grid}
         className={`canvas-grid ${editing ? "editing" : ""} ${drag ? "dragging" : ""}`}
@@ -962,7 +987,8 @@ function PagePane(props: {
                 ))}
               </div>
             )}
-            <p className="muted small">Click a visual to change its fields and format. Drag a field from the list onto the canvas to add one.</p>
+            <p className="muted small">Click a visual to change its fields and format. Drag a field onto the canvas to add a visual, or onto the slicer bar to add a slicer.</p>
+            <PageFilters dashboardId={dashboardId} page={page} fields={props.fields} onChange={onChange} />
             <FieldList fields={props.fields} />
             <div className="actions">
               <button className="secondary danger" onClick={() => onChange(() => reportApi.removePage(dashboardId, page.id))}>
@@ -982,6 +1008,265 @@ function PagePane(props: {
         )}
       </div>
     </>
+  );
+}
+
+// Slicers and page filters
+
+type Value = string | number | boolean;
+
+const sameColumn = (a: { table: string; column: string }, b: { table: string; column: string }) => a.table === b.table && a.column === b.column;
+
+function valuesText(values: Value[] | undefined, max = 2) {
+  if (!values?.length) return "All";
+  const shown = values.slice(0, max).map(String).join(", ");
+  return values.length > max ? `${shown} +${values.length - max}` : shown;
+}
+
+function filterText(f: PageFilter) {
+  const verb = { in: "is", not_in: "is not", equals: "is", not_equals: "is not" }[f.operator] ?? f.operator.replace(/_/g, " ");
+  const value = f.values ? valuesText(f.values, 3) : f.value ?? "";
+  return `${f.column} ${verb} ${value}`.trim();
+}
+
+/** Tick the values to keep. The list comes from the dataset's published version. */
+function ValuePicker(props: { dashboardId: string; table: string; column: string; initial: Value[]; onApply: (values: Value[]) => void }) {
+  const [values, setValues] = useState<Value[] | null>(null);
+  const [truncated, setTruncated] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [picked, setPicked] = useState<Value[]>(props.initial);
+  const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    reportApi
+      .values(props.dashboardId, props.table, props.column)
+      .then((r) => {
+        setValues(r.values);
+        setTruncated(r.truncated);
+      })
+      .catch((e) => setError((e as Error).message));
+  }, [props.dashboardId, props.table, props.column]);
+
+  const q = query.trim().toLowerCase();
+  const shown = (values ?? []).filter((v) => !q || String(v).toLowerCase().includes(q));
+  const toggle = (v: Value) => setPicked((cur) => (cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v]));
+
+  return (
+    <div className="value-picker">
+      <div className="pop-head">{props.column}</div>
+      {error && <p className="bad small pad">{error}</p>}
+      {!values && !error && <p className="muted small pad">Loading values…</p>}
+      {values && (
+        <>
+          {values.length > 8 && <input className="field-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search values" aria-label="Search values" />}
+          <ul className="value-list" role="group" aria-label={`Values of ${props.column}`}>
+            {shown.map((v) => (
+              <li key={String(v)}>
+                <label>
+                  <input type="checkbox" checked={picked.includes(v)} onChange={() => toggle(v)} />
+                  <span>{String(v)}</span>
+                </label>
+              </li>
+            ))}
+          </ul>
+          {truncated && <p className="muted small pad">Showing the first {values.length} values; search to find others.</p>}
+        </>
+      )}
+      <div className="value-actions">
+        <button className="secondary small-button" onClick={() => setPicked([])} disabled={!picked.length}>
+          Clear
+        </button>
+        <button className="small-button" onClick={() => props.onApply(picked)}>
+          Apply
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SlicerBar(props: {
+  dashboardId: string;
+  page: ReportPage;
+  fields: ReportField[];
+  editing: boolean;
+  chosen: PageFilter[];
+  onChoose: (filters: PageFilter[]) => void;
+  onChange: Change;
+}) {
+  const { dashboardId, page, editing, chosen, onChoose, onChange } = props;
+  const [open, setOpen] = useState<{ index: number; x: number; y: number } | null>(null);
+  const [over, setOver] = useState(false);
+  const slicers = page.slicers ?? [];
+  const fixed = page.filters ?? [];
+  if (!slicers.length && !fixed.length && !editing) return null;
+
+  const setSlicers = (next: { table: string; column: string }[]) => onChange(() => reportApi.setSlicers(dashboardId, page.id, next));
+
+  function apply(slicer: { table: string; column: string }, values: Value[]) {
+    const rest = chosen.filter((f) => !sameColumn(f, slicer));
+    onChoose(values.length ? [...rest, { ...slicer, operator: "in", values }] : rest);
+    setOpen(null);
+  }
+
+  return (
+    <div
+      className={`slicer-bar ${over ? "target" : ""}`}
+      aria-label="Slicers and filters"
+      onDragOver={(e) => {
+        if (!editing || !hasField(e)) return;
+        e.preventDefault();
+        setOver(true);
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setOver(false);
+        const field = readField(e);
+        if (field?.kind === "column" && !slicers.some((s) => sameColumn(s, field))) void setSlicers([...slicers, { table: field.table, column: field.column }]);
+      }}
+    >
+      {fixed.map((f) => (
+        <span key={`${f.table}${f.column}`} className="filter-chip" title="A page filter: it applies for everyone who opens this page">
+          <Filter size={12} aria-hidden="true" /> {filterText(f)}
+        </span>
+      ))}
+      {slicers.map((s, i) => {
+        const current = chosen.find((f) => sameColumn(f, s));
+        return (
+          <span key={`${s.table}${s.column}`} className={`slicer ${current ? "on" : ""}`}>
+            <button
+              className="slicer-button"
+              aria-haspopup="menu"
+              onClick={(e) => {
+                const box = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                setOpen({ index: i, x: box.left, y: box.bottom + 4 });
+              }}
+            >
+              <span className="slicer-label">{s.column}</span>
+              <span className="slicer-value">{valuesText(current?.values)}</span>
+              <ChevronDown size={13} aria-hidden="true" />
+            </button>
+            {editing && (
+              <button className="pill-x" aria-label={`Remove the ${s.column} slicer`} title="Remove slicer" onClick={() => {
+                onChoose(chosen.filter((f) => !sameColumn(f, s)));
+                void setSlicers(slicers.filter((_, j) => j !== i));
+              }}>
+                <X size={11} />
+              </button>
+            )}
+          </span>
+        );
+      })}
+      {chosen.length > 0 && (
+        <>
+          <button className="link small" onClick={() => onChoose([])}>
+            Clear selection
+          </button>
+          <span className="slicer-note">Insights are hidden for a selection: they were written about the whole page.</span>
+        </>
+      )}
+      {editing && !slicers.length && <span className="slicer-note">Drop a column here to add a slicer</span>}
+      {open && slicers[open.index] && (
+        <PopMenu x={open.x} y={open.y} onClose={() => setOpen(null)} label={`${slicers[open.index].column} slicer`}>
+          <ValuePicker
+            dashboardId={dashboardId}
+            table={slicers[open.index].table}
+            column={slicers[open.index].column}
+            initial={chosen.find((f) => sameColumn(f, slicers[open.index]))?.values ?? []}
+            onApply={(values) => apply(slicers[open.index], values)}
+          />
+        </PopMenu>
+      )}
+    </div>
+  );
+}
+
+/** The Page pane's filters: slicers offered to viewers, and fixed filters that apply for everyone. */
+function PageFilters({ dashboardId, page, fields, onChange }: { dashboardId: string; page: ReportPage; fields: ReportField[]; onChange: Change }) {
+  const [picking, setPicking] = useState<{ table: string; column: string; x: number; y: number } | null>(null);
+  const columns = fields.flatMap((t) => t.columns.map((c) => ({ table: t.id, column: c.name, label: `${t.name}[${c.name}]` })));
+  const slicers = page.slicers ?? [];
+  const fixed = page.filters ?? [];
+  const keyOf = (c: { table: string; column: string }) => `${c.table}\u0000${c.column}`;
+  const byKey = new Map(columns.map((c) => [keyOf(c), c]));
+
+  return (
+    <div className="page-filters">
+      <span className="well-label">Slicers</span>
+      <p className="muted small">Viewers pick values; each person's choice is their own and nothing is saved.</p>
+      <div className="well-slot filled">
+        {slicers.map((s, i) => (
+          <span key={keyOf(s)} className="pill">
+            {byKey.get(keyOf(s))?.label ?? s.column}
+            <button className="pill-x" aria-label={`Remove the ${s.column} slicer`} onClick={() => onChange(() => reportApi.setSlicers(dashboardId, page.id, slicers.filter((_, j) => j !== i)))}>
+              <X size={11} />
+            </button>
+          </span>
+        ))}
+        <select
+          className="add-select"
+          value=""
+          aria-label="Add a slicer"
+          disabled={slicers.length >= 4}
+          onChange={(e) => {
+            const c = byKey.get(e.target.value);
+            if (c) void onChange(() => reportApi.setSlicers(dashboardId, page.id, [...slicers, { table: c.table, column: c.column }]));
+          }}
+        >
+          <option value="">{slicers.length >= 4 ? "Four slicers at most" : "+ Add a slicer"}</option>
+          {columns.filter((c) => !slicers.some((s) => sameColumn(s, c))).map((c) => (
+            <option key={keyOf(c)} value={keyOf(c)}>
+              {c.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <span className="well-label">Page filters</span>
+      <p className="muted small">Always on, for everyone who opens this page.</p>
+      <div className="well-slot filled">
+        {fixed.map((f, i) => (
+          <span key={keyOf(f)} className="pill">
+            {filterText(f)}
+            <button className="pill-x" aria-label={`Remove the filter on ${f.column}`} onClick={() => onChange(() => reportApi.setFilters(dashboardId, page.id, fixed.filter((_, j) => j !== i)))}>
+              <X size={11} />
+            </button>
+          </span>
+        ))}
+        <select
+          className="add-select"
+          value=""
+          aria-label="Add a page filter"
+          onChange={(e) => {
+            const c = byKey.get(e.target.value);
+            const box = e.currentTarget.getBoundingClientRect();
+            if (c) setPicking({ table: c.table, column: c.column, x: box.left, y: box.bottom + 4 });
+          }}
+        >
+          <option value="">+ Add a filter</option>
+          {columns.filter((c) => !fixed.some((f) => sameColumn(f, c))).map((c) => (
+            <option key={keyOf(c)} value={keyOf(c)}>
+              {c.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      {picking && (
+        <PopMenu x={picking.x} y={picking.y} onClose={() => setPicking(null)} label={`Filter on ${picking.column}`}>
+          <ValuePicker
+            dashboardId={dashboardId}
+            table={picking.table}
+            column={picking.column}
+            initial={[]}
+            onApply={(values) => {
+              const target = picking;
+              setPicking(null);
+              if (values.length) void onChange(() => reportApi.setFilters(dashboardId, page.id, [...fixed, { table: target.table, column: target.column, operator: "in", values }]));
+            }}
+          />
+        </PopMenu>
+      )}
+    </div>
   );
 }
 

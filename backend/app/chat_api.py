@@ -19,6 +19,8 @@ from .settings import ProviderSettings, SettingsStore
 class ChatBody(BaseModel):
     message: str
     mode: Literal["full", "review"] = "full"
+    page_id: str | None = None  # the Report chat: the page on show and its slicer choices
+    filters: list[dict] = []
 
 
 def build_router(
@@ -199,8 +201,17 @@ def build_router(
         dash = board(dashboard_id)
         with dashboard_scope(dash) as (dataset, frozen, con):
             project = publishing.bind(frozen, dash["draft"])
+            page = next((p for p in dash["draft"]["pages"] if p["id"] == body.page_id), None)
+            try:
+                chosen = report.check_filters(con, frozen, body.filters) if body.filters else []
+            except (report.ReportError, model.ModelError) as exc:
+                raise HTTPException(400, str(exc)) from exc
+            project[model.PAGE_FILTERS] = list((page or {}).get("filters") or []) + chosen
+            scope = report.describe_filters(con, frozen, project[model.PAGE_FILTERS])
             ctx = chat.Ctx(project, con, True)
             state = chat.REPORT.context(ctx)
+            if scope:
+                state["filtered_to"] = scope  # the numbers in the context are for this selection
             client = client_factory(config)
             try:
                 answer = chat.ask(client, config.model, config.capabilities, chat.REPORT, state, {},
