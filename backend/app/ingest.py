@@ -1,10 +1,11 @@
-"""Reading CSV, Excel and Google Sheets into raw text tables.
+"""Reading CSV, Excel, Google Sheets and shared-link files into raw text tables.
 
 Every value is kept as text exactly as it appears in the file, with empty cells as
 NULL. Nothing is guessed or fixed here: profiling reports what it finds, and the
 Transform stage decides what to change.
 """
 
+import base64
 import csv
 import io
 import re
@@ -173,6 +174,7 @@ def gsheet_csv_url(link: str) -> str:
 
 def http_get(url: str) -> tuple[bytes, str, str]:
     """Returns (body, content type, filename from Content-Disposition)."""
+    host = urllib.parse.urlparse(url).hostname or "the server"
     request = urllib.request.Request(url, headers={"User-Agent": "dataApp/0.1"})
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
@@ -181,13 +183,17 @@ def http_get(url: str) -> tuple[bytes, str, str]:
             filename = response.headers.get_filename() or ""
     except urllib.error.HTTPError as exc:
         if exc.code in (401, 403, 404):
-            raise IngestError(NOT_SHARED) from exc
-        raise IngestError(f"Google returned HTTP {exc.code}.") from exc
+            raise NotShared(NOT_SHARED) from exc
+        raise IngestError(f"{host} returned HTTP {exc.code}.") from exc
     except OSError as exc:
-        raise IngestError(f"Could not reach Google Sheets ({exc}).") from exc
+        raise IngestError(f"Could not reach {host} ({exc}).") from exc
     if len(body) > MAX_DOWNLOAD_BYTES:
-        raise IngestError("The sheet is larger than 50 MB.")
+        raise IngestError("The file is larger than 50 MB.")
     return body, content_type, filename
+
+
+class NotShared(IngestError):
+    """The link's owner hasn't shared it publicly (or it no longer exists)."""
 
 
 NOT_SHARED = "Google did not return the sheet. Set sharing to 'Anyone with the link can view' and try again."
@@ -200,3 +206,60 @@ def read_gsheet(link: str, fetch: Callable[[str], tuple[bytes, str, str]] = http
     if not name:
         name = re.sub(r"\.csv$", "", filename) or "google_sheet"
     return read_csv(name, body)
+
+
+# Files from shared links: OneDrive, SharePoint and Google Drive
+
+LINK_NOT_SHARED = ("The file didn't download. Share it as 'Anyone with the link can view' and paste that link. "
+                   "Links that need a sign-in can't be read yet.")
+LINK_PAGE = ("The link opened a web page, not the file. Share it as 'Anyone with the link can view'; "
+             "Google Drive files over 100 MB can't be downloaded this way.")
+DRIVE_ID = re.compile(r"/(?:file/)?d/([A-Za-z0-9_-]{10,})")
+
+
+def shared_file_url(link: str) -> tuple[str, str]:
+    """(provider, direct download URL) for a shared file link. Only these providers' hosts are fetched."""
+    parsed = urllib.parse.urlparse(link.strip())
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme != "https":
+        raise IngestError("Paste a link that starts with https://.")
+    if host == "docs.google.com" and "/spreadsheets/" in parsed.path:
+        return "gsheet", gsheet_csv_url(link)
+    if host == "drive.google.com":
+        match = DRIVE_ID.search(parsed.path)
+        file_id = match.group(1) if match else (urllib.parse.parse_qs(parsed.query).get("id") or [None])[0]
+        if not file_id:
+            raise IngestError("That Google Drive link doesn't point to a file.")
+        return "gdrive", f"https://drive.google.com/uc?{urllib.parse.urlencode({'export': 'download', 'id': file_id})}"
+    if host in ("1drv.ms", "onedrive.live.com"):
+        # OneDrive's sharing API takes the share link itself, base64url-encoded.
+        token = base64.urlsafe_b64encode(link.strip().encode()).decode().rstrip("=")
+        return "onedrive", f"https://api.onedrive.com/v1.0/shares/u!{token}/root/content"
+    if host.endswith(".sharepoint.com"):
+        query = {k: v for k, v in urllib.parse.parse_qs(parsed.query).items() if k != "download"}
+        query["download"] = ["1"]
+        return "sharepoint", urllib.parse.urlunparse(parsed._replace(query=urllib.parse.urlencode(query, doseq=True),
+                                                                        fragment=""))
+    raise IngestError("Paste a shared link from OneDrive, SharePoint, Google Drive or Google Sheets.")
+
+
+def read_shared_file(link: str, fetch: Callable[[str], tuple[bytes, str, str]] = http_get,
+                     name: str = "") -> tuple[list[LoadedTable], str]:
+    """The tables in a shared file (an Excel file gives one per sheet), and the file's name."""
+    provider, url = shared_file_url(link)
+    if provider == "gsheet":
+        return [read_gsheet(link, fetch, name)], ""
+    try:
+        body, content_type, filename = fetch(url)
+    except NotShared as exc:
+        raise IngestError(LINK_NOT_SHARED) from exc
+    if content_type == "text/html":
+        raise IngestError(LINK_PAGE)
+    filename = filename or "shared file"
+    if not filename.lower().endswith(EXCEL_SUFFIXES + CSV_SUFFIXES):
+        excel = body[:2] == b"PK" or "spreadsheetml" in content_type  # .xlsx files are zip archives
+        filename += ".xlsx" if excel else ".csv"
+    tables = read_file(filename, body)
+    if name.strip() and len(tables) == 1:
+        tables[0].name = name.strip()
+    return tables, filename

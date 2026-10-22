@@ -175,6 +175,7 @@ class ProjectStore(FolderStore):
     filename = "project.json"
     label = "Dataset"
     backup = None  # supabase_admin.PublishedBackup when storage is configured
+    on_publish = None  # called with a dataset id after it publishes (see main.py: insights, linked datasets)
 
     def create(self, name: str) -> dict:
         project = {
@@ -283,10 +284,27 @@ class ProjectStore(FolderStore):
             self.backup.save(self.workspace(), project_id, name, (folder / name).read_bytes())
         return name
 
-    def remove_old_copies(self, project_id: str, keep: str) -> None:
+    def copy_published(self, project_id: str, filename: str, version: int) -> str:
+        """An earlier published copy, again as version `version` (rolling back)."""
+        folder = self._folder(project_id)
+        name = f"published-v{version}.duckdb"
+        with self.connect_published(project_id, filename):
+            pass  # fetches it from storage if this server doesn't have it
+        shutil.copyfile(folder / filename, folder / name)
+        if self.backup is not None:
+            self.backup.save(self.workspace(), project_id, name, (folder / name).read_bytes())
+        return name
+
+    def published(self, project_id: str) -> None:
+        """Tell whoever is listening that a dataset published a new version (after its edit is saved)."""
+        if self.on_publish is not None:
+            self.on_publish(project_id)
+
+    def remove_old_copies(self, project_id: str, keep: str | set[str]) -> None:
+        keep = {keep} if isinstance(keep, str) else keep
         old = []
         for path in self._folder(project_id).glob("published-v*.duckdb"):
-            if path.name != keep:
+            if path.name not in keep:
                 old.append(path.name)
                 try:
                     path.unlink()

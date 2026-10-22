@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { BadgeCheck, Database, LayoutDashboard, Plus, Search, Trash2 } from "lucide-react";
-import { api, dashboardsApi, type DashboardSummary, type Dataset, type ProviderSettings } from "../api";
+import { api, dashboardsApi, type DashboardSummary, type Dataset, type ProviderSettings, type RefreshAlert } from "../api";
 import { EmptyState, Skeleton, useCrumbs, useDialogs, useToast } from "../components/ui";
 import { useAccount } from "../components/account";
 import { QuickStart } from "./Autopilot";
@@ -17,6 +17,7 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
   const [settings, setSettings] = useState<ProviderSettings | null>(null);
   const [dashboards, setDashboards] = useState<DashboardSummary[] | null>(null);
   const [datasets, setDatasets] = useState<Dataset[] | null>(null);
+  const [alerts, setAlerts] = useState<(RefreshAlert & { dataset_id: string; dataset_name: string })[]>([]);
   const [params, setParams] = useSearchParams();
   const [creating, setCreating] = useState<Choice | null>(null);
   const [filter, setFilter] = useState("");
@@ -29,6 +30,7 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
   function load() {
     dashboardsApi.list().then(setDashboards).catch((e) => toast(e.message, "error"));
     if (creator) api.listDatasets().then(setDatasets).catch((e) => toast(e.message, "error"));
+    if (creator) api.refreshAlerts().then((list) => setAlerts(list as typeof alerts)).catch(() => setAlerts([]));
     else setDatasets([]);
   }
 
@@ -132,6 +134,14 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
         </div>
       )}
 
+      {show !== "dashboards" &&
+        alerts.map((a) => (
+          <div key={a.dataset_id} className="notice refresh-alert" role="status">
+            <strong>{a.dataset_name}</strong>: {a.trigger === "schedule" ? "the scheduled refresh" : "the refresh after a linked table changed"}{" "}
+            {a.status === "failed" ? "failed" : "passed with warnings"} ({new Date(a.at).toLocaleString()}). {a.text}{" "}
+            <Link to={`/datasets/${a.dataset_id}/refresh`}>Open Refresh</Link>
+          </div>
+        ))}
       {creator && connected && show === "all" && <QuickStart />}
 
       {creating && (

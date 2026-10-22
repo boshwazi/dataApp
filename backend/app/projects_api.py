@@ -23,6 +23,14 @@ class NameBody(BaseModel):
 class RefreshSettingsBody(BaseModel):
     schedule: str | None = None
     auto_publish: bool | None = None
+    at: str | None = None  # HH:MM, Malaysia time, for daily, weekday and weekly schedules
+    day: int | None = None  # 0 Monday to 6 Sunday, for weekly schedules
+    follow_links: bool | None = None
+
+
+class LoadBody(BaseModel):
+    mode: str
+    key: str | None = None
 
 
 class LinkBody(BaseModel):
@@ -43,7 +51,7 @@ class SheetBody(BaseModel):
     name: str = ""
 
 
-HIDDEN_KEYS = ("sources", "transform", "model", "published", "report", "activity", "stage_marks", "chats", "powerbi")
+HIDDEN_KEYS = ("sources", "transform", "model", "published", "published_history", "report", "activity", "stage_marks", "chats", "powerbi")
 
 
 def project_view(project: dict, dashboards: list[dict] | None = None, versions: dict | None = None,
@@ -185,8 +193,28 @@ def build_router(
         load(project_id)
         try:
             with store.edit(project_id) as project:
-                refresh.configure(project, body.schedule, body.auto_publish)
+                refresh.configure(project, body.schedule, body.auto_publish, body.at, body.day, body.follow_links)
                 activity.log(project, "refresh", "Changed refresh settings")
+        except refresh.RefreshError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        return refresh.history_view(load(project_id))
+
+    @router.post("/{project_id}/refresh/alert/dismiss")
+    def dismiss_alert(project_id: str):
+        load(project_id)
+        with store.edit(project_id) as project:
+            project.pop("refresh_alert", None)
+        return refresh.history_view(load(project_id))
+
+    @router.put("/{project_id}/sources/{source_id}/load")
+    def set_load(project_id: str, source_id: str, body: LoadBody):
+        """Replace a table's rows on each refresh, or append them (skipping rows whose key is already loaded)."""
+        find_source(load(project_id), source_id)
+        try:
+            with store.edit(project_id) as project:
+                source = refresh.set_load(project, source_id, body.mode, body.key)
+                key = f" (skipping rows whose {body.key} is already loaded)" if source["load"]["key"] else ""
+                activity.log(project, "refresh", f"{source['table']}: refreshes {source['load']['mode']} rows{key}")
         except refresh.RefreshError as exc:
             raise HTTPException(400, str(exc)) from exc
         return refresh.history_view(load(project_id))
@@ -241,8 +269,34 @@ def build_router(
                 raise HTTPException(409, {"message": "Publishing would break dashboard visuals.", "problems": problems})
             published = publishing.publish(store, project)
             activity.log(project, "publish", f"Published version {published['version']}")
-        store.remove_old_copies(project_id, keep=published["file"])
+        store.remove_old_copies(project_id, keep=publishing.kept_files(project))
+        store.published(project_id)
         return {**full_view(project), "broken_visuals": problems}
+
+    @router.get("/{project_id}/versions")
+    def versions(project_id: str):
+        return {"versions": publishing.versions(load(project_id)), "keep": publishing.KEEP_VERSIONS}
+
+    @router.post("/{project_id}/versions/{version}/roll-back")
+    def roll_back(project_id: str, version: int, confirm: bool = False):
+        """Publish an earlier version again. Dashboards built since then are checked against it first."""
+        load(project_id)
+        with store.edit(project_id) as project:
+            try:
+                old = publishing.earlier(project, version)
+            except ValueError as exc:
+                raise HTTPException(400, str(exc)) from exc
+            then = {"id": project["id"], "workspace_id": project["workspace_id"], "name": project["name"],
+                    **old["snapshot"]}
+            with store.connect_published(project_id, old["file"]) as con:
+                problems = publishing.broken_visuals(con, then, boards.using(project_id))
+            if problems and not confirm:
+                raise HTTPException(409, {"message": f"Version {version} would break dashboard visuals.", "problems": problems})
+            published = publishing.roll_back(store, project, version)
+            activity.log(project, "publish", f"Rolled back to version {version} (published as version {published['version']})")
+        store.remove_old_copies(project_id, keep=publishing.kept_files(project))
+        store.published(project_id)
+        return {**full_view(project), "versions": publishing.versions(project), "broken_visuals": problems}
 
     # Get Data: adding sources
 
@@ -275,6 +329,20 @@ def build_router(
         except ingest.IngestError as exc:
             raise HTTPException(400, str(exc)) from exc
         added = add_tables(project_id, [table], {"kind": "gsheet", "url": body.url.strip()})
+        return {"added": [source_summary(s) for s in added], "errors": []}
+
+    @router.post("/{project_id}/sources/shared-link")
+    def add_shared_link(project_id: str, body: SheetBody):
+        """A file from a shared link: OneDrive, SharePoint, Google Drive (or a Google Sheet). It can be pulled again."""
+        load(project_id)
+        try:
+            provider, _ = ingest.shared_file_url(body.url)
+            tables, filename = ingest.read_shared_file(body.url, fetch_url, body.name.strip())
+        except ingest.IngestError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        origin = ({"kind": "gsheet", "url": body.url.strip()} if provider == "gsheet" else
+                  {"kind": "link", "url": body.url.strip(), "provider": provider, "file": filename})
+        added = add_tables(project_id, tables, origin)
         return {"added": [source_summary(s) for s in added], "errors": []}
 
     # Get Data: from Power BI

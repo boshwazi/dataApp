@@ -764,7 +764,11 @@ function VisualFrame(props: {
         <p className="insight" title={visual.insight.text}>
           {visual.insight.text}
           {!visual.insight.check.verified && (
-            <span className="unverified" title="These numbers do not match the data in this visual">
+            <span
+              className="unverified"
+              title={visual.insight.stale ? "Written before the data was refreshed" : "These numbers do not match the data in this visual"}
+            >
+              {visual.insight.stale && " New data since this was written."}
               {" "}⚠ Unverified number{visual.insight.check.unmatched.length > 1 ? "s" : ""}: {visual.insight.check.unmatched.join(", ")}
             </span>
           )}

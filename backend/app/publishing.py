@@ -7,6 +7,9 @@ only, so a half-finished change never reaches a live dashboard.
 
 Before publishing, every dashboard built on the dataset is checked against the new
 version, and visuals that would stop working are listed.
+
+The last few published versions are kept (KEEP_VERSIONS), so a bad refresh or change can be
+rolled back: rolling back publishes an earlier version again as the newest one.
 """
 
 import copy
@@ -15,6 +18,8 @@ import json
 
 from . import model, report, transform
 from .projects import now  # noqa: F401  (re-exported for the API)
+
+KEEP_VERSIONS = 5  # published versions kept, the live one included
 
 
 def content_hash(project: dict) -> str:
@@ -96,6 +101,43 @@ def publish(store, project: dict) -> dict:
     version = (project.get("published") or {}).get("version", 0) + 1
     snapshot = frozen(project)
     filename = store.copy_for_publishing(project["id"], version)
-    project["published"] = {"version": version, "file": filename, "published_at": now(),
-                            "hash": content_hash(project), "snapshot": snapshot}
+    keep(project, {"version": version, "file": filename, "published_at": now(),
+                   "hash": content_hash(project), "snapshot": snapshot})
+    return project["published"]
+
+
+def keep(project: dict, published: dict) -> None:
+    """Make `published` the live version and remember the ones before it."""
+    if project.get("published"):
+        earlier = [project["published"]] + project.get("published_history", [])
+        project["published_history"] = earlier[: KEEP_VERSIONS - 1]
+    project["published"] = published
+
+
+def kept_files(project: dict) -> set[str]:
+    """The published data files still needed: the live version and the ones kept for rollback."""
+    return {p["file"] for p in [project.get("published")] + project.get("published_history", []) if p}
+
+
+def versions(project: dict) -> list[dict]:
+    """Published versions, newest first, without their snapshots."""
+    live = project.get("published")
+    return [{"version": p["version"], "published_at": p["published_at"], "live": p is live,
+             "rolled_back_from": p.get("rolled_back_from")}
+            for p in [live] + project.get("published_history", []) if p]
+
+
+def earlier(project: dict, version: int) -> dict:
+    found = next((p for p in project.get("published_history", []) if p["version"] == version), None)
+    if found is None:
+        raise ValueError(f"Version {version} isn't kept any more; only the last {KEEP_VERSIONS} versions are.")
+    return found
+
+
+def roll_back(store, project: dict, version: int) -> dict:
+    """Publish an earlier version again, as the newest version. The draft is left as it is."""
+    old = earlier(project, version)
+    number = project["published"]["version"] + 1
+    filename = store.copy_published(project["id"], old["file"], number)
+    keep(project, {**old, "version": number, "file": filename, "published_at": now(), "rolled_back_from": version})
     return project["published"]

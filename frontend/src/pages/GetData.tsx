@@ -9,7 +9,8 @@ import { useDataset } from "./Dataset";
 const ACCEPT = ".csv,.tsv,.txt,.xlsx,.xlsm";
 const PAGE_SIZE = 100;
 
-const ORIGIN_LABEL = { csv: "CSV", excel: "Excel", gsheet: "Google Sheets", dataset: "Linked", powerbi: "Power BI" } as const;
+const ORIGIN_LABEL = { csv: "CSV", excel: "Excel", gsheet: "Google Sheets", dataset: "Linked", powerbi: "Power BI", link: "Shared link" } as const;
+const PROVIDER_LABEL: Record<string, string> = { onedrive: "OneDrive", sharepoint: "SharePoint", gdrive: "Google Drive" };
 
 export function GetData() {
   const { project, refresh } = useDataset();
@@ -78,7 +79,7 @@ export function GetData() {
     <div className="get-data">
       <aside className="sources">
         <h2>Sources</h2>
-        {project.sources.length === 0 && <p className="muted small">No data yet. Add a file or a Google Sheet below.</p>}
+        {project.sources.length === 0 && <p className="muted small">No data yet. Add a file or a shared link below.</p>}
         <ul className="source-list">
           {project.sources.map((source) => (
             <SourceItem
@@ -193,7 +194,7 @@ function AddData(props: { projectId: string; busy: string | null; onAdd: (label:
   function addSheet(event: FormEvent) {
     event.preventDefault();
     onAdd("gsheet", async () => {
-      const result = await api.addGoogleSheet(projectId, link);
+      const result = await api.addSharedLink(projectId, link);
       setLink("");
       return result;
     });
@@ -232,14 +233,14 @@ function AddData(props: { projectId: string; busy: string | null; onAdd: (label:
         <input
           value={link}
           onChange={(e) => setLink(e.target.value)}
-          placeholder="Google Sheets link"
-          aria-label="Google Sheets link"
+          placeholder="Paste a shared link"
+          aria-label="Shared link to a Google Sheet or a file"
         />
         <button type="submit" className="secondary" disabled={!link.trim() || busy !== null}>
           {busy === "gsheet" ? "Loading…" : "Add"}
         </button>
       </form>
-      <p className="muted small">The sheet must be shared as "Anyone with the link can view".</p>
+      <p className="muted small">A Google Sheet, or a file on OneDrive, SharePoint or Google Drive shared as "Anyone with the link can view". It can be pulled again on a schedule.</p>
       <LinkPicker projectId={projectId} busy={busy} onAdd={onAdd} />
       <button className="link" disabled={busy !== null} onClick={() => pbiInput.current?.click()}>
         {busy === "powerbi" ? "Reading the Power BI model…" : "Import from Power BI (.pbix, or a .pbip project as .zip)"}
@@ -330,6 +331,8 @@ function SourceDetail(props: DetailProps) {
   const origin =
     source.origin.kind === "gsheet"
       ? "Google Sheet"
+      : source.origin.kind === "link"
+        ? `${source.origin.file ?? "A file"} from a shared ${PROVIDER_LABEL[source.origin.provider ?? ""] ?? ""} link`
       : source.origin.kind === "dataset"
         ? `Linked from ${source.origin.dataset_name} v${source.origin.version}`
         : source.origin.kind === "powerbi"

@@ -17,10 +17,12 @@ export type ConnectionReport = {
 };
 
 export type Origin = {
-  kind: "csv" | "excel" | "gsheet" | "dataset" | "powerbi";
+  kind: "csv" | "excel" | "gsheet" | "dataset" | "powerbi" | "link";
   label: string;
   file?: string;
   url?: string;
+  /** Shared links: where the file lives. */
+  provider?: "onedrive" | "sharepoint" | "gdrive";
   sample?: boolean;
   dataset_id?: string;
   dataset_name?: string;
@@ -285,6 +287,9 @@ export const api = {
     files.forEach((file) => form.append("files", file));
     return request<AddResult>(`${project(pid)}/sources/upload`, { method: "POST", body: form });
   },
+  addSharedLink: (pid: string, url: string) =>
+    request<AddResult>(`${project(pid)}/sources/shared-link`, json("POST", { url })),
+  refreshAlerts: () => request<RefreshAlert[]>("/api/refresh-alerts"),
   addGoogleSheet: (pid: string, url: string) =>
     request<AddResult>(`${project(pid)}/sources/gsheet`, json("POST", { url })),
   linkCatalogue: (pid: string) => request<LinkCatalogue>(`${project(pid)}/link-catalogue`),
@@ -600,7 +605,7 @@ export type Visual = {
   layout?: GridBox;
   drill?: Drill | null;
   drill_next?: string | null;
-  insight: { text: string; check: { verified: boolean; unmatched: number[] } } | null;
+  insight: { text: string; check: { verified: boolean; unmatched: number[] }; stale?: boolean } | null;
   status: "AI" | "Approved";
   by?: "autopilot";
   reason: string;
@@ -850,19 +855,59 @@ export type RefreshCheck = { level: "error" | "warning" | "info"; text: string }
 
 export type RefreshEntry = {
   at: string;
-  trigger: "manual" | "replace" | "schedule" | "powerbi";
+  trigger: "manual" | "replace" | "schedule" | "powerbi" | "linked";
   status: "ok" | "warnings" | "failed";
   sources: { table: string; rows_before: number; rows_after: number }[];
   failed_sources: string[];
   checks: RefreshCheck[];
   published_version: number | null;
+  /** A scheduled pull that couldn't download is tried again at this time. */
+  retry_at?: string;
 };
 
+export type RefreshAlert = {
+  at: string;
+  status: "warnings" | "failed";
+  trigger: "schedule" | "linked";
+  text: string;
+};
+
+export type RefreshSettings = {
+  schedule: string;
+  auto_publish: boolean;
+  last_run: string | null;
+  next_run: string | null;
+  /** HH:MM in Malaysia time, for daily, weekday and weekly schedules. */
+  at: string;
+  /** 0 Monday to 6 Sunday, for weekly schedules. */
+  day: number;
+  follow_links: boolean;
+  retry: number;
+};
+
+export type LoadMode = { mode: "replace" | "append"; key: string | null };
+
+export type PublishedVersion = { version: number; published_at: string; live: boolean; rolled_back_from: number | null };
+
 export type RefreshState = {
-  settings: { schedule: string; auto_publish: boolean; last_run: string | null; next_run: string | null };
+  settings: RefreshSettings;
   schedules: string[];
   history: RefreshEntry[];
-  sources: { id: string; table: string; kind: string; file?: string; url?: string; rows: number; refreshed_at: string }[];
+  alert: RefreshAlert | null;
+  versions: PublishedVersion[];
+  sources: {
+    id: string;
+    table: string;
+    kind: string;
+    file?: string;
+    url?: string;
+    provider?: string;
+    rows: number;
+    refreshed_at: string;
+    pullable: boolean;
+    load: LoadMode;
+    columns: string[];
+  }[];
   entry?: RefreshEntry;
 };
 
@@ -870,8 +915,13 @@ const rf = (id: string) => `/api/datasets/${id}`;
 
 export const refreshApi = {
   state: (id: string) => request<RefreshState>(`${rf(id)}/refresh`),
-  configure: (id: string, update: { schedule?: string; auto_publish?: boolean }) =>
+  configure: (id: string, update: Partial<Pick<RefreshSettings, "schedule" | "auto_publish" | "at" | "day" | "follow_links">>) =>
     request<RefreshState>(`${rf(id)}/refresh`, json("PUT", update)),
+  setLoad: (id: string, sourceId: string, load: LoadMode) =>
+    request<RefreshState>(`${rf(id)}/sources/${sourceId}/load`, json("PUT", load)),
+  dismissAlert: (id: string) => request<RefreshState>(`${rf(id)}/refresh/alert/dismiss`, { method: "POST" }),
+  rollBack: (id: string, version: number, confirm = false) =>
+    request<{ versions: PublishedVersion[] }>(`${rf(id)}/versions/${version}/roll-back?confirm=${confirm}`, { method: "POST" }),
   pullAll: (id: string) => request<RefreshState>(`${rf(id)}/refresh`, { method: "POST" }),
   pull: (id: string, sourceId: string) => request<RefreshState>(`${rf(id)}/sources/${sourceId}/pull`, { method: "POST" }),
   replace: (id: string, sourceId: string, file: File) => {

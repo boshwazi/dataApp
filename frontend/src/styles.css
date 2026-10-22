@@ -1325,11 +1325,82 @@ tr.inactive td {
   font-weight: 400;
 }
 
-.refresh-controls select {
+.refresh-controls select,
+.refresh-controls input[type="time"] {
   font: inherit;
+  font-weight: 400;
   padding: 7px 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
+}
+
+.refresh-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  margin: 4px 0 6px;
+  font-size: 13px;
+}
+
+.refresh-options label.check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.refresh-alert {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.refresh-alert > span {
+  flex: 1;
+}
+
+.refresh-alert.is-failed {
+  background: var(--warn-bg);
+  border-color: var(--warn);
+  color: var(--text);
+}
+
+.load-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.load-picker select {
+  font: inherit;
+  font-size: 13px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  max-width: 190px;
+}
+
+.version-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.version-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+}
+
+.version-list li + li {
+  border-top: 1px solid var(--border);
+}
+
+.version-name {
+  font-weight: 600;
 }
 
 .refresh-history {

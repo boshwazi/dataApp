@@ -39,6 +39,7 @@ def test_linked_tables_show_updates_and_pull_the_new_version(tmp_path):
     p = Project(tmp_path)
     other = new_dataset(p)
     ok(link(p, other, "sales"))
+    ok(p.api.put(f"/api/datasets/{other}/refresh", json={"follow_links": False}))  # pulled by hand here
     sales = next(q for q in ok(p.api.get(f"{p.dataset}/transform"))["queries"] if q["name"] == "sales")
     ok(p.api.post(f"{p.dataset}/transform/queries/{sales['id']}/steps",
                   json={"op": "filter_rows", "params": {"column": "qty", "operator": "at_least", "value": 2}}))

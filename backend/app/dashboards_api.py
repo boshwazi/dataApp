@@ -169,7 +169,8 @@ def build_router(
                         elif entry["data"] and visual.get("insight"):
                             # Checked against today's data, so an insight that went stale is flagged.
                             text = visual["insight"]["text"]
-                            entry["insight"] = {"text": text, "check": report.check_insight(text, entry["data"])}
+                            entry["insight"] = {"text": text, "check": report.check_insight(text, entry["data"]),
+                                                "stale": bool(visual["insight"].get("stale"))}  # new data changed it
                     visuals.append(entry)
                 pages.append({**page, "slicers": page.get("slicers", []), "filters": page.get("filters", []),
                               "selected": chosen, "visuals": visuals})

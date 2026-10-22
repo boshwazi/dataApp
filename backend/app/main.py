@@ -3,6 +3,7 @@
 Run from the repo root:  uvicorn app.main:default_app --factory --app-dir backend --reload
 """
 
+import functools
 import logging
 import threading
 from contextlib import asynccontextmanager
@@ -17,7 +18,7 @@ from pydantic import BaseModel
 
 import os
 
-from . import db, ingest, llm, refresh, workspaces
+from . import ai_report, db, guidance, ingest, links, llm, refresh, workspaces
 from .db import Database, PgRecords, PgWorkspaceStore
 from .guidance import PreferenceStore
 from .supabase_admin import PublishedBackup, SupabaseAdmin, SupabaseError
@@ -50,7 +51,7 @@ class SettingsUpdate(BaseModel):
 
 @asynccontextmanager
 async def scheduler_lifespan(app: FastAPI):
-    """Pull scheduled Google Sheets in the background. In the hosted version this moves to a job queue."""
+    """Every minute, start a background job for each dataset whose scheduled refresh is due."""
     stop = threading.Event()
 
     def loop():
@@ -59,7 +60,9 @@ async def scheduler_lifespan(app: FastAPI):
             for workspace_id in members.ids():
                 try:
                     with workspaces.use(workspace_id):
-                        refresh.run_due(projects, boards, fetch)
+                        for project_id in refresh.due(projects):
+                            app.state.jobs.submit(f"refresh:{project_id}", functools.partial(
+                                refresh.run_scheduled, projects, boards, project_id, fetch))
                 except Exception:  # keep the loop alive; the next tick tries again
                     log.exception("Scheduled refresh failed in workspace %s", workspace_id)
 
@@ -118,6 +121,30 @@ def create_app(
             log.exception("Storage is not available; published data stays on this server only")
 
     app.state.refresh_job = (projects, boards, fetch_url, members)
+    app.state.jobs = jobs = Jobs()
+
+    def rewrite_insights(con, project, pages, dashboard):
+        settings = store.load()
+        if not settings.api_key:
+            return
+        client = guidance.guided(client_factory(settings), guidance.for_dashboard(projects, dashboard, None))
+        ai_report.write_insights(client, settings.model, settings.capabilities, con, project, pages)
+
+    def after_publish(dataset_id: str):
+        """A dataset published: re-check its dashboards' insights, and refresh datasets that link its tables."""
+        jobs.submit(f"insights:{dataset_id}", functools.partial(
+            refresh.recheck_insights, projects, boards, dataset_id, rewrite_insights), queue=True)
+        chain = refresh.CHAIN.get()
+        token = refresh.CHAIN.set(chain + (dataset_id,))
+        try:
+            for user in links.linked_by(projects, dataset_id):
+                if user["id"] not in chain and user["id"] != dataset_id:
+                    jobs.submit(f"refresh:{user['id']}", functools.partial(
+                        refresh.pull_linked, projects, boards, user["id"], dataset_id, fetch_url), queue=True)
+        finally:
+            refresh.CHAIN.reset(token)
+
+    projects.on_publish = after_publish
     app.add_middleware(AuthGuard, config=auth, store=members)
     app.include_router(build_workspaces_router(members, auth, admin))
     routers = [
@@ -130,13 +157,18 @@ def create_app(
         app.include_router(router)
     # Autopilot runs the same endpoints in order, in the background.
     calls = {name: fn for router in routers for name, fn in router.calls.items()}
-    app.state.jobs = Jobs()
-    app.include_router(build_autopilot_router(Autopilot(projects, boards, store, app.state.jobs, calls)))
+    app.include_router(build_autopilot_router(Autopilot(projects, boards, store, jobs, calls)))
     app.include_router(build_chat_router(projects, boards, store, client_factory, fetch_url))
 
     @app.get("/api/health")
     def health():
         return {"status": "ok"}
+
+    @app.get("/api/refresh-alerts")
+    def refresh_alerts():
+        """Unattended refreshes (scheduled, or after a linked table's dataset published) that failed or warned."""
+        return [{"dataset_id": p["id"], "dataset_name": p["name"], **p["refresh_alert"]}
+                for p in projects.all() if p.get("refresh_alert")]
 
     @app.get("/api/workspaces/current/instructions")
     def get_instructions():
