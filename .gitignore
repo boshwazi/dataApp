@@ -4,3 +4,4 @@ __pycache__/
 node_modules/
 data/
 frontend/dist/
+backend/evals/last_run.json
