@@ -219,6 +219,45 @@ def _column(ctx: Context, node) -> tuple[str, str]:
     raise Untranslatable(f"It refers to column {node[1]}[{node[2]}], which isn't in the model.")
 
 
+def _is_true(node) -> bool:
+    return node == ("bool", True) or (node[0] == "call" and node[1] == "TRUE" and not node[2])
+
+
+def _logic(node, rec) -> str | None:
+    """Conditions in either kind of expression: comparisons, text to compare with, IF, SWITCH, AND, OR, NOT.
+    `rec` converts the parts. None when `node` is none of these."""
+    kind = node[0]
+    if kind == "str":
+        return '"' + node[1].replace('"', '""') + '"'
+    if kind in COMPARE:
+        return f"({rec(node[1])} {'=' if kind == '==' else kind} {rec(node[2])})"
+    if kind in ("&&", "||"):
+        return f"{'AND' if kind == '&&' else 'OR'}({rec(node[1])}, {rec(node[2])})"
+    if kind == "not":
+        return f"NOT({rec(node[1])})"
+    if kind != "call":
+        return None
+    name, args = node[1], node[2]
+    if name == "IF" and len(args) in (2, 3):
+        return f"IF({', '.join(rec(a) for a in args)})"
+    if name in ("AND", "OR") and len(args) >= 2:
+        return f"{name}({', '.join(rec(a) for a in args)})"
+    if name == "NOT" and len(args) == 1:
+        return f"NOT({rec(args[0])})"
+    if name == "SWITCH" and len(args) >= 3:
+        if _is_true(args[0]):
+            # SWITCH(TRUE(), cond1, r1, cond2, r2, default) is a chain of IFs.
+            pairs, default = args[1:], None
+            if len(pairs) % 2:
+                default = pairs.pop()
+            out = rec(default) if default is not None else None
+            for cond, result in reversed(list(zip(pairs[0::2], pairs[1::2]))):
+                out = f"IF({rec(cond)}, {rec(result)}{', ' + out if out is not None else ''})"
+            return out
+        return f"SWITCH({', '.join(rec(a) for a in args)})"
+    return None
+
+
 def _row_expression(ctx: Context, node, table: str) -> str:
     """Arithmetic over one table's columns, in the catalogue's [Column] syntax."""
     kind = node[0]
@@ -233,6 +272,9 @@ def _row_expression(ctx: Context, node, table: str) -> str:
         return f"-({_row_expression(ctx, node[1], table)})"
     if kind in ("+", "-", "*", "/"):
         return f"({_row_expression(ctx, node[1], table)} {kind} {_row_expression(ctx, node[2], table)})"
+    logic = _logic(node, lambda n: _row_expression(ctx, n, table))
+    if logic is not None:
+        return logic
     if kind == "call":
         raise Untranslatable(_why(node[1]))
     raise Untranslatable("Its row calculation is more than arithmetic over columns.")
@@ -337,6 +379,10 @@ def _formula(ctx: Context, node) -> str:
         return f"-({_formula(ctx, node[1])})"
     if kind in ("+", "-", "*", "/"):
         return f"({_formula(ctx, node[1])} {kind} {_formula(ctx, node[2])})"
+    if kind == "call" and node[1] == "IF" and any(a[0] == "str" for a in node[2][1:]):
+        raise Untranslatable(f"It uses {FRIENDLY['IF']} that returns text; datawazi measures are numbers.")
+    if (logic := _logic(node, lambda n: _formula(ctx, n))) is not None:
+        return logic
     if kind == "call" and node[1] == "DIVIDE" and len(node[2]) in (2, 3):
         if len(node[2]) == 3 and node[2][2] not in (("num", 0.0),):
             raise Untranslatable("Its DIVIDE has an alternative result, which datawazi measures can't express yet.")
@@ -496,32 +542,41 @@ def _value(value) -> str:
     return '"' + text.replace('"', '""') + '"'
 
 
-def _row_dax(tree, table: str) -> str:
+def _expr_dax(tree, ref) -> str:
+    """DAX for an expression tree; `ref` writes a reference (a column, or a measure)."""
     kind = tree[0]
     if kind == "ref":
-        return column(table, tree[1])
+        return ref(tree[1])
     if kind == "num":
         return repr(tree[1]) if tree[1] != int(tree[1]) else str(int(tree[1]))
+    if kind == "str":
+        return '"' + tree[1].replace('"', '""') + '"'
     if kind == "neg":
-        return f"-({_row_dax(tree[1], table)})"
-    left, right = _row_dax(tree[1], table), _row_dax(tree[2], table)
+        return f"-({_expr_dax(tree[1], ref)})"
+    if kind == "cmp":
+        return f"({_expr_dax(tree[2], ref)} {tree[1]} {_expr_dax(tree[3], ref)})"
+    if kind == "if":
+        parts = [tree[1], tree[2]] + ([tree[3]] if tree[3] is not None else [])
+        return f"IF({', '.join(_expr_dax(p, ref) for p in parts)})"
+    if kind == "switch":
+        parts = [tree[1]] + [x for pair in tree[2] for x in pair] + ([tree[3]] if tree[3] is not None else [])
+        return f"SWITCH({', '.join(_expr_dax(p, ref) for p in parts)})"
+    if kind in ("and", "or"):
+        return "(" + (" && " if kind == "and" else " || ").join(_expr_dax(x, ref) for x in tree[1]) + ")"
+    if kind == "not":
+        return f"NOT({_expr_dax(tree[1], ref)})"
+    left, right = _expr_dax(tree[1], ref), _expr_dax(tree[2], ref)
     if kind == "/":
         return f"DIVIDE({left}, {right})"
     return f"({left} {kind} {right})"
+
+
+def _row_dax(tree, table: str) -> str:
+    return _expr_dax(tree, lambda name: column(table, name))
 
 
 def _formula_dax(tree) -> str:
-    kind = tree[0]
-    if kind == "ref":
-        return f"[{tree[1].replace(']', ']]')}]"
-    if kind == "num":
-        return repr(tree[1]) if tree[1] != int(tree[1]) else str(int(tree[1]))
-    if kind == "neg":
-        return f"-({_formula_dax(tree[1])})"
-    left, right = _formula_dax(tree[1]), _formula_dax(tree[2])
-    if kind == "/":
-        return f"DIVIDE({left}, {right})"
-    return f"({left} {kind} {right})"
+    return _expr_dax(tree, lambda name: "[" + name.replace("]", "]]") + "]")
 
 
 TIME_DAX = {

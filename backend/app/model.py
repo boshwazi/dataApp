@@ -355,10 +355,12 @@ def check_measure(found: dict[str, Table], measures: list[dict], measure: dict) 
             pass
         else:
             columns = [table.column(r) for r in model_expr.refs(tree)]
+            # Columns only compared with ([Region] = "North") may be text; ones calculated with must be numbers.
+            calculated = [table.column(r) for r in model_expr.numeric_refs(tree)]
             single = tree[0] == "ref"
             if not columns and measure["aggregation"] != "sum":
                 raise ModelError("The expression must use at least one column.")
-            if (not single or measure["aggregation"] in ("sum", "average")) and any(c.type not in NUMERIC for c in columns):
+            if (not single or measure["aggregation"] in ("sum", "average")) and any(c.type not in NUMERIC for c in calculated):
                 raise ModelError(f"Measure '{measure['name']}': arithmetic needs number columns.")
         for item in measure.setdefault("filters", []):
             # A filter may name a related table: Revenue where customers[Segment] = Retail.

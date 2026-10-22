@@ -537,3 +537,51 @@ def test_power_bi_filters_on_related_tables_import_and_export():
     dax = pbi_dax.from_measure({**proposal, "table": "s1", "filters": [{**proposal["filters"][0], "table": "c1"}]},
                                "Sales", {"s1": "Sales", "c1": "Customers"})
     assert dax == "CALCULATE(SUM('Sales'[Amount]), KEEPFILTERS('Customers'[Segment] IN {\"Retail\", \"SME\"}))"
+
+
+# Conditions in measures (M12)
+
+
+def measure(p, **body):
+    return p.api.post(f"{p.dataset}/model/measures", json={"format": {"type": "number", "decimals": 0}, **body})
+
+
+def test_conditions_in_row_expressions_and_formulas(p):
+    # Row level: only the big lines, and a text comparison on a related lookup-free column.
+    shown = ok(measure(p, name="Big line revenue", kind="aggregate", table="sales", aggregation="sum",
+                       expression="IF([qty] >= 2, [qty] * [price], 0)"))
+    assert next(m for m in shown["measures"] if m["name"] == "Big line revenue")["value"] == 40  # 2x10 + 5x4
+    shown = ok(measure(p, name="C1 orders", kind="aggregate", table="sales", aggregation="sum",
+                       expression='SWITCH([customer], "C1", 1, 0)'))
+    assert next(m for m in shown["measures"] if m["name"] == "C1 orders")["value"] == 3
+    # Formula level: guard a ratio, and AND / NOT.
+    ok(time_measure(p, "Revenue LY", "Revenue", "prior_year"))
+    ok(measure(p, name="Growth", kind="formula", expression="IF([Revenue LY] > 0, ([Revenue] - [Revenue LY]) / [Revenue LY], 0)"))
+    growth = by(p, "Growth", ("Date", "Year"))
+    assert growth[2024] == 0 and growth[2025] == -0.4  # 24 against 40
+    ok(measure(p, name="Busy", kind="formula", expression="IF(AND([Orders] > 1, NOT([Revenue] < 10)), 1, 0)"))
+    assert by(p, "Busy", ("Date", "Year")) == {2024: 1, 2025: 1}
+
+
+@pytest.mark.parametrize("expression, message", [
+    ('IF([qty] > 1, "big", "small")', "can only be compared"),
+    ("ROUND([qty])", "Unknown function"),
+    ("IF([qty] > 1)", "IF takes"),
+    ("[customer] * 2", "number columns"),
+])
+def test_bad_conditions_are_refused(p, expression, message):
+    response = measure(p, name="X", kind="aggregate", table="sales", aggregation="sum", expression=expression)
+    assert response.status_code == 400 and message in response.json()["detail"]
+
+
+def test_power_bi_conditions_import_and_export():
+    from app import pbi_dax
+    ctx = pbi_dax.Context({"Sales": ["Qty", "Price", "Region"]}, {"revenue": REVENUE_PBI})
+    row, _ = pbi_dax.to_measure("Big", "SUMX(Sales, IF(Sales[Qty] >= 2 && Sales[Region] = \"North\", Sales[Qty] * Sales[Price], 0))", ctx)
+    assert row["expression"] == 'IF(AND(([Qty] >= 2), ([Region] = "North")), ([Qty] * [Price]), 0)'
+    tiers, _ = pbi_dax.to_measure("Tier", "SWITCH(TRUE(), [Revenue] > 100, 3, [Revenue] > 10, 2, 1)", ctx)
+    assert tiers["expression"] == "IF(([Revenue] > 100), 3, IF(([Revenue] > 10), 2, 1))"
+    back = pbi_dax.from_measure({"kind": "formula", "expression": tiers["expression"]}, None)
+    assert back == "IF(([Revenue] > 100), 3, IF(([Revenue] > 10), 2, 1))"
+    from app import model_expr
+    assert model_expr.parse(row["expression"])  # what was imported parses

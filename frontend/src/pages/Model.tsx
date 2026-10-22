@@ -408,7 +408,7 @@ function FormulaBar(props: {
     }
     if (word && word.length >= 2 && open === -1 && !draft.text.includes("(")) {
       const q = word.toUpperCase();
-      return [...Object.keys(BY_FUNCTION), ...Object.keys(TIME_FUNCTIONS)]
+      return [...Object.keys(BY_FUNCTION), ...Object.keys(TIME_FUNCTIONS), "IF", "SWITCH"]
         .filter((f) => f.startsWith(q) && f !== "AVG")
         .map((f) => ({ label: `${f}( )`, insert: f, kind: "function" as const }));
     }
@@ -996,7 +996,7 @@ function Properties(props: {
             <FilterEditor tables={state.tables} home={draft.table} filters={draft.filters} onChange={(filters) => onDraft({ ...draft, filters })} />
           )}
           <p className="muted small">
-            Write <code>SUM([Column])</code>, <code>AVERAGE( )</code>, <code>COUNTROWS()</code>, <code>DISTINCTCOUNT( )</code>, <code>MIN( )</code> or <code>MAX( )</code> over the home table's columns, or a formula over other measures such as <code>[Revenue] / [Orders]</code>. Over time: <code>YTD([Revenue])</code>, <code>QTD( )</code>, <code>MTD( )</code>, <code>LASTYEAR([Revenue])</code>, <code>LASTYEARYTD( )</code> or <code>ROLLING([Revenue], 3)</code>; these need the date table.
+            Write <code>SUM([Column])</code>, <code>AVERAGE( )</code>, <code>COUNTROWS()</code>, <code>DISTINCTCOUNT( )</code>, <code>MIN( )</code> or <code>MAX( )</code> over the home table's columns, or a formula over other measures such as <code>[Revenue] / [Orders]</code>. Over time: <code>YTD([Revenue])</code>, <code>QTD( )</code>, <code>MTD( )</code>, <code>LASTYEAR([Revenue])</code>, <code>LASTYEARYTD( )</code> or <code>ROLLING([Revenue], 3)</code>; these need the date table. Conditions: <code>IF([Qty] &gt;= 10, [Qty] * [Price], 0)</code>, <code>SWITCH([Region], "North", 1, 0)</code>, with <code>AND</code>, <code>OR</code> and <code>NOT</code>.
           </p>
           <div className="actions">
             <button onClick={props.onSave} disabled={!dirty}>

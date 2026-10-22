@@ -386,7 +386,7 @@ def md_context(ctx: Ctx) -> dict:
                            "Customer...), never fact to fact. Measures from different facts combine when split by "
                            "a shared dimension's column.",
         "measure_rules": "aggregate: aggregation (sum, average, count, count_distinct, min, max) over a [Column] "
-                         "expression of ONE table; formula: arithmetic over [Measure] names; a 'time' measure works out another measure over time: calc ytd, qtd, mtd (to date), prior_year (same period last year), prior_year_ytd, or rolling with months, e.g. {kind: time, base: Revenue, calc: prior_year}; it needs the date table. Year-on-year change is then a formula, e.g. ([Revenue] - [Revenue LY]) / [Revenue LY]. format.type: number, "
+                         "expression of ONE table; formula: arithmetic over [Measure] names; Expressions may also use comparisons (= <> < > <= >=), IF(condition, then, else), SWITCH(value, match, result, ..., default), AND, OR and NOT; text only as something to compare with, e.g. IF([Region] = \"North\", [Amount], 0). a 'time' measure works out another measure over time: calc ytd, qtd, mtd (to date), prior_year (same period last year), prior_year_ytd, or rolling with months, e.g. {kind: time, base: Revenue, calc: prior_year}; it needs the date table. Year-on-year change is then a formula, e.g. ([Revenue] - [Revenue LY]) / [Revenue LY]. format.type: number, "
                          "integer, currency (currency: 'RM'), percent.",
     }
 

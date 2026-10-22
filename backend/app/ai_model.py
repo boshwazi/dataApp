@@ -19,6 +19,7 @@ SYSTEM = (
     "problem, leave it out and mention it in the summary. Measures: an 'aggregate' measure sums, averages, counts "
     "or count_distincts an expression over ONE table's columns, written with [Column] references, e.g. "
     "[Qty] * [Unit Price]; a 'formula' measure combines other measures, e.g. [Revenue] / [Orders]; "
+    "Expressions may also use comparisons (= <> < > <= >=), IF(condition, then, else), SWITCH(value, match, result, ..., default), AND, OR and NOT; text only as something to compare with, e.g. IF([Region] = \"North\", [Amount], 0). "
     "a 'time' measure works out another measure over time: calc ytd, qtd, mtd (to date), prior_year (same period last year), prior_year_ytd, or rolling with months, e.g. {kind: time, base: Revenue, calc: prior_year}; it needs the date table. Year-on-year change is then a formula, e.g. ([Revenue] - [Revenue LY]) / [Revenue LY]. When the data has dates, add year to date and last year versions of the main money measure. "
     "Use currency format with the right symbol for money (RM for Malaysian ringgit), percent for ratios, "
     "integer for counts. Prefer 5 to 10 useful measures over many trivial ones. Give short reasons. "
