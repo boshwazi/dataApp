@@ -585,3 +585,52 @@ def test_power_bi_conditions_import_and_export():
     assert back == "IF(([Revenue] > 100), 3, IF(([Revenue] > 10), 2, 1))"
     from app import model_expr
     assert model_expr.parse(row["expression"])  # what was imported parses
+
+
+# Inactive relationships (M12)
+
+
+ORDERS = "order,ordered,shipped,amount\n1,2024-01-30,2024-02-02,10\n2,2024-02-10,2024-02-11,5\n3,2024-03-30,2024-04-01,1\n"
+
+
+def test_a_measure_can_use_an_inactive_relationship(tmp_path):
+    api = TestClient(create_app(data_dir=tmp_path, client_factory=lambda s: None))
+    pid = api.post("/api/datasets", json={"name": "O"}).json()["id"]
+    base = f"/api/datasets/{pid}"
+    api.post(f"{base}/sources/upload", files=[("files", ("orders.csv", ORDERS.encode()))])
+    query = api.get(f"{base}/transform").json()["queries"][0]["id"]
+    for column, to in (("ordered", "date"), ("shipped", "date"), ("amount", "decimal")):
+        ok(api.post(f"{base}/transform/queries/{query}/steps", json={"op": "change_type", "params": {"column": column, "to": to}}))
+    m = f"{base}/model"
+    ok(api.put(f"{m}/date-table", json={}))
+    ok(api.post(f"{m}/relationships", json={"from_table": "orders", "from_column": "ordered", "to_table": "Date", "to_column": "Date"}))
+    rels = ok(api.post(f"{m}/relationships", json={"from_table": "orders", "from_column": "shipped", "to_table": "Date", "to_column": "Date"}))["relationships"]
+    shipped = next(r for r in rels if r["from_column"] == "shipped")
+    assert shipped["active"] is False  # only one path between two tables is active, as in Power BI
+    amount = {"kind": "aggregate", "table": "orders", "aggregation": "sum", "expression": "[amount]", "format": {"type": "number"}}
+    ok(api.post(f"{m}/measures", json={"name": "Ordered", **amount}))
+    shown = ok(api.post(f"{m}/measures", json={"name": "Shipped", **amount, "use_relationship": shipped["id"]}))
+    assert next(x for x in shown["measures"] if x["name"] == "Shipped")["label"].endswith("by orders[shipped]")
+
+    def month(name):
+        rows = ok(api.post(f"{m}/evaluate", json={"measures": [name], "group_by": [{"table": "Date", "column": "Year Month"}]}))["rows"]
+        return {r[0]: r[1] for r in rows if r[1]}
+
+    assert month("Ordered") == {"2024-01": 10, "2024-02": 5, "2024-03": 1}
+    assert month("Shipped") == {"2024-02": 15, "2024-04": 1}
+    ok(api.post(f"{m}/measures", json={"name": "Shipped YTD", "kind": "time", "base": "Shipped", "calc": "ytd", "format": {"type": "number"}}))
+    assert month("Shipped YTD")["2024-04"] == 16
+    refused = api.post(f"{m}/measures", json={"name": "X", "kind": "formula", "expression": "[Ordered] * 2", "use_relationship": shipped["id"]})
+    assert refused.status_code == 400 and "Only a measure that adds up" in refused.json()["detail"]
+    ok(api.delete(f"{m}/relationships/{shipped['id']}"))
+    broken = next(x for x in ok(api.get(m))["measures"] if x["name"] == "Shipped")
+    assert "was removed" in (broken["error"] or "")
+
+
+def test_power_bi_userelationship_imports_and_exports():
+    from app import pbi_dax
+    ctx = pbi_dax.Context({"Orders": ["Amount", "Shipped"], "Date": ["Date"]}, {})
+    proposal, _ = pbi_dax.to_measure("Shipped", "CALCULATE(SUM(Orders[Amount]), USERELATIONSHIP(Orders[Shipped], 'Date'[Date]))", ctx)
+    assert proposal["use_relationship"] == {"from": ["Orders", "Shipped"], "to": ["Date", "Date"]} and proposal["filters"] == []
+    dax = pbi_dax.from_measure({**proposal, "_uses": ("Orders", "Shipped", "Date", "Date")}, "Orders")
+    assert dax == "CALCULATE(SUM('Orders'[Amount]), USERELATIONSHIP('Orders'[Shipped], 'Date'[Date]))"

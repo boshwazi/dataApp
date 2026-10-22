@@ -361,8 +361,14 @@ def _aggregate(ctx: Context, node) -> dict | None:
         inner = _aggregate(ctx, args[0])
         if inner is None:
             raise Untranslatable("Its CALCULATE wraps something other than a single aggregation.")
-        filters = list(inner["filters"]) + [_filter(ctx, f, inner["table"]) for f in args[1:]]
-        return {**inner, "filters": filters}
+        filters, uses = list(inner["filters"]), None
+        for f in args[1:]:
+            if f[0] == "call" and f[1] == "USERELATIONSHIP" and len(f[2]) == 2:
+                # Named by its two columns; the importer finds the relationship.
+                uses = {"from": list(_column(ctx, f[2][0])), "to": list(_column(ctx, f[2][1]))}
+            else:
+                filters.append(_filter(ctx, f, inner["table"]))
+        return {**inner, "filters": filters, **({"use_relationship": uses} if uses else {})}
     return None
 
 
@@ -630,6 +636,9 @@ def from_measure(measure: dict, table_name: str | None, names: dict[str, str] | 
             symbol = {"equals": "=", "not_equals": "<>", "greater_than": ">", "less_than": "<",
                       "at_least": ">=", "at_most": "<="}[op]
             filters.append(f"KEEPFILTERS({col} {symbol} {_value(value)})")
+    if measure.get("_uses"):  # set by the exporter: (from table, from column, to table, to column)
+        f_table, f_col, t_table, t_col = measure["_uses"]
+        filters.append(f"USERELATIONSHIP({column(f_table, f_col)}, {column(t_table, t_col)})")
     return f"CALCULATE({inner}, {', '.join(filters)})" if filters else inner
 
 

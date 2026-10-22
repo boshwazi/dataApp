@@ -448,6 +448,7 @@ def measure_from(proposal: dict, measure_id: str, status: str) -> dict:
         "expression": proposal.get("expression"),
         "filters": copy.deepcopy(proposal.get("filters") or []),
         "base": proposal.get("base"),
+        "use_relationship": proposal.get("use_relationship") or None,
         "calc": proposal.get("calc"),
         "months": proposal.get("months"),
         "format": copy.deepcopy(proposal.get("format") or {"type": "number", "decimals": 0}),
@@ -460,6 +461,29 @@ def measure_from(proposal: dict, measure_id: str, status: str) -> dict:
     }
 
 
+def check_relationship_choice(project: dict, measure: dict) -> None:
+    """A measure may name one relationship to use instead of the active one between the same tables."""
+    chosen = measure.get("use_relationship")
+    if not chosen:
+        measure["use_relationship"] = None
+        return
+    if measure["kind"] != "aggregate":
+        raise ModelError("Only a measure that adds up a table's rows can choose a relationship; time measures follow their base.")
+    if not any(r["id"] == chosen for r in state(project)["relationships"]):
+        raise ModelError("The relationship this measure uses was removed.")
+
+
+def with_relationship(relationships: list[dict], chosen: str | None) -> list[dict]:
+    """The relationships as one measure sees them: the chosen one active, the others between those tables not."""
+    if not chosen:
+        return relationships
+    rel = next((r for r in relationships if r["id"] == chosen), None)
+    if rel is None:
+        raise ModelError("The relationship this measure uses was removed.")
+    pair = {rel["from_table"], rel["to_table"]}
+    return [{**r, "active": r["id"] == chosen} if {r["from_table"], r["to_table"]} == pair else r for r in relationships]
+
+
 def try_measure(con, project: dict, proposal: dict, measure_id: str | None = None) -> dict:
     """Check a new or changed measure and work out its total, without saving it (the formula bar's live check)."""
     trial = copy.deepcopy(project)
@@ -467,6 +491,7 @@ def try_measure(con, project: dict, proposal: dict, measure_id: str | None = Non
     measure = measure_from(proposal, measure_id or new_id(), "Approved")
     found = tables(con, trial)
     check_measure(found, measures, measure)
+    check_relationship_choice(trial, measure)
     state(trial)["measures"] = [m for m in measures if m["id"] != measure["id"]] + [measure]
     value = evaluate(con, trial, [measure["name"]])["rows"][0][0]
     return {"value": value, "label": describe_measure(measure, {t.id: t.name for t in found.values()}), "table": measure["table"]}
@@ -480,6 +505,7 @@ def update_measure(con, project: dict, measure_id: str, proposal: dict) -> dict:
     measure = measure_from(proposal, measure_id, old.get("status", "Approved"))
     measure["added_at"] = old.get("added_at", now())
     check_measure(tables(con, project), measures, measure)
+    check_relationship_choice(project, measure)
     if old["name"] != measure["name"]:
         # Formulas refer to measures by name, so they follow the rename.
         pattern = re.compile(r"\[\s*" + re.escape(old["name"]) + r"\s*\]", re.IGNORECASE)
@@ -507,6 +533,7 @@ def add_measure(con, project: dict, proposal: dict, status: str) -> dict:
     model = state(project)
     measure = measure_from(proposal, new_id(), status)
     check_measure(tables(con, project), model["measures"], measure)
+    check_relationship_choice(project, measure)
     model["measures"].append(measure)
     return measure
 
@@ -621,7 +648,7 @@ def aggregate_sql(found, relationships, measure: dict, group_by: list[dict], fil
     if window:
         return windowed_sql(found, relationships, measure, group_by, filters, window)
     base = found[measure["table"]]
-    paths = paths_from(base.id, relationships)
+    paths = paths_from(base.id, with_relationship(relationships, measure.get("use_relationship")))
     aliases = {base.id: "a0"}
     joins = []
 
@@ -669,7 +696,7 @@ def windowed_sql(found, relationships, measure: dict, group_by: list[dict], filt
                  window: tuple[str, int | None]) -> str:
     base = found[measure["table"]]
     label = TIME_CALCS[window[0]]
-    paths = paths_from(base.id, relationships)
+    paths = paths_from(base.id, with_relationship(relationships, measure.get("use_relationship")))
     if DATE_ID not in found or DATE_ID not in paths:
         raise ModelError(f"'{measure['name']}' needs a relationship to the date table to be worked out {label}.")
     dates = found[DATE_ID]

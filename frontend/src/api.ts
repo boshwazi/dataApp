@@ -438,6 +438,7 @@ export type Measure = {
   base?: string | null;
   calc?: TimeCalc | null;
   months?: number | null;
+  use_relationship?: string | null;
   table: string | null;
   aggregation: Aggregation | null;
   expression: string | null;
@@ -478,6 +479,7 @@ export type MeasureBody = {
   base?: string | null;
   calc?: TimeCalc | null;
   months?: number | null;
+  use_relationship?: string | null;
   table?: string | null;
   aggregation?: Aggregation | null;
   expression?: string | null;

@@ -103,6 +103,12 @@ def build(con, project: dict) -> tuple[str, dict[str, bytes]]:
 
     # Measures live in their aggregate's table; formulas go with the first measure they use.
     measures = [m for m in state["measures"] if not m.get("error")]
+    rels = {r["id"]: r for r in state["relationships"]}
+    measures = [
+        {**m, "_uses": (names.get(r["from_table"]), r["from_column"], names.get(r["to_table"]), r["to_column"])}
+        if (r := rels.get(m.get("use_relationship"))) else m
+        for m in measures
+    ]
     by_name = {m["name"].lower(): m for m in measures}
     homes: dict[str, list[dict]] = {t: [] for t in found}
 

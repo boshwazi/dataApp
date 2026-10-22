@@ -28,6 +28,7 @@ class MeasureBody(BaseModel):
     base: str | None = None  # time measures: the measure they work out over time
     calc: str | None = None
     months: int | None = None
+    use_relationship: str | None = None  # an inactive relationship to use instead, like USERELATIONSHIP
     format: dict = {"type": "number", "decimals": 0}
     description: str = ""
     folder: str = ""
@@ -101,7 +102,11 @@ def view(con, project: dict) -> dict:
                 value = model.evaluate(con, project, [measure["name"]])["rows"][0][0]
             except model.ModelError as exc:
                 error = str(exc)
-        measures.append({**measure, "label": model.describe_measure(measure, names), "value": value, "error": error})
+        label = model.describe_measure(measure, names)
+        chosen = next((r for r in current["relationships"] if r["id"] == measure.get("use_relationship")), None)
+        if chosen:
+            label += f", by {names.get(chosen['from_table'], '?')}[{chosen['from_column']}]"
+        measures.append({**measure, "label": label, "value": value, "error": error})
 
     date_table = None
     if current["date_table"]:

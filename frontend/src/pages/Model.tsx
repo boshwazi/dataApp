@@ -33,6 +33,7 @@ type Draft = {
   description: string;
   folder: string;
   filters: Measure["filters"];
+  useRelationship: string | null;
 };
 
 // The formula bar writes aggregates the Power BI way: SUM([Qty] * [Price]), COUNTROWS(), DISTINCTCOUNT([Customer]).
@@ -85,6 +86,7 @@ function bodyOf(draft: Draft): MeasureBody {
     base: parsed.kind === "time" ? parsed.base : null,
     calc: parsed.kind === "time" ? parsed.calc : null,
     months: parsed.kind === "time" ? parsed.months : null,
+    use_relationship: parsed.kind === "aggregate" ? draft.useRelationship : null,
     format: draft.format,
     description: draft.description,
     folder: draft.folder,
@@ -92,7 +94,7 @@ function bodyOf(draft: Draft): MeasureBody {
 }
 
 function draftOf(m: Measure): Draft {
-  return { id: m.id, name: m.name, text: measureText(m), table: m.table, format: m.format, description: m.description, folder: m.folder ?? "", filters: m.filters ?? [] };
+  return { id: m.id, name: m.name, text: measureText(m), table: m.table, format: m.format, description: m.description, folder: m.folder ?? "", filters: m.filters ?? [], useRelationship: m.use_relationship ?? null };
 }
 
 export function Model() {
@@ -135,7 +137,7 @@ export function Model() {
   function newMeasure(tableId?: string) {
     const home = tableId ?? state?.tables.find((t) => t.kind === "fact")?.id ?? state?.tables[0]?.id ?? null;
     setSelection({ kind: "new" });
-    setDraft({ name: "New measure", text: "SUM()", table: home, format: { type: "number", decimals: 0 }, description: "", folder: "", filters: [] });
+    setDraft({ name: "New measure", text: "SUM()", table: home, format: { type: "number", decimals: 0 }, description: "", folder: "", filters: [], useRelationship: null });
   }
 
   async function save() {
@@ -994,6 +996,21 @@ function Properties(props: {
           </label>
           {parsed.kind === "aggregate" && (
             <FilterEditor tables={state.tables} home={draft.table} filters={draft.filters} onChange={(filters) => onDraft({ ...draft, filters })} />
+          )}
+          {parsed.kind === "aggregate" && state.relationships.some((r) => !r.active || r.id === draft.useRelationship) && (
+            <label className="prop">
+              <span>Relationship to use</span>
+              <select value={draft.useRelationship ?? ""} onChange={(e) => onDraft({ ...draft, useRelationship: e.target.value || null })}>
+                <option value="">The active one (usual)</option>
+                {state.relationships
+                  .filter((r) => !r.active || r.id === draft.useRelationship)
+                  .map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.from_name}[{r.from_column}] → {r.to_name}[{r.to_column}]
+                    </option>
+                  ))}
+              </select>
+            </label>
           )}
           <p className="muted small">
             Write <code>SUM([Column])</code>, <code>AVERAGE( )</code>, <code>COUNTROWS()</code>, <code>DISTINCTCOUNT( )</code>, <code>MIN( )</code> or <code>MAX( )</code> over the home table's columns, or a formula over other measures such as <code>[Revenue] / [Orders]</code>. Over time: <code>YTD([Revenue])</code>, <code>QTD( )</code>, <code>MTD( )</code>, <code>LASTYEAR([Revenue])</code>, <code>LASTYEARYTD( )</code> or <code>ROLLING([Revenue], 3)</code>; these need the date table. Conditions: <code>IF([Qty] &gt;= 10, [Qty] * [Price], 0)</code>, <code>SWITCH([Region], "North", 1, 0)</code>, with <code>AND</code>, <code>OR</code> and <code>NOT</code>.

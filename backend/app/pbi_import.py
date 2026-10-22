@@ -239,6 +239,20 @@ def _add_measure(con, project, found, proposal: dict, names: dict[str, str], for
                 if not related:
                     raise model.ModelError(f"It filters on {item['table']}, which isn't loaded yet.")
                 item["table"] = related
+    uses = proposal.get("use_relationship")
+    if isinstance(uses, dict):
+        (f_table, f_col), (t_table, t_col) = uses["from"], uses["to"]
+        try:
+            f_id = model.find_table(found, names.get(f_table) or f_table).id
+            t_id = model.find_table(found, names.get(t_table) or t_table).id
+        except model.ModelError:
+            f_id = t_id = None
+        match = next((r for r in model.state(project)["relationships"]
+                      if {(r["from_table"], r["from_column"].lower()), (r["to_table"], r["to_column"].lower())}
+                      == {(f_id, f_col.lower()), (t_id, t_col.lower())}), None)
+        if match is None:
+            raise model.ModelError(f"It uses the relationship {f_table}[{f_col}] to {t_table}[{t_col}], which wasn't imported.")
+        proposal["use_relationship"] = match["id"]
     proposal["format"] = pbi_dax.format_from(format_string)
     proposal["reason"] = "Imported from Power BI."
     model.add_measure(con, project, proposal, "Approved")
