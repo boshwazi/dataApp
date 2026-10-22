@@ -18,10 +18,14 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 from . import ingest, llm, model, report, transform
-from .projects import new_id, now, table_name
+from .projects import new_id, now, quote, table_name
 from .transform_ops import StepError, catalogue, describe
 
 HISTORY_TURNS = 10
+LOOK_ROUNDS = 2  # how many times a chat may look things up before it must answer
+MAX_LOOKS = 4
+LOOK_ROWS = 10
+LOOK_VALUES = 30
 MAX_MESSAGES = 200
 FAILURES = (StepError, model.ModelError, report.ReportError, ingest.IngestError, ValueError, KeyError, TypeError)
 
@@ -58,6 +62,7 @@ class Stage:
     finish: Callable[[Ctx, object], None] = lambda ctx, token: None  # after it (re-run, collapse undo)
     extra: dict = field(default_factory=dict)
     data_questions: bool = False  # may hand a question to the Ask pipeline (the Report stage)
+    reads: bool = True  # may look at column values and sample rows before answering (not the Report stage)
 
 
 def need(params: dict, key: str):
@@ -570,6 +575,7 @@ REPORT = Stage(
     context=rp_context,
     begin=rp_begin,
     data_questions=True,
+    reads=False,
 )
 
 STAGES = {s.name: s for s in (GET_DATA, TRANSFORM, MODEL, REPORT)}
@@ -593,6 +599,15 @@ def schema(stage: Stage) -> dict:
                 "description": "Only when the user asks about numbers that are NOT in the visuals' data you were given: "
                                "the question, rephrased to stand on its own. The app answers it from the data model "
                                "with checked numbers. Leave empty otherwise."}} if stage.data_questions else {}),
+            **({"look": {
+                "type": "array",
+                "description": "Only when you need to see data before answering or acting: up to 4 lookups. Return "
+                               "no actions with them; you'll get the results and answer then.",
+                "items": {"type": "object", "properties": {
+                    "tool": {"type": "string", "enum": ["column_values", "sample_rows"]},
+                    "table": {"type": "string"}, "column": {"type": "string", "description": "column_values only"},
+                    "contains": {"type": "string", "description": "optional: only values containing this text"}},
+                    "required": ["tool", "table"]}}} if stage.reads else {}),
             "actions": {
                 "type": "array",
                 "items": {
@@ -625,6 +640,11 @@ def system_prompt(stage: Stage, mode: str = "full") -> str:
         "exact: use names exactly as they appear in the state. Be concise and friendly; no jargon. "
         "For three or more items use a short Markdown bullet list (\"- item\"), with **bold** for names; no headings or tables."
     ) + (
+        " The state shows summaries, not every value. When you need to see the data itself (which spellings a "
+        "column has, what rows look like, whether a value exists), use look; you get the results and then answer. "
+        "Look only when it matters."
+        if stage.reads else ""
+    ) + (
         " Each visual comes with its data (the numbers it shows). Answer questions about what's on the dashboard "
         "from those numbers: trends, peaks, dips, comparisons, how two measures move together. Quote numbers "
         "exactly as given, rounded sensibly, and name the visual you mean. When the answer needs numbers that "
@@ -648,15 +668,73 @@ def build_prompt(stage: Stage, state: dict, upstream: dict, history: list[dict],
     )
 
 
+def look(ctx: Ctx, stage: Stage, requests: list[dict]) -> list[dict]:
+    """Run a chat's lookups, read-only: a column's values with counts, or a few rows of a table."""
+    if stage.name == "get_data":
+        tables = {s["table"].lower(): (s["table"], quote(s["table"])) for s in ctx.project["sources"]}
+    else:
+        tables = {t.name.lower(): (t.name, t.sql) for t in model.tables(ctx.con, ctx.project).values()}
+    out = []
+    for item in requests[:MAX_LOOKS]:
+        name = str(item.get("table") or "")
+        entry = {"tool": item.get("tool"), "table": name}
+        found = tables.get(name.lower())
+        try:
+            if found is None:
+                raise ChatError(f"There is no table called '{name}'. Tables: {', '.join(t for t, _ in tables.values())}.")
+            label, sql = found
+            entry["table"] = label
+            if item.get("tool") == "column_values":
+                columns = [r[0] for r in ctx.con.execute(f"DESCRIBE SELECT * FROM {sql}").fetchall()]
+                column = next((c for c in columns if c.lower() == str(item.get("column") or "").lower()), None)
+                if column is None:
+                    raise ChatError(f"{label} has no column '{item.get('column')}'. Columns: {', '.join(columns)}.")
+                entry["column"] = column
+                c = quote(column)
+                where = ""
+                params = []
+                if item.get("contains"):
+                    where, params = f" WHERE CAST({c} AS VARCHAR) ILIKE ?", [f"%{item['contains']}%"]
+                rows = ctx.con.execute(
+                    f"SELECT {c}, count(*) AS n FROM {sql}{where} GROUP BY 1 ORDER BY n DESC, 1 LIMIT {LOOK_VALUES}", params
+                ).fetchall()
+                total = ctx.con.execute(f"SELECT count(DISTINCT {c}) FROM {sql}").fetchone()[0]
+                entry["values"] = [[str(v) if v is not None else None, n] for v, n in rows]
+                entry["distinct"] = total
+            elif item.get("tool") == "sample_rows":
+                result = ctx.con.execute(f"SELECT * FROM {sql} LIMIT {LOOK_ROWS}")
+                entry["columns"] = [d[0] for d in result.description]
+                entry["rows"] = [[None if v is None else str(v) for v in row] for row in result.fetchall()]
+            else:
+                raise ChatError("Look with column_values or sample_rows.")
+        except (ChatError, *FAILURES) as exc:
+            entry["error"] = str(exc)
+        except Exception as exc:  # a lookup that fails is reported to the agent, never fatal  # noqa: BLE001
+            entry["error"] = str(exc).splitlines()[0]
+        out.append(entry)
+    return out
+
+
 def ask(client, model_name: str, capabilities: dict, stage: Stage, state: dict, upstream: dict,
-        history: list[dict], message: str, mode: str = "full") -> dict:
-    raw = llm.ask_json(client, model_name, capabilities, system_prompt(stage, mode),
-                       build_prompt(stage, state, upstream, history, message), "respond", schema(stage))
+        history: list[dict], message: str, mode: str = "full", reader: Callable[[list[dict]], list[dict]] | None = None) -> dict:
+    """One chat turn. With a `reader`, the agent may look things up (up to LOOK_ROUNDS times) before answering."""
+    prompt = build_prompt(stage, state, upstream, history, message)
+    looked: list[dict] = []
+    for round_ in range(LOOK_ROUNDS + 1):
+        raw = llm.ask_json(client, model_name, capabilities, system_prompt(stage, mode), prompt, "respond", schema(stage))
+        requests = [r for r in raw.get("look") or [] if isinstance(r, dict)] if stage.reads and reader else []
+        if not requests or round_ == LOOK_ROUNDS:
+            break
+        results = reader(requests)
+        looked += results
+        prompt += (f"\n\nWhat you looked up (round {round_ + 1}):\n{json.dumps(results, default=str)}\n\n"
+                   + ("Now answer, or look once more if you must." if round_ + 1 < LOOK_ROUNDS else "Now answer; no more lookups."))
     actions = [a for a in raw.get("actions") or [] if isinstance(a, dict) and a.get("action") in stage.actions]
     question = str(raw.get("data_question") or "").strip() if stage.data_questions else ""
     used = [str(v) for v in raw.get("used_visuals") or [] if isinstance(v, str)] if stage.data_questions else []
     return {"reply": str(raw.get("reply") or "").strip(), "actions": actions, "data_question": question,
-            "used_visuals": used}
+            "used_visuals": used,
+            "looked": [{k: v for k, v in r.items() if k in ("tool", "table", "column", "error")} for r in looked]}
 
 
 def explain_reply(reply: str, used: list[str], state: dict) -> dict | None:

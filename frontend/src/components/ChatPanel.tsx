@@ -209,6 +209,15 @@ function Message(props: {
   return (
     <div className={`chat-msg ${message.role}`}>
       {message.content && (message.role === "assistant" ? <Markdown text={message.content} /> : <p>{message.content}</p>)}
+      {message.looked && message.looked.length > 0 && (
+        <p className="muted small chat-looked">
+          Looked at{" "}
+          {message.looked
+            .filter((l) => !l.error)
+            .map((l) => (l.tool === "column_values" ? `${l.table}[${l.column}]` : `rows of ${l.table}`))
+            .join(", ") || "nothing it could find"}
+        </p>
+      )}
       {message.how && (
         <details className="how">
           <summary>How this was calculated</summary>

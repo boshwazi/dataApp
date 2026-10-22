@@ -257,3 +257,29 @@ def test_report_chat_queries_the_model_when_the_answer_isnt_on_the_dashboard(tmp
     assert len(ai.calls) == 3  # the chat turn, then Ask's plan and answer
     # Nothing on the dashboard changed.
     assert [v["title"] for v in p.visuals()] == ["Revenue by segment"]
+
+
+# Looking things up before answering (M12b)
+
+
+def test_the_transform_chat_looks_at_values_before_answering(tmp_path):
+    p, ai = project_with(
+        tmp_path,
+        {"reply": "", "actions": [], "look": [{"tool": "column_values", "table": "sales", "column": "CUSTOMER"},
+                                              {"tool": "sample_rows", "table": "nope"}]},
+        {"reply": "C1 has the most orders (3 of 5).", "actions": []},
+    )
+    thread = say(p, "transform", "Which customer appears most?")["messages"]
+    second = ai.calls[1]["messages"][-1]["content"]
+    assert '"values": [["C1", 3]' in second and "no table called 'nope'" in second
+    reply = thread[-1]
+    assert reply["content"].startswith("C1") and reply["looked"][0] == {"tool": "column_values", "table": "sales", "column": "customer"}
+    assert "look" in ai.calls[0]["messages"][0]["content"]
+
+
+def test_lookups_stop_after_two_rounds(tmp_path):
+    again = {"reply": "", "actions": [], "look": [{"tool": "sample_rows", "table": "sales"}]}
+    p, ai = project_with(tmp_path, again, again, {"reply": "Done looking.", "actions": [], "look": [{"tool": "sample_rows", "table": "sales"}]})
+    thread = say(p, "model", "Show me some rows")["messages"]
+    assert len(ai.calls) == 3 and thread[-1]["content"] == "Done looking."
+    assert "no more lookups" in ai.calls[2]["messages"][-1]["content"]

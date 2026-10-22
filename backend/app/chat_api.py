@@ -113,22 +113,33 @@ def build_router(
             raise HTTPException(400, "Type a message first.")
         state, upstream = read_context(project_id, current)
         history = messages(project_id, stage)
+
+        def reader(requests):
+            # Lookups read the current data, without the lock: they never change anything.
+            with datasets.connect(project_id) as con:
+                return chat.look(chat.Ctx(load(project_id), con, True, datasets, fetch_url), current, requests)
+
         try:
-            answer = chat.ask(guidance.guided(client_factory(config), guidance.for_project(datasets, load(project_id))), config.model, config.capabilities, current, state, upstream, history, text,
-                              body.mode)
+            answer = chat.ask(guidance.guided(client_factory(config), guidance.for_project(datasets, load(project_id))),
+                              config.model, config.capabilities, current, state, upstream, history, text, body.mode, reader)
         except llm.AIError as exc:
             raise HTTPException(502, f"The AI did not answer: {exc}") from exc
+        def said(message: dict) -> dict:
+            if answer.get("looked"):
+                message["looked"] = answer["looked"]  # shown under the reply: what the agent looked at
+            return message
+
         user = chat.message("user", text)
         if not answer["actions"]:
-            return {"messages": save_messages(project_id, stage, user, chat.message("assistant", answer["reply"])), "applied": False}
+            return {"messages": save_messages(project_id, stage, user, said(chat.message("assistant", answer["reply"]))), "applied": False}
         if chat.needs_approval(current, answer["actions"], body.mode):
             results = check(project_id, current, answer["actions"])
             change = {"id": chat.new_id(), "status": "pending", "mode": body.mode, "actions": results}
-            reply = chat.message("assistant", answer["reply"], change)
+            reply = said(chat.message("assistant", answer["reply"], change))
             return {"messages": save_messages(project_id, stage, user, reply), "applied": False}
         results = apply(project_id, current, answer["actions"])
         change = {"id": chat.new_id(), "status": "applied", "mode": body.mode, "actions": results}
-        thread = save_messages(project_id, stage, user, chat.message("assistant", answer["reply"], change))
+        thread = save_messages(project_id, stage, user, said(chat.message("assistant", answer["reply"], change)))
         return {"messages": thread, "applied": any(r["ok"] for r in results)}
 
     @router.post("/api/datasets/{project_id}/chat/{stage}/changes/{change_id}/{decision}")

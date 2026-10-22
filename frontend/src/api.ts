@@ -735,6 +735,8 @@ export type ChatMessage = {
   answer?: AskResponse & { question: string };
   /** Whether the numbers in the reply match the visuals' data. */
   check?: { verified: boolean; unmatched: number[] };
+  /** What the agent looked at before answering: a column's values, or sample rows. */
+  looked?: { tool: "column_values" | "sample_rows"; table: string; column?: string; error?: string }[];
   /** For an answer read off the dashboard: the visuals it used and their measures. */
   how?: {
     visuals: { title: string; page: string; type: string; split_by: string[] }[];
