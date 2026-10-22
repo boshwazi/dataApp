@@ -595,14 +595,19 @@ TIME_DAX = {
 }
 
 
-def from_measure(measure: dict, table_name: str | None, names: dict[str, str] | None = None) -> str:
+def from_measure(measure: dict, table_name: str | None, names: dict[str, str] | None = None,
+                 last_date: str | None = None) -> str:
     """DAX for a catalogue measure. `table_name` is the aggregate's table as Power BI will call it;
-    `names` maps table ids to Power BI names, for filters on related tables."""
+    `names` maps table ids to Power BI names, for filters on related tables. `last_date` (DAX for the
+    last date the measure has data for) makes a time measure stop there, as datawazi does: a year in
+    progress compares with the same days last year, and dates after the data are blank."""
     if measure["kind"] == "formula":
         return _formula_dax(model_expr.parse(measure["expression"]))
     if measure["kind"] == "time":
         base = "[" + measure["base"].replace("]", "]]") + "]"
-        return TIME_DAX[measure["calc"]].format(m=base, d=column(model.DATE_NAME, "Date"), n=measure.get("months") or 3)
+        date = column(model.DATE_NAME, "Date")
+        dax = TIME_DAX[measure["calc"]].format(m=base, d=date, n=measure.get("months") or 3)
+        return f"CALCULATE({dax}, KEEPFILTERS({date} <= {last_date}))" if last_date else dax
     tree = model_expr.parse(measure["expression"]) if measure.get("expression") else None
     aggregation = measure["aggregation"]
     single = tree is not None and tree[0] == "ref"

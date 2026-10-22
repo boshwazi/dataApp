@@ -7,6 +7,7 @@ the engine checks each one and keeps only those that pass.
 """
 
 import json
+import re
 
 from . import llm, transform
 from .projects import quote
@@ -28,7 +29,11 @@ SYSTEM = (
     "If the table repeats descriptive attributes of something with its own key (e.g. product code, name and "
     "category on every sales row), you may split those columns off into a lookup table with new_tables; the key "
     "stays in this table, and you may add a remove_columns step for the moved attributes. Do not split off a "
-    "single column with no attributes, and never split dates (the Model stage adds a date table)."
+    "single column with no attributes, and never split dates (the Model stage adds a date table). "
+    "If repeated_keys lists a code or ID column of a lookup table (products, customers, branches) whose few "
+    "repeats stop it being one row per key, add remove_duplicates with that column, and name the repeated values "
+    "in the reason: the Model needs one row per key to relate the table. Don't do this for fact tables, where "
+    "repeats are normal."
 )
 
 SCHEMA = {
@@ -70,6 +75,25 @@ def shorten(value):
     if isinstance(value, str) and len(value) > MAX_VALUE_LENGTH:
         return value[:MAX_VALUE_LENGTH] + "…"
     return value
+
+
+KEY_NAME = re.compile(r"(^|[\W_])(id|code|key|no|number|sku)($|[\W_])|code$", re.IGNORECASE)
+CAMEL_ID = re.compile(r"[a-z]I[Dd]$")  # ProductID, customerId; not "paid" or "valid"
+MAX_KEY_REPEATS = 0.05  # up to 5% of rows repeating: a lookup table with a few stray copies, not a fact table
+
+
+def repeated_keys(con, table: str, profile: dict) -> list[dict]:
+    """Code or ID columns that are nearly, but not quite, one row per value."""
+    out = []
+    for c in profile["columns"]:
+        extra = c["filled"] - c["distinct"]
+        if not (KEY_NAME.search(c["name"]) or CAMEL_ID.search(c["name"])) or extra <= 0 or extra > max(1, MAX_KEY_REPEATS * profile["rows"]):
+            continue
+        values = [str(v) for (v,) in con.execute(
+            f"SELECT {quote(c['name'])} FROM {table} WHERE {quote(c['name'])} IS NOT NULL "
+            f"GROUP BY 1 HAVING count(*) > 1 ORDER BY 1 LIMIT 5").fetchall()]
+        out.append({"column": c["name"], "repeated_values": values, "extra_rows": extra})
+    return out
 
 
 def build_prompt(con, project: dict, query: dict) -> str:
@@ -114,6 +138,7 @@ def build_prompt(con, project: dict, query: dict) -> str:
         "lookup_split_from": transform.query_names(project).get(query.get("base_query")),
         "steps_so_far": [describe(s["op"], s["params"], query_names) for s in query["steps"]],
         "columns": columns,
+        "repeated_keys": repeated_keys(con, table, profile),
         "sample_rows": samples,
         "other_tables": others,
     }

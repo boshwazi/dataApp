@@ -747,9 +747,14 @@ def windowed_sql(found, relationships, measure: dict, group_by: list[dict], filt
 
     ctx_where = f" WHERE {' AND '.join(f'({c})' for c in date_conditions)}" if date_conditions else ""
     ctx_group = f" GROUP BY {', '.join(ctx_keys)}" if ctx_keys else ""
-    ctx = f"SELECT {', '.join(ctx_groups + ['min(d."Date") AS lo', 'max(d."Date") AS hi'])} FROM {dates.sql} AS d{ctx_where}{ctx_group}"
+    # A period ends at the last date this measure has data for: a year still in progress compares its days so far
+    # with the same days last year (not the whole of last year), and months after the data are blank.
+    last = f"(SELECT max(CAST(x.{quote(link['from_column'])} AS DATE)) FROM {found[link['from_table']].sql} AS x)"
+    hi = f'least(max(d."Date"), coalesce({last}, max(d."Date"))) AS hi'
+    ctx = f"SELECT {', '.join(ctx_groups + ['min(d."Date") AS lo', hi])} FROM {dates.sql} AS d{ctx_where}{ctx_group}"
     start, end = window_range(*window)
     conditions.append(f"{fact_date} BETWEEN {start} AND {end}")
+    conditions.append("ctx.lo <= ctx.hi")  # a period that starts after the last data date shows nothing
 
     tree = measure_tree(measure)
     expr = model_expr.to_sql(tree, lambda name: f"a0.{quote(base.column(name).name)}") if tree else None

@@ -431,13 +431,14 @@ def test_year_to_date_and_last_year_by_month_and_year(p):
     ok(time_measure(p, "Revenue LY", "revenue", "prior_year"))
     ok(time_measure(p, "Revenue LY YTD", "Revenue", "prior_year_ytd"))
     ytd = by(p, "Revenue YTD", MONTH)
-    assert [ytd[m] for m in ("2024-01", "2024-02", "2024-10", "2024-11", "2024-12", "2025-01", "2025-02", "2025-12")] == \
-        [20, 30, 30, 40, 40, 20, 24, 24]
+    # Periods end with the data (2 Feb 2025): months after it are blank, not a repeat of the running total.
+    assert [ytd.get(m) for m in ("2024-01", "2024-02", "2024-10", "2024-11", "2024-12", "2025-01", "2025-02", "2025-12")] == \
+        [20, 30, 30, 40, 40, 20, 24, None]
     ly = by(p, "Revenue LY", ("Date", "Year"))
-    assert ly.get(2024) is None and ly[2025] == 40
+    assert ly.get(2024) is None and ly[2025] == 20  # 2025 so far (to 2 Feb) against the same days of 2024
     ly_month = by(p, "Revenue LY", MONTH)
-    assert (ly_month["2025-01"], ly_month["2025-02"], ly_month["2025-11"]) == (20, 10, 10)
-    assert by(p, "Revenue LY YTD", MONTH)["2025-02"] == 30  # 2024, 1 Jan to 28 Feb
+    assert (ly_month["2025-01"], ly_month.get("2025-02"), ly_month.get("2025-11")) == (20, None, None)
+    assert by(p, "Revenue LY YTD", MONTH)["2025-02"] == 20  # 2024, 1 Jan to 2 Feb: the same days, not to 28 Feb
     # No date on show: up to the end of the dates in view, like Power BI.
     assert by(p, "Revenue YTD") == 24
     assert by(p, "Revenue YTD", filters=[{"table": "Date", "column": "Year", "operator": "equals", "value": 2024}]) == 40
@@ -453,7 +454,7 @@ def test_rolling_months_formulas_and_other_columns(p):
     assert (rolling["2024-03"], rolling["2025-01"], rolling["2025-02"]) == (30, 30, 24)
     assert by(p, "Average order YTD", MONTH)["2025-02"] == 12  # Revenue YTD 24 over 2 orders YTD
     by_segment = by(p, "Revenue LY", ("customers", "segment"), ("Date", "Year"))
-    assert by_segment[("Retail", 2025)] == 30 and by_segment[("Online", 2025)] == 10
+    assert by_segment[("Retail", 2025)] == 20 and by_segment.get(("Online", 2025)) is None  # same days of 2024
 
 
 def test_time_measures_are_checked(p):
@@ -523,7 +524,7 @@ def test_measures_filter_on_related_tables(p):
     assert measure["value"] == 50 and "customers[segment] equals Retail" in measure["label"]
     assert by(p, "Retail revenue", ("Date", "Year")) == {2024: 30, 2025: 20}
     ok(time_measure(p, "Retail revenue LY", "Retail revenue", "prior_year"))
-    assert by(p, "Retail revenue LY", ("Date", "Year"))[2025] == 30
+    assert by(p, "Retail revenue LY", ("Date", "Year"))[2025] == 20  # 2024 to 2 Feb, like 2025 so far
     bad = p.api.post(f"{p.dataset}/model/measures", json={**retail, "name": "X", "filters": [
         {"table": "customers", "column": "nope", "operator": "equals", "value": "Retail"}]})
     assert bad.status_code == 400
@@ -558,7 +559,7 @@ def test_conditions_in_row_expressions_and_formulas(p):
     ok(time_measure(p, "Revenue LY", "Revenue", "prior_year"))
     ok(measure(p, name="Growth", kind="formula", expression="IF([Revenue LY] > 0, ([Revenue] - [Revenue LY]) / [Revenue LY], 0)"))
     growth = by(p, "Growth", ("Date", "Year"))
-    assert growth[2024] == 0 and growth[2025] == -0.4  # 24 against 40
+    assert growth[2024] == 0 and growth[2025] == 0.2  # 24 against 20: 2025 so far against the same days of 2024
     ok(measure(p, name="Busy", kind="formula", expression="IF(AND([Orders] > 1, NOT([Revenue] < 10)), 1, 0)"))
     assert by(p, "Busy", ("Date", "Year")) == {2024: 1, 2025: 1}
 
@@ -647,3 +648,13 @@ def test_power_bi_userelationship_imports_and_exports():
 def test_insight_checks_skip_dates_and_names_and_accept_sums(text, verified):
     data = {"rows": [["Retail", 50.0], ["Online", 14.0], ["Wok 36cm", 50.0]], "check": None}
     assert report.check_insight(text, data)["verified"] is verified
+
+
+def test_a_year_in_progress_compares_with_the_same_days_last_year(p):
+    """The house style's partial-period check: year to date against last year to the same date, not all of last year."""
+    ok(time_measure(p, "Revenue YTD", "Revenue", "ytd"))
+    ok(time_measure(p, "Revenue LY YTD", "Revenue", "prior_year_ytd"))
+    by_year = {name: by(p, name, ("Date", "Year")) for name in ("Revenue", "Revenue YTD", "Revenue LY YTD")}
+    assert by_year["Revenue"] == {2024: 40, 2025: 24}
+    assert by_year["Revenue YTD"][2025] == 24
+    assert by_year["Revenue LY YTD"][2025] == 20  # 5 Jan 2024 only: 10 Feb 2024 is after 2 Feb

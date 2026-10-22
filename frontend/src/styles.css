@@ -1670,6 +1670,7 @@ button:not(.link):not(.icon):not(.chip):not(.source-item):not(.step-main):not(.c
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important; /* shimmer and spinners stop instead of flickering */
     transition-duration: 0.01ms !important;
   }
 }
@@ -1936,6 +1937,10 @@ button.danger-solid:hover:not(:disabled) {
   padding: 14px 16px;
   border-bottom: 1px solid var(--border);
   color: var(--muted);
+}
+
+.search-field:focus-within {
+  box-shadow: inset 0 -2px 0 var(--accent); /* the input drops its outline; the field shows focus instead */
 }
 
 .search-field input {
@@ -2782,6 +2787,12 @@ a.button.secondary:hover,
    ========================================================================== */
 body {
   font-size: 14px;
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
 }
 
 h1 {

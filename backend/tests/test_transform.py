@@ -298,6 +298,16 @@ def test_ai_sees_all_values_of_small_text_columns_but_not_all_rows(tmp_path):
     assert '"op": "merge"' in prompt  # the catalogue is included
 
 
+def test_ai_is_told_about_a_lookup_key_with_a_few_repeats(tmp_path):
+    """A products table with one code listed twice can't be related until it has one row per code."""
+    p, ai = ai_project(tmp_path, [])
+    p.upload("products.csv", "product_code,name,paid\nP-1,Tea,1\nP-2,Rice,1\nP-3,Sambal,1\nP-3,Sambal (old pack),1\n")
+    ok(p.api.post(f"{p.base}/queries/{p.query('products')['id']}/ai"))
+    prompt = ai.calls[0]["messages"][-1]["content"]
+    assert '"repeated_keys": [{"column": "product_code", "repeated_values": ["P-3"], "extra_rows": 1}]' in prompt
+    assert "remove_duplicates" in ai.calls[0]["messages"][0]["content"]
+
+
 def test_ai_cleaning_needs_a_key(p):
     assert p.api.post(f"{p.base}/queries/{p.query('sales')['id']}/ai").status_code == 400
 

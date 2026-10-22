@@ -56,14 +56,15 @@ def logical(column) -> str:
     return column.type if column.type in PBI_TYPES else "text"
 
 
-def table_tmdl(table, measures: list[dict], names: dict, hidden: set, is_date: bool, data_file: str) -> str:
+def table_tmdl(table, measures: list[dict], names: dict, hidden: set, is_date: bool, data_file: str,
+               last_dates: dict[str, str] | None = None) -> str:
     out = [f"table {quote(table.name)}\n", f"\tlineageTag: {tag()}\n"]
     if is_date:
         out.append("\tdataCategory: Time\n")
     out.append("\n")
     for m in measures:
         out.append(doc(m.get("description", ""), "\t"))
-        dax = pbi_dax.from_measure(m, names.get(m.get("table")), names)
+        dax = pbi_dax.from_measure(m, names.get(m.get("table")), names, (last_dates or {}).get(m["name"]))
         out.append(f"\tmeasure {quote(m['name'])} = {dax}\n")
         out.append(f"\t\tformatString: {pbi_dax.format_string(m.get('format') or {})}\n")
         out.append(f"\t\tlineageTag: {tag()}\n\n")
@@ -126,6 +127,22 @@ def build(con, project: dict, pages: list[dict] | None = None, title: str | None
     for m in measures:
         homes.setdefault(home(m), []).append(m)
 
+    def last_date(m, seen=()):
+        """DAX for the last date a time measure's data reaches: the max of its fact's date column."""
+        if m["kind"] == "aggregate":
+            rel = next((r for r in state["relationships"] if r["from_table"] == m["table"] and r["to_table"] == model.DATE_ID
+                        and r.get("active") and not r.get("error")), None)
+            if rel is None or m["table"] not in names:
+                return None
+            return f"CALCULATE(MAX({pbi_dax.column(names[m['table']], rel['from_column'])}), REMOVEFILTERS())"
+        for ref in model.measure_refs(m):
+            other = by_name.get(ref.lower())
+            if other and other["name"] not in seen and (found_date := last_date(other, seen + (m["name"],))):
+                return found_date
+        return None
+
+    last_dates = {m["name"]: d for m in measures if m["kind"] == "time" and (d := last_date(m))}
+
     # Data: written by a separate in-memory DuckDB that runs only these fixed statements.
     with tempfile.TemporaryDirectory() as folder:
         writer = duckdb.connect()
@@ -158,7 +175,7 @@ def build(con, project: dict, pages: list[dict] | None = None, title: str | None
     for table_id, table in found.items():
         files[f"{model_dir}/tables/{safe_file(table.name)}.tmdl"] = table_tmdl(
             table, homes.get(table_id, []), names, hidden, table_id == model.DATE_ID,
-            f"{safe_file(table.name)}.parquet").encode()
+            f"{safe_file(table.name)}.parquet", last_dates).encode()
     relationships = []
     for r in state["relationships"]:
         if r.get("error") or r["from_table"] not in found or r["to_table"] not in found:

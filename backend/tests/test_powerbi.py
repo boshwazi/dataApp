@@ -321,3 +321,19 @@ def test_a_dashboard_exports_as_power_bi_report_pages(tmp_path):
         "customers.segment", "sales.Revenue", "sales.Orders"]
     assert by_type["lineChart"]["query"]["queryState"]["Category"]["projections"][0]["queryRef"] == "Date.Year Month"
     assert any(n.startswith("Sales.SemanticModel/definition/tables/") for n in files)  # the model comes along
+
+
+def test_exported_time_measures_stop_at_the_last_data_date(tmp_path):
+    import io
+    import zipfile
+
+    from test_report import Project, time_measure
+    from test_report import ok as ok_
+    p = Project(tmp_path)
+    ok_(time_measure(p, "Revenue LY YTD", "Revenue", "prior_year_ytd"))
+    ok_(time_measure(p, "Average order YTD", "Average order", "ytd"))  # a formula base reaches its fact through Revenue
+    archive = zipfile.ZipFile(io.BytesIO(p.api.get(f"{p.dataset}/powerbi/export").content))
+    tmdl = "".join(archive.read(n).decode() for n in archive.namelist() if n.endswith(".tmdl"))
+    cap = "KEEPFILTERS('Date'[Date] <= CALCULATE(MAX('sales'[day]), REMOVEFILTERS()))"
+    assert f"measure 'Revenue LY YTD' = CALCULATE(CALCULATE([Revenue], DATESYTD(SAMEPERIODLASTYEAR('Date'[Date]))), {cap})" in tmdl
+    assert f"measure 'Average order YTD' = CALCULATE(TOTALYTD([Average order], 'Date'[Date]), {cap})" in tmdl
