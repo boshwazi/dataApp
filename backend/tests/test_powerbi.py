@@ -64,7 +64,7 @@ def test_formulas_and_measure_references():
 
 @pytest.mark.parametrize("dax, why", [
     ('IF([Total] > 1, "a", "b")', "a condition (IF)"),
-    ("TOTALYTD([Total], 'Date'[Date])", "time intelligence"),
+    ("CALCULATE([Total], PARALLELPERIOD('Date'[Date], -1, YEAR))", "time intelligence"),
     ('CALCULATE(SUM(Sales[Amount]), Customers[Segment] = "Retail")', "filters on Customers"),
     ("VAR x = 1 RETURN x", "variables"),
 ])

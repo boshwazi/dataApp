@@ -427,10 +427,16 @@ export type Aggregation = "sum" | "average" | "count" | "count_distinct" | "min"
 
 export type MeasureFilter = { column: string; operator: string; value?: unknown; values?: unknown[] };
 
+/** Time intelligence: a measure worked out year to date, last year, over rolling months... */
+export type TimeCalc = "ytd" | "qtd" | "mtd" | "prior_year" | "prior_year_ytd" | "rolling";
+
 export type Measure = {
   id: string;
   name: string;
-  kind: "aggregate" | "formula";
+  kind: "aggregate" | "formula" | "time";
+  base?: string | null;
+  calc?: TimeCalc | null;
+  months?: number | null;
   table: string | null;
   aggregation: Aggregation | null;
   expression: string | null;
@@ -467,7 +473,10 @@ export type ModelState = {
 /** What the model API takes to add or change a measure. */
 export type MeasureBody = {
   name: string;
-  kind: "aggregate" | "formula";
+  kind: "aggregate" | "formula" | "time";
+  base?: string | null;
+  calc?: TimeCalc | null;
+  months?: number | null;
   table?: string | null;
   aggregation?: Aggregation | null;
   expression?: string | null;

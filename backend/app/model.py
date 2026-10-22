@@ -32,6 +32,16 @@ FILTER_OPERATORS = (
     "equals", "not_equals", "in", "not_in", "is_blank", "is_not_blank", "greater_than", "less_than", "at_least", "at_most",
 )
 MAX_GROUPS = 1000
+# Time intelligence: a measure worked out over a moved or widened date range, per date bucket on show.
+TIME_CALCS = {
+    "ytd": "year to date",
+    "qtd": "quarter to date",
+    "mtd": "month to date",
+    "prior_year": "same period last year",
+    "prior_year_ytd": "last year to date",
+    "rolling": "rolling months",
+}
+MAX_ROLLING_MONTHS = 36
 # A dashboard page's slicers and filters, put on the bound project; every evaluate() adds them.
 PAGE_FILTERS = "page_filters"
 
@@ -368,10 +378,48 @@ def check_measure(found: dict[str, Table], measures: list[dict], measure: dict) 
                 continue
             seen.add(ref)
             other = names[ref]
-            if other["kind"] == "formula":
-                stack += [r.lower() for r in model_expr.refs(model_expr.parse(other["expression"]))]
+            stack += [r.lower() for r in measure_refs(other)]
+    elif kind == "time":
+        names = {m["name"].lower(): m for m in measures if m["id"] != measure["id"]}
+        base = names.get(str(measure.get("base") or "").strip().lower())
+        if base is None:
+            raise ModelError(f"Measure '{measure['name']}' needs a base measure, such as [Revenue].")
+        if base["kind"] == "time":
+            raise ModelError(f"Measure '{measure['name']}': base it on [{base.get('base')}], not on another time measure.")
+        measure["base"] = base["name"]
+        if measure.get("calc") not in TIME_CALCS:
+            raise ModelError(f"Time calculation must be one of: {', '.join(TIME_CALCS)}.")
+        if measure["calc"] == "rolling":
+            months = measure.get("months") or 3
+            if not isinstance(months, int) or not 1 <= months <= MAX_ROLLING_MONTHS:
+                raise ModelError(f"Rolling measures cover 1 to {MAX_ROLLING_MONTHS} months.")
+            measure["months"] = months
+        else:
+            measure["months"] = None
+        measure["table"] = base.get("table") if base["kind"] == "aggregate" else None
+        measure["aggregation"] = measure["expression"] = None
+        measure["filters"] = []
+        # Refuse loops: the base may not depend on this measure.
+        stack, seen = [base["name"].lower()], set()
+        while stack:
+            ref = stack.pop()
+            if ref == measure["name"].lower():
+                raise ModelError(f"Measure '{measure['name']}' would depend on itself.")
+            if ref in seen or ref not in names:
+                continue
+            seen.add(ref)
+            stack += [r.lower() for r in measure_refs(names[ref])]
     else:
-        raise ModelError("A measure's kind must be 'aggregate' or 'formula'.")
+        raise ModelError("A measure's kind must be 'aggregate', 'formula' or 'time'.")
+
+
+def measure_refs(measure: dict) -> list[str]:
+    """The measures a measure is built from."""
+    if measure["kind"] == "formula":
+        return model_expr.refs(model_expr.parse(measure["expression"]))
+    if measure["kind"] == "time":
+        return [measure["base"]]
+    return []
 
 
 def check_relationship_only(con, project: dict, proposal: dict) -> dict:
@@ -391,6 +439,9 @@ def measure_from(proposal: dict, measure_id: str, status: str) -> dict:
         "aggregation": proposal.get("aggregation"),
         "expression": proposal.get("expression"),
         "filters": copy.deepcopy(proposal.get("filters") or []),
+        "base": proposal.get("base"),
+        "calc": proposal.get("calc"),
+        "months": proposal.get("months"),
         "format": copy.deepcopy(proposal.get("format") or {"type": "number", "decimals": 0}),
         "description": str(proposal.get("description") or ""),
         "folder": str(proposal.get("folder") or ""),
@@ -427,6 +478,8 @@ def update_measure(con, project: dict, measure_id: str, proposal: dict) -> dict:
         for other in measures:
             if other["kind"] == "formula" and other is not old and other.get("expression"):
                 other["expression"] = pattern.sub(f"[{measure['name']}]", other["expression"])
+            if other["kind"] == "time" and other is not old and str(other.get("base", "")).lower() == old["name"].lower():
+                other["base"] = measure["name"]
     measures[measures.index(old)] = measure
     return measure
 
@@ -453,6 +506,10 @@ def add_measure(con, project: dict, proposal: dict, status: str) -> dict:
 def describe_measure(measure: dict, names: dict[str, str]) -> str:
     if measure["kind"] == "formula":
         return measure["expression"]
+    if measure["kind"] == "time":
+        if measure["calc"] == "rolling":
+            return f"[{measure['base']}] over the last {measure['months']} months"
+        return f"[{measure['base']}], {TIME_CALCS[measure['calc']]}"
     table = names.get(measure["table"], measure["table"])
     what = measure.get("expression") or "rows"
     label = {"count_distinct": "distinct count", "average": "average"}.get(measure["aggregation"], measure["aggregation"])
@@ -523,7 +580,29 @@ def plain(value):
     return value
 
 
-def aggregate_sql(found, relationships, measure: dict, group_by: list[dict], filters: list[dict]) -> str:
+def window_range(calc: str, months: int | None) -> tuple[str, str]:
+    """The date range a bucket [lo, hi] looks at, as SQL over ctx.lo and ctx.hi."""
+    lo, hi = "ctx.lo", "ctx.hi"
+    year = "INTERVAL 1 YEAR"
+    ranges = {
+        "ytd": (f"date_trunc('year', {hi})", hi),
+        "qtd": (f"date_trunc('quarter', {hi})", hi),
+        "mtd": (f"date_trunc('month', {hi})", hi),
+        "prior_year": (f"{lo} - {year}", f"{hi} - {year}"),
+        "prior_year_ytd": (f"date_trunc('year', {hi}) - {year}", f"{hi} - {year}"),
+        "rolling": (f"{hi} - INTERVAL {int(months or 3)} MONTH + INTERVAL 1 DAY", hi),
+    }
+    start, end = ranges[calc]
+    return f"CAST({start} AS DATE)", f"CAST({end} AS DATE)"
+
+
+def aggregate_sql(found, relationships, measure: dict, group_by: list[dict], filters: list[dict],
+                  window: tuple[str, int | None] | None = None) -> str:
+    """One aggregation, split by `group_by` and filtered. With a `window` (time intelligence), each date
+    bucket on show (from the date table, after date filters) is widened or moved, and the measure is added
+    up over that range: one range join rather than one query per bucket."""
+    if window:
+        return windowed_sql(found, relationships, measure, group_by, filters, window)
     base = found[measure["table"]]
     paths = paths_from(base.id, relationships)
     aliases = {base.id: "a0"}
@@ -569,6 +648,75 @@ def aggregate_sql(found, relationships, measure: dict, group_by: list[dict], fil
     return f"SELECT {select} FROM {base.sql} AS a0 {' '.join(joins)}{where}{group}"
 
 
+def windowed_sql(found, relationships, measure: dict, group_by: list[dict], filters: list[dict],
+                 window: tuple[str, int | None]) -> str:
+    base = found[measure["table"]]
+    label = TIME_CALCS[window[0]]
+    paths = paths_from(base.id, relationships)
+    if DATE_ID not in found or DATE_ID not in paths:
+        raise ModelError(f"'{measure['name']}' needs a relationship to the date table to be worked out {label}.")
+    dates = found[DATE_ID]
+    aliases = {base.id: "a0"}
+    joins = []
+
+    def alias_for(table: Table) -> str:
+        if table.id not in paths:
+            raise ModelError(f"'{measure['name']}' cannot be split or filtered by {table.name}: no relationship leads there.")
+        for rel in paths[table.id]:
+            if rel["to_table"] not in aliases:
+                aliases[rel["to_table"]] = f"a{len(aliases)}"
+                one = found[rel["to_table"]]
+                joins.append(
+                    f"LEFT JOIN {one.sql} AS {aliases[rel['to_table']]} "
+                    f"ON {aliases[rel['from_table']]}.{quote(rel['from_column'])} = {aliases[rel['to_table']]}.{quote(rel['to_column'])}"
+                )
+        return aliases[table.id]
+
+    # The fact's date: the column on the last step of the path to the date table.
+    link = paths[DATE_ID][-1]
+    holder = alias_for(found[link["from_table"]]) if link["from_table"] != base.id else "a0"
+    fact_date = f"{holder}.{quote(link['from_column'])}"
+
+    ctx_groups, ctx_keys, groups = [], [], []
+    for i, item in enumerate(group_by):
+        table = find_table(found, item.get("table"))
+        column = table.column(item.get("column"))
+        if table.id == DATE_ID:
+            ctx_groups.append(f"d.{quote(column.name)} AS dg{i}")
+            ctx_keys.append(f"dg{i}")
+            groups.append(f"ctx.dg{i} AS g{i}")
+        else:
+            groups.append(f"{alias_for(table)}.{quote(column.name)} AS g{i}")
+    date_conditions, conditions = [], [filter_sql(base, "a0", f) for f in measure.get("filters") or []]
+    for item in filters:
+        table = find_table(found, item.get("table"))
+        if table.id == DATE_ID:
+            date_conditions.append(filter_sql(dates, "d", item))
+        else:
+            conditions.append(filter_sql(table, alias_for(table), item))
+
+    ctx_where = f" WHERE {' AND '.join(f'({c})' for c in date_conditions)}" if date_conditions else ""
+    ctx_group = f" GROUP BY {', '.join(ctx_keys)}" if ctx_keys else ""
+    ctx = f"SELECT {', '.join(ctx_groups + ['min(d."Date") AS lo', 'max(d."Date") AS hi'])} FROM {dates.sql} AS d{ctx_where}{ctx_group}"
+    start, end = window_range(*window)
+    conditions.append(f"{fact_date} BETWEEN {start} AND {end}")
+
+    tree = measure_tree(measure)
+    expr = model_expr.to_sql(tree, lambda name: f"a0.{quote(base.column(name).name)}") if tree else None
+    value = {
+        "sum": f"sum({expr})",
+        "average": f"avg({expr})",
+        "min": f"min({expr})",
+        "max": f"max({expr})",
+        "count": f"count({expr})" if expr else "count(a0.*)",
+        "count_distinct": f"count(DISTINCT {expr})",
+    }[measure["aggregation"]]
+    select = ", ".join(groups + [f"{value} AS v"])
+    where = " WHERE " + " AND ".join(f"({c})" for c in conditions)
+    group = f" GROUP BY {', '.join(f'g{i}' for i in range(len(groups)))}" if groups else ""
+    return f"WITH ctx AS ({ctx}) SELECT {select} FROM ctx, {base.sql} AS a0 {' '.join(joins)}{where}{group}"
+
+
 def evaluate(con, project: dict, measure_names: list[str], group_by: list[dict] | None = None,
              filters: list[dict] | None = None, limit: int = MAX_GROUPS, page_filters: str = "all") -> dict:
     """`page_filters`: "all" adds the page's slicers and filters; "except_dates" leaves out those on the
@@ -595,12 +743,37 @@ def evaluate(con, project: dict, measure_names: list[str], group_by: list[dict] 
             sql = aggregate_sql(found, model["relationships"], measure, group_by, filters)
             rows = con.execute(sql).fetchall()
             results[key] = {tuple(plain(v) for v in row[:-1]): plain(row[-1]) for row in rows}
+        elif measure["kind"] == "time":
+            results[key] = over_time(measure["base"], (measure["calc"], measure.get("months")))
         else:
             tree = model_expr.parse(measure["expression"])
             parts = {ref: compute(ref) for ref in model_expr.refs(tree)}
             keys = set().union(*[p.keys() for p in parts.values()]) if parts else {()}
             results[key] = {k: plain(model_expr.evaluate(tree, {r: parts[r].get(k) for r in parts})) for k in keys}
         return results[key]
+
+    timed: dict[tuple, dict[tuple, object]] = {}
+
+    def over_time(name: str, window: tuple) -> dict[tuple, object]:
+        """A measure worked out over each bucket's moved or widened date range; formulas use their parts' ranges."""
+        measure = by_name.get(str(name).lower())
+        if measure is None:
+            raise ModelError(f"There is no measure called '{name}'.")
+        key = (measure["name"], window)
+        if key in timed:
+            return timed[key]
+        if measure["kind"] == "aggregate":
+            sql = aggregate_sql(found, model["relationships"], measure, group_by, filters, window)
+            rows = con.execute(sql).fetchall()
+            timed[key] = {tuple(plain(v) for v in row[:-1]): plain(row[-1]) for row in rows}
+        elif measure["kind"] == "formula":
+            tree = model_expr.parse(measure["expression"])
+            parts = {ref: over_time(ref, window) for ref in model_expr.refs(tree)}
+            keys = set().union(*[p.keys() for p in parts.values()]) if parts else {()}
+            timed[key] = {k: plain(model_expr.evaluate(tree, {r: parts[r].get(k) for r in parts})) for k in keys}
+        else:
+            raise ModelError(f"'{measure['name']}' is already a time measure.")
+        return timed[key]
 
     names = [by_name[str(n).lower()]["name"] if str(n).lower() in by_name else n for n in measure_names]
     columns = [compute(n) for n in names]

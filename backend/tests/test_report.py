@@ -406,3 +406,107 @@ def test_date_charts_drill_down_for_one_viewer(p):
     assert down["group_by"][0]["column"] == "Year Month" and down["drill_next"] == "Date"
     assert [r[0] for r in down["data"]["rows"] if r[1]] == ["2024-01", "2024-02", "2024-11"]
     assert p.visuals()[0]["group_by"][0]["column"] == "Year"  # saved visual unchanged
+
+
+# Time intelligence (M12)
+
+
+def time_measure(p, name, base, calc, **extra):
+    return p.api.post(f"{p.dataset}/model/measures", json={"name": name, "kind": "time", "base": base, "calc": calc,
+                                                          "format": {"type": "currency", "decimals": 0}, **extra})
+
+
+def by(p, measure, *columns, filters=()):
+    groups = [{"table": t, "column": c} for t, c in columns]
+    rows = ok(p.api.post(f"{p.dataset}/model/evaluate", json={"measures": [measure], "group_by": groups,
+                                                              "filters": list(filters)}))["rows"]
+    return {tuple(r[:-1]) if len(r) > 2 else r[0]: r[-1] for r in rows} if groups else rows[0][0]
+
+
+MONTH = ("Date", "Year Month")
+
+
+def test_year_to_date_and_last_year_by_month_and_year(p):
+    ok(time_measure(p, "Revenue YTD", "Revenue", "ytd"))
+    ok(time_measure(p, "Revenue LY", "revenue", "prior_year"))
+    ok(time_measure(p, "Revenue LY YTD", "Revenue", "prior_year_ytd"))
+    ytd = by(p, "Revenue YTD", MONTH)
+    assert [ytd[m] for m in ("2024-01", "2024-02", "2024-10", "2024-11", "2024-12", "2025-01", "2025-02", "2025-12")] == \
+        [20, 30, 30, 40, 40, 20, 24, 24]
+    ly = by(p, "Revenue LY", ("Date", "Year"))
+    assert ly.get(2024) is None and ly[2025] == 40
+    ly_month = by(p, "Revenue LY", MONTH)
+    assert (ly_month["2025-01"], ly_month["2025-02"], ly_month["2025-11"]) == (20, 10, 10)
+    assert by(p, "Revenue LY YTD", MONTH)["2025-02"] == 30  # 2024, 1 Jan to 28 Feb
+    # No date on show: up to the end of the dates in view, like Power BI.
+    assert by(p, "Revenue YTD") == 24
+    assert by(p, "Revenue YTD", filters=[{"table": "Date", "column": "Year", "operator": "equals", "value": 2024}]) == 40
+    shown = {m["name"]: m for m in ok(p.api.get(f"{p.dataset}/model"))["measures"]}
+    assert shown["Revenue LY"]["base"] == "Revenue" and shown["Revenue YTD"]["label"] == "[Revenue], year to date"
+
+
+def test_rolling_months_formulas_and_other_columns(p):
+    ok(time_measure(p, "Revenue 3M", "Revenue", "rolling", months=3))
+    ok(time_measure(p, "Average order YTD", "Average order", "ytd"))
+    ok(time_measure(p, "Revenue LY", "Revenue", "prior_year"))
+    rolling = by(p, "Revenue 3M", MONTH)
+    assert (rolling["2024-03"], rolling["2025-01"], rolling["2025-02"]) == (30, 30, 24)
+    assert by(p, "Average order YTD", MONTH)["2025-02"] == 12  # Revenue YTD 24 over 2 orders YTD
+    by_segment = by(p, "Revenue LY", ("customers", "segment"), ("Date", "Year"))
+    assert by_segment[("Retail", 2025)] == 30 and by_segment[("Online", 2025)] == 10
+
+
+def test_time_measures_are_checked(p):
+    assert "needs a base measure" in time_measure(p, "X", "Profit", "ytd").json()["detail"]
+    assert "must be one of" in time_measure(p, "X", "Revenue", "fortnightly").json()["detail"]
+    assert "1 to 36 months" in time_measure(p, "X", "Revenue", "rolling", months=48).json()["detail"]
+    ok(time_measure(p, "Revenue YTD", "Revenue", "ytd"))
+    assert "another time measure" in time_measure(p, "X", "Revenue YTD", "prior_year").json()["detail"]
+    # A rename follows into time measures.
+    revenue = next(m for m in ok(p.api.get(f"{p.dataset}/model"))["measures"] if m["name"] == "Revenue")
+    body = {k: revenue[k] for k in ("kind", "table", "aggregation", "expression", "filters", "format")}
+    renamed = ok(p.api.put(f"{p.dataset}/model/measures/{revenue['id']}", json={**body, "name": "Sales"}))
+    assert next(m for m in renamed["measures"] if m["name"] == "Revenue YTD")["base"] == "Sales"
+
+
+def test_time_measures_need_the_date_table(p):
+    ok(time_measure(p, "Revenue YTD", "Revenue", "ytd"))
+    ok(p.api.delete(f"{p.dataset}/model/date-table"))
+    broken = next(m for m in ok(p.api.get(f"{p.dataset}/model"))["measures"] if m["name"] == "Revenue YTD")
+    assert "date table" in (broken["error"] or "")
+
+
+def test_time_measures_become_dax():
+    from app import pbi_dax
+    dax = pbi_dax.from_measure({"kind": "time", "base": "Revenue", "calc": "rolling", "months": 3}, None)
+    assert dax == "CALCULATE([Revenue], DATESINPERIOD('Date'[Date], MAX('Date'[Date]), -3, MONTH))"
+    assert pbi_dax.from_measure({"kind": "time", "base": "Revenue", "calc": "ytd"}, None) == "TOTALYTD([Revenue], 'Date'[Date])"
+
+
+REVENUE_PBI = {"name": "Revenue", "kind": "aggregate", "table": "Sales", "aggregation": "sum", "expression": "[Amount]", "filters": []}
+
+
+@pytest.mark.parametrize("dax, calc, months", [
+    ("TOTALYTD([Revenue], 'Date'[Date])", "ytd", None),
+    ("CALCULATE([Revenue], DATESMTD('Date'[Date]))", "mtd", None),
+    ("CALCULATE([Revenue], SAMEPERIODLASTYEAR('Date'[Date]))", "prior_year", None),
+    ("CALCULATE([Revenue], DATEADD('Date'[Date], -1, YEAR))", "prior_year", None),
+    ("CALCULATE([Revenue], DATESYTD(SAMEPERIODLASTYEAR('Date'[Date])))", "prior_year_ytd", None),
+    ("CALCULATE([Revenue], DATESINPERIOD('Date'[Date], MAX('Date'[Date]), -3, MONTH))", "rolling", 3),
+])
+def test_power_bi_time_intelligence_is_imported(dax, calc, months):
+    from app import pbi_dax
+    ctx = pbi_dax.Context({"Sales": ["Amount"], "Date": ["Date"]}, {"revenue": REVENUE_PBI})
+    proposal, helpers = pbi_dax.to_measure("Revenue T", dax, ctx)
+    assert proposal == {"name": "Revenue T", "kind": "time", "base": "Revenue", "calc": calc, "months": months} and helpers == []
+
+
+def test_power_bi_time_over_an_aggregation_and_inside_arithmetic():
+    from app import pbi_dax
+    ctx = pbi_dax.Context({"Sales": ["Amount"], "Date": ["Date"]}, {"revenue": REVENUE_PBI})
+    proposal, helpers = pbi_dax.to_measure("Sales YTD", "TOTALYTD(SUM(Sales[Amount]), 'Date'[Date])", ctx)
+    assert proposal["base"] == "Sales YTD (base)" and helpers[0]["aggregation"] == "sum"
+    growth, parts = pbi_dax.to_measure(
+        "Growth", "DIVIDE([Revenue] - CALCULATE([Revenue], SAMEPERIODLASTYEAR('Date'[Date])), "
+                  "CALCULATE([Revenue], SAMEPERIODLASTYEAR('Date'[Date])))", ctx)
+    assert growth["kind"] == "formula" and [p["calc"] for p in parts] == ["prior_year", "prior_year"]

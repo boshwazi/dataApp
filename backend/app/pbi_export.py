@@ -109,7 +109,7 @@ def build(con, project: dict) -> tuple[str, dict[str, bytes]]:
     def home(m, seen=()):
         if m["kind"] == "aggregate":
             return m["table"]
-        for ref in model_expr.refs(model_expr.parse(m["expression"])):
+        for ref in model.measure_refs(m):
             other = by_name.get(ref.lower())
             if other and other["name"] not in seen:
                 return home(other, seen + (m["name"],))

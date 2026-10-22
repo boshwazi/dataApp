@@ -5,6 +5,7 @@ import {
   formatMeasure,
   modelApi,
   type Aggregation,
+  type TimeCalc,
   type Measure,
   type MeasureBody,
   type MeasureCheck,
@@ -44,15 +45,27 @@ const FUNCTIONS: Record<Aggregation, string> = {
 };
 const BY_FUNCTION: Record<string, Aggregation> = { SUM: "sum", AVERAGE: "average", AVG: "average", COUNT: "count", COUNTROWS: "count", DISTINCTCOUNT: "count_distinct", MIN: "min", MAX: "max" };
 
-function measureText(m: Pick<Measure, "kind" | "aggregation" | "expression">): string {
+// Time intelligence over another measure: YTD([Revenue]), LASTYEAR([Revenue]), ROLLING([Revenue], 3).
+const TIME_FUNCTIONS: Record<string, TimeCalc> = { YTD: "ytd", QTD: "qtd", MTD: "mtd", LASTYEAR: "prior_year", LASTYEARYTD: "prior_year_ytd", ROLLING: "rolling" };
+const TIME_NAMES = Object.fromEntries(Object.entries(TIME_FUNCTIONS).map(([fn, calc]) => [calc, fn])) as Record<TimeCalc, string>;
+
+type Parsed = Pick<MeasureBody, "kind" | "aggregation" | "expression" | "base" | "calc" | "months">;
+
+function measureText(m: Pick<Measure, "kind" | "aggregation" | "expression" | "base" | "calc" | "months">): string {
   if (m.kind === "formula") return m.expression ?? "";
+  if (m.kind === "time" && m.calc) return `${TIME_NAMES[m.calc]}([${m.base ?? ""}]${m.calc === "rolling" ? `, ${m.months ?? 3}` : ""})`;
   if (m.aggregation === "count" && !m.expression) return "COUNTROWS()";
   return `${FUNCTIONS[m.aggregation ?? "sum"]}(${m.expression ?? ""})`;
 }
 
-function parseText(text: string): Pick<MeasureBody, "kind" | "aggregation" | "expression"> {
+function parseText(text: string): Parsed {
   // The closing bracket is optional so the bar knows what you mean while you are still typing.
   const match = /^\s*([A-Za-z]+)\s*\(([\s\S]*?)\)?\s*$/.exec(text);
+  const calc = match && TIME_FUNCTIONS[match[1].toUpperCase()];
+  if (match && calc) {
+    const inner = /^\s*\[?([^\],]*)\]?\s*(?:,\s*(\d+))?/.exec(match[2]);
+    return { kind: "time", aggregation: null, expression: null, base: inner?.[1].trim() ?? "", calc, months: inner?.[2] ? Number(inner[2]) : calc === "rolling" ? 3 : null };
+  }
   const fn = match && BY_FUNCTION[match[1].toUpperCase()];
   if (match && fn) {
     const inner = match[2].trim();
@@ -68,6 +81,9 @@ function bodyOf(draft: Draft): MeasureBody {
     ...parsed,
     table: parsed.kind === "aggregate" ? draft.table : null,
     filters: parsed.kind === "aggregate" ? draft.filters : [],
+    base: parsed.kind === "time" ? parsed.base : null,
+    calc: parsed.kind === "time" ? parsed.calc : null,
+    months: parsed.kind === "time" ? parsed.months : null,
     format: draft.format,
     description: draft.description,
     folder: draft.folder,
@@ -380,15 +396,18 @@ function FormulaBar(props: {
         parsed.kind === "aggregate" && home
           ? home.columns.map((c) => ({ label: c.name, insert: c.name, kind: "column" as const }))
           : [];
+      // A time function works over a measure that isn't itself a time measure.
       const measures =
-        parsed.kind === "formula"
-          ? state.measures.filter((m) => m.id !== draft.id).map((m) => ({ label: m.name, insert: m.name, kind: "measure" as const }))
+        parsed.kind === "formula" || parsed.kind === "time"
+          ? state.measures
+              .filter((m) => m.id !== draft.id && (parsed.kind === "formula" || m.kind !== "time"))
+              .map((m) => ({ label: m.name, insert: m.name, kind: "measure" as const }))
           : [];
       return [...measures, ...columns].filter((s) => s.label.toLowerCase().includes(q)).slice(0, 8);
     }
     if (word && word.length >= 2 && open === -1 && !draft.text.includes("(")) {
       const q = word.toUpperCase();
-      return Object.keys(BY_FUNCTION)
+      return [...Object.keys(BY_FUNCTION), ...Object.keys(TIME_FUNCTIONS)]
         .filter((f) => f.startsWith(q) && f !== "AVG")
         .map((f) => ({ label: `${f}( )`, insert: f, kind: "function" as const }));
     }
@@ -409,7 +428,7 @@ function FormulaBar(props: {
       const rest = draft.text.slice(caret);
       const after = rest.startsWith("]") ? rest.slice(1) : rest;
       text = `${draft.text.slice(0, open)}[${s.insert}]${after}`;
-      if (parsed.kind === "aggregate" && !text.includes(")")) text += ")";
+      if ((parsed.kind === "aggregate" || parsed.kind === "time") && !text.includes(")")) text += parsed.calc === "rolling" ? ", 3)" : ")";
       at = open + s.insert.length + 2;
     }
     onDraft({ ...draft, text });
@@ -837,8 +856,8 @@ function Properties(props: {
           <div className="prop-row">
             <label className="prop">
               <span>Home table</span>
-              <select value={draft.table ?? ""} onChange={(e) => onDraft({ ...draft, table: e.target.value || null })} disabled={parsed.kind === "formula"}>
-                {parsed.kind === "formula" && <option value="">(a formula)</option>}
+              <select value={draft.table ?? ""} onChange={(e) => onDraft({ ...draft, table: e.target.value || null })} disabled={parsed.kind !== "aggregate"}>
+                {parsed.kind !== "aggregate" && <option value="">{parsed.kind === "time" ? "(follows its base measure)" : "(a formula)"}</option>}
                 {state.tables.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name}
@@ -896,7 +915,7 @@ function Properties(props: {
             </div>
           )}
           <p className="muted small">
-            Write <code>SUM([Column])</code>, <code>AVERAGE( )</code>, <code>COUNTROWS()</code>, <code>DISTINCTCOUNT( )</code>, <code>MIN( )</code> or <code>MAX( )</code> over the home table's columns, or a formula over other measures such as <code>[Revenue] / [Orders]</code>.
+            Write <code>SUM([Column])</code>, <code>AVERAGE( )</code>, <code>COUNTROWS()</code>, <code>DISTINCTCOUNT( )</code>, <code>MIN( )</code> or <code>MAX( )</code> over the home table's columns, or a formula over other measures such as <code>[Revenue] / [Orders]</code>. Over time: <code>YTD([Revenue])</code>, <code>QTD( )</code>, <code>MTD( )</code>, <code>LASTYEAR([Revenue])</code>, <code>LASTYEARYTD( )</code> or <code>ROLLING([Revenue], 3)</code>; these need the date table.
           </p>
           <div className="actions">
             <button onClick={props.onSave} disabled={!dirty}>

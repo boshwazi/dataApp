@@ -25,6 +25,9 @@ class MeasureBody(BaseModel):
     aggregation: str | None = None
     expression: str | None = None
     filters: list[dict] = []
+    base: str | None = None  # time measures: the measure they work out over time
+    calc: str | None = None
+    months: int | None = None
     format: dict = {"type": "number", "decimals": 0}
     description: str = ""
     folder: str = ""

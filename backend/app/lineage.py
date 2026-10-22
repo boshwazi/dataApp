@@ -60,9 +60,9 @@ def build(project: dict, dashboards: list[dict]) -> dict:
         node(f"measure:{m['name']}", "measure", m["name"], model.describe_measure(m, names), 2)
         if m["kind"] == "aggregate" and m.get("table"):
             edge(f"query:{m['table']}", f"measure:{m['name']}")
-        elif m["kind"] == "formula":
+        elif m["kind"] in ("formula", "time"):
             try:
-                refs = model_expr.refs(model_expr.parse(m["expression"]))
+                refs = model.measure_refs(m)
             except model_expr.ExprError:
                 refs = []
             for ref in refs:

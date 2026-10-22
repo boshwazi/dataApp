@@ -311,7 +311,7 @@ def md_add_measure(ctx: Ctx, p: dict) -> str:
 def md_change_measure(ctx: Ctx, p: dict) -> str:
     measure = find_measure(ctx, need(p, "name"))
     fields = {k: v for k, v in p.items() if k in ("kind", "table", "aggregation", "expression", "filters", "format",
-                                                   "description") and v is not None}
+                                                   "description", "base", "calc", "months") and v is not None}
     if p.get("new_name"):
         fields["name"] = p["new_name"]
     updated = {**copy.deepcopy(measure), **copy.deepcopy(fields), "status": "AI"}
@@ -386,7 +386,7 @@ def md_context(ctx: Ctx) -> dict:
                            "Customer...), never fact to fact. Measures from different facts combine when split by "
                            "a shared dimension's column.",
         "measure_rules": "aggregate: aggregation (sum, average, count, count_distinct, min, max) over a [Column] "
-                         "expression of ONE table; formula: arithmetic over [Measure] names. format.type: number, "
+                         "expression of ONE table; formula: arithmetic over [Measure] names; a 'time' measure works out another measure over time: calc ytd, qtd, mtd (to date), prior_year (same period last year), prior_year_ytd, or rolling with months, e.g. {kind: time, base: Revenue, calc: prior_year}; it needs the date table. Year-on-year change is then a formula, e.g. ([Revenue] - [Revenue LY]) / [Revenue LY]. format.type: number, "
                          "integer, currency (currency: 'RM'), percent.",
     }
 
@@ -408,7 +408,8 @@ MODEL = Stage(
                                     "to_column": "", "reason": ""}, md_add_relationship),
         "remove_relationship": Action({"from_table": "", "from_column": "", "to_table": "", "to_column": ""},
                                       md_remove_relationship),
-        "add_measure": Action({"name": "", "kind": "aggregate | formula", "table": "aggregate only",
+        "add_measure": Action({"name": "", "kind": "aggregate | formula | time", "table": "aggregate only",
+                               "base": "time only: a measure name", "calc": "time only", "months": "rolling only",
                                "aggregation": "", "expression": "[Column] arithmetic, or [Measure] arithmetic for formulas",
                                "filters": "optional [{column, operator, value}]", "format": {"type": "", "decimals": 0},
                                "description": ""}, md_add_measure),

@@ -9,7 +9,7 @@ with the reason.
 import json
 
 from . import llm, model, transform
-from .model import AGGREGATIONS, FORMATS
+from .model import AGGREGATIONS, FORMATS, TIME_CALCS
 
 SYSTEM = (
     "You are the Model agent in an AI data analytics app, like Power BI's Model view. Design a star schema "
@@ -18,7 +18,8 @@ SYSTEM = (
     "user would put on a dashboard. Use only the candidate key pairs whose checks passed; if a pair has a "
     "problem, leave it out and mention it in the summary. Measures: an 'aggregate' measure sums, averages, counts "
     "or count_distincts an expression over ONE table's columns, written with [Column] references, e.g. "
-    "[Qty] * [Unit Price]; a 'formula' measure combines other measures, e.g. [Revenue] / [Orders]. "
+    "[Qty] * [Unit Price]; a 'formula' measure combines other measures, e.g. [Revenue] / [Orders]; "
+    "a 'time' measure works out another measure over time: calc ytd, qtd, mtd (to date), prior_year (same period last year), prior_year_ytd, or rolling with months, e.g. {kind: time, base: Revenue, calc: prior_year}; it needs the date table. Year-on-year change is then a formula, e.g. ([Revenue] - [Revenue LY]) / [Revenue LY]. When the data has dates, add year to date and last year versions of the main money measure. "
     "Use currency format with the right symbol for money (RM for Malaysian ringgit), percent for ratios, "
     "integer for counts. Prefer 5 to 10 useful measures over many trivial ones. Give short reasons. "
     "There may be several fact tables (e.g. sales and targets, or orders and returns): relate each one to the "
@@ -62,7 +63,10 @@ SCHEMA = {
                 "type": "object",
                 "properties": {
                     "name": {"type": "string"},
-                    "kind": {"type": "string", "enum": ["aggregate", "formula"]},
+                    "kind": {"type": "string", "enum": ["aggregate", "formula", "time"]},
+                    "base": {"type": "string", "description": "time only: the measure to work out over time"},
+                    "calc": {"type": "string", "enum": list(TIME_CALCS), "description": "time only"},
+                    "months": {"type": "integer", "description": "time with calc rolling only"},
                     "table": {"type": "string", "description": "aggregate only"},
                     "aggregation": {"type": "string", "enum": list(AGGREGATIONS)},
                     "expression": {"type": "string", "description": "Omit for a count of rows."},

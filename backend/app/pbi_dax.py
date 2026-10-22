@@ -13,7 +13,7 @@ catalogue is small.
 import re
 from dataclasses import dataclass
 
-from . import model_expr
+from . import model, model_expr
 
 
 class Untranslatable(Exception):
@@ -280,6 +280,8 @@ def _filter(ctx: Context, node, table: str) -> dict:
         if right[0] not in ("str", "num", "bool"):
             raise Untranslatable("Its filter compares with something other than a fixed value.")
         return _same_table({"column": c, "operator": COMPARE[kind], "value": _constant(right)}, t, table)
+    if kind == "call" and node[1] in FRIENDLY:
+        raise Untranslatable(_why(node[1]))
     raise Untranslatable("Its CALCULATE filter is more complex than column = value.")
 
 
@@ -340,6 +342,17 @@ def _formula(ctx: Context, node) -> str:
         if len(node[2]) == 3 and node[2][2] not in (("num", 0.0),):
             raise Untranslatable("Its DIVIDE has an alternative result, which datawazi measures can't express yet.")
         return f"({_formula(ctx, node[2][0])} / {_formula(ctx, node[2][1])})"
+    if kind == "call" and (timed := _time(ctx, node)) is not None:
+        # Time intelligence inside arithmetic, e.g. [Revenue] - CALCULATE([Revenue], SAMEPERIODLASTYEAR(...)).
+        if ctx.helpers is None:
+            raise Untranslatable("It mixes time intelligence with other measures; split it into two measures first.")
+        number = len(ctx.helpers) + 1
+        base = _time_base(ctx, timed[2], f"{ctx.current} (part {number})")
+        helper = {"name": f"{ctx.current} (part {len(ctx.helpers) + 1})", "kind": "time", "base": base,
+                  "calc": timed[0], "months": timed[1],
+                  "description": f"Part of {ctx.current}, split out when it was imported from Power BI."}
+        ctx.helpers.append(helper)
+        return f"[{helper['name']}]"
     if kind == "call" and (agg := _aggregate(ctx, node)) is not None:
         # An aggregation inside arithmetic becomes a helper measure, as you would split it by hand.
         if ctx.helpers is None:
@@ -353,11 +366,87 @@ def _formula(ctx: Context, node) -> str:
     raise Untranslatable("It isn't arithmetic between measures.")
 
 
+# Time intelligence: the usual DAX patterns, as datawazi time measures.
+TO_DATE = {"TOTALYTD": "ytd", "TOTALQTD": "qtd", "TOTALMTD": "mtd", "DATESYTD": "ytd", "DATESQTD": "qtd", "DATESMTD": "mtd"}
+
+
+def _date_column(node) -> bool:
+    return node[0] == "col" or (node[0] == "call" and node[1] in ("LASTDATE", "MAX") and node[2] and node[2][0][0] == "col")
+
+
+def _time_filter(node) -> tuple[str, int | None] | None:
+    """The time calculation one CALCULATE filter stands for, or None."""
+    if node[0] != "call":
+        return None
+    name, args = node[1], node[2]
+    if name == "SAMEPERIODLASTYEAR" and len(args) == 1:
+        inner = args[0]
+        if _date_column(inner):
+            return ("prior_year", None)
+        if inner[0] == "call" and inner[1] == "DATESYTD" and len(inner[2]) == 1:
+            return ("prior_year_ytd", None)
+    if name == "DATEADD" and len(args) == 3 and _date_column(args[0]) and args[2][0] in ("col", "table"):
+        unit = (args[2][1] if args[2][0] == "table" else args[2][2]).upper()
+        step = args[1]
+        n = step[1][1] if step[0] == "neg" and step[1][0] == "num" else None  # how far back
+        if (unit, n) in (("YEAR", 1), ("MONTH", 12), ("QUARTER", 4)):
+            return ("prior_year", None)
+    if name in ("DATESYTD", "DATESQTD", "DATESMTD") and len(args) >= 1:
+        inner = args[0]
+        if _date_column(inner):
+            return (TO_DATE[name], None)
+        if name == "DATESYTD" and inner[0] == "call" and inner[1] == "SAMEPERIODLASTYEAR":
+            return ("prior_year_ytd", None)
+    if name == "DATESINPERIOD" and len(args) == 4 and _date_column(args[0]) and _date_column(args[1]):
+        step, unit = args[2], args[3]
+        months = step[1][1] if step[0] == "neg" and step[1][0] == "num" else None  # -3 months back
+        unit_name = (unit[1] if unit[0] == "table" else "").upper()
+        if months and unit_name == "MONTH" and float(months).is_integer():
+            return ("rolling", int(months))
+    return None
+
+
+def _time(ctx: Context, node) -> tuple[str, int | None, object] | None:
+    """(calc, months, base node) when `node` is time intelligence over one measure or aggregation."""
+    if node[0] != "call":
+        return None
+    name, args = node[1], node[2]
+    if name in ("TOTALYTD", "TOTALQTD", "TOTALMTD") and len(args) >= 2 and _date_column(args[1]):
+        return (TO_DATE[name], None, args[0])
+    if name == "CALCULATE" and len(args) == 2:
+        found = _time_filter(args[1])
+        if found:
+            return (*found, args[0])
+    return None
+
+
+def _time_base(ctx: Context, node, name: str) -> str:
+    """The base measure's name: an existing measure, or a helper made from the aggregation inside."""
+    if node[0] == "mref":
+        if node[1].lower() not in ctx.measures:
+            raise Untranslatable(f"It uses [{node[1]}], which wasn't converted.")
+        return ctx.measures[node[1].lower()]["name"]
+    agg = _aggregate(ctx, node)
+    if agg is None or ctx.helpers is None:
+        raise Untranslatable("Its time intelligence wraps something other than a measure or one aggregation.")
+    helper = {"name": f"{name} (base)", **agg, "description": f"The amount {name} works out over time, split out on import."}
+    ctx.helpers.append(helper)
+    return helper["name"]
+
+
 def to_measure(name: str, dax: str, ctx: Context) -> tuple[dict, list[dict]]:
     """A catalogue proposal for one DAX measure, plus any helper measures it was split into."""
     if re.search(r"\bVAR\b", dax or "", re.IGNORECASE):
         raise Untranslatable(_why("VAR"))
     tree = parse(dax)
+    timed = _time(ctx, tree)
+    if timed is not None:
+        ctx.helpers, ctx.current = [], name
+        try:
+            base = _time_base(ctx, timed[2], name)
+            return {"name": name, "kind": "time", "base": base, "calc": timed[0], "months": timed[1]}, ctx.helpers
+        finally:
+            ctx.helpers, ctx.current = None, ""
     agg = _aggregate(ctx, tree)
     if agg is not None:
         return {"name": name, **agg}, []
@@ -436,10 +525,23 @@ def _formula_dax(tree) -> str:
     return f"({left} {kind} {right})"
 
 
+TIME_DAX = {
+    "ytd": "TOTALYTD({m}, {d})",
+    "qtd": "TOTALQTD({m}, {d})",
+    "mtd": "TOTALMTD({m}, {d})",
+    "prior_year": "CALCULATE({m}, SAMEPERIODLASTYEAR({d}))",
+    "prior_year_ytd": "CALCULATE({m}, DATESYTD(SAMEPERIODLASTYEAR({d})))",
+    "rolling": "CALCULATE({m}, DATESINPERIOD({d}, MAX({d}), -{n}, MONTH))",
+}
+
+
 def from_measure(measure: dict, table_name: str | None) -> str:
     """DAX for a catalogue measure. `table_name` is the aggregate's table as Power BI will call it."""
     if measure["kind"] == "formula":
         return _formula_dax(model_expr.parse(measure["expression"]))
+    if measure["kind"] == "time":
+        base = "[" + measure["base"].replace("]", "]]") + "]"
+        return TIME_DAX[measure["calc"]].format(m=base, d=column(model.DATE_NAME, "Date"), n=measure.get("months") or 3)
     tree = model_expr.parse(measure["expression"]) if measure.get("expression") else None
     aggregation = measure["aggregation"]
     single = tree is not None and tree[0] == "ref"
