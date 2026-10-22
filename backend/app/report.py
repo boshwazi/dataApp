@@ -502,7 +502,15 @@ def kpi_data(con, project: dict, visual: dict) -> dict:
 
 # Checking the numbers in AI insights
 
-NUMBER = re.compile(r"(?<![\w.])[-+]?(?:RM\s?)?\d[\d,]*(?:\.\d+)?\s?(?:%|[KkMm]\b|bn\b)?")
+NUMBER = re.compile(r"(?<![\w.])[-+]?(?:RM\s?)?\d[\d,]*(?:\.\d+)?\s?(?:%|[KkMm]\b|bn\b|x\b)?(?![\w])")
+MONTH = r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?"
+# Dates are written with numbers that aren't data: "30 Sep 2025", "January 1", "2025-09-30", "1/7/2025".
+DATES = re.compile(
+    rf"\b\d{{1,2}}(?:st|nd|rd|th)?\s+{MONTH}(?:\s+\d{{4}})?"
+    rf"|\b{MONTH}\s+\d{{1,2}}(?:st|nd|rd|th)?\b(?:,?\s+\d{{4}})?"
+    r"|\b\d{4}-\d{2}(?:-\d{2})?\b|\b\d{1,2}/\d{1,2}/\d{2,4}\b",
+    re.IGNORECASE,
+)
 
 
 def numbers_in(text: str) -> list[tuple[float, bool, float]]:
@@ -512,8 +520,10 @@ def numbers_in(text: str) -> list[tuple[float, bool, float]]:
     1.15M to 1.25M. Years and small counts like "top 3" are skipped.
     """
     found = []
-    for raw in NUMBER.findall(text or ""):
+    for raw in NUMBER.findall(DATES.sub(" ", text or "")):
         token = raw.replace("RM", "").replace(",", "").replace(" ", "")
+        if token.endswith("x"):  # "7.5x": a multiple, checked as a ratio
+            token = token[:-1]
         percent = token.endswith("%")
         token = token.rstrip("%")
         scale = 1
@@ -537,6 +547,11 @@ def numbers_in(text: str) -> list[tuple[float, bool, float]]:
 def check_insight(text: str, data: dict) -> dict:
     """Which numbers in an insight match the visual's data (values, changes, shares, ratios)."""
     values, percents = [], []
+    # Labels in the data may hold numbers ("Wok 36cm", "Branch 7"); those are names, not figures.
+    for row in data.get("rows") or []:
+        for cell in row:
+            if isinstance(cell, str) and any(ch.isdigit() for ch in cell):
+                text = re.sub(re.escape(cell), " ", text, flags=re.IGNORECASE)
     if "value" in data:  # KPI card
         values += [v for v in (data["value"], data["previous"], data["delta"]) if isinstance(v, (int, float))]
         if data.get("delta_pct") is not None:
@@ -564,6 +579,12 @@ def check_insight(text: str, data: dict) -> dict:
                 if isinstance(v, (int, float)) and not isinstance(v, bool):
                     columns.setdefault(i, []).append(v)
         for i, column in columns.items():
+            # Two rows taken together ("Online and online make RM 76,106, 49%").
+            for a_i, a in enumerate(column[:50]):
+                for b in column[a_i + 1:50]:
+                    values.append(a + b)
+                    if column_totals.get(i):
+                        percents.append((a + b) / column_totals[i] * 100)
             running = 0
             for v in column[:10]:
                 running += v

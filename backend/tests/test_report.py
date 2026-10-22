@@ -634,3 +634,15 @@ def test_power_bi_userelationship_imports_and_exports():
     assert proposal["use_relationship"] == {"from": ["Orders", "Shipped"], "to": ["Date", "Date"]} and proposal["filters"] == []
     dax = pbi_dax.from_measure({**proposal, "_uses": ("Orders", "Shipped", "Date", "Date")}, "Orders")
     assert dax == "CALCULATE(SUM('Orders'[Amount]), USERELATIONSHIP('Orders'[Shipped], 'Date'[Date]))"
+
+
+@pytest.mark.parametrize("text, verified", [
+    ("Revenue this year to date (1 Jan to 30 Sep 2025) is RM 64.", True),
+    ("From July 1, 2024 to 2024-12-31 revenue was RM 64.", True),
+    ("Wok 36cm leads with RM 50.", True),
+    ("Retail and Online together make RM 64, about 100% of revenue; Retail is 3.6x Online.", True),
+    ("Revenue was RM 99.", False),
+])
+def test_insight_checks_skip_dates_and_names_and_accept_sums(text, verified):
+    data = {"rows": [["Retail", 50.0], ["Online", 14.0], ["Wok 36cm", 50.0]], "check": None}
+    assert report.check_insight(text, data)["verified"] is verified

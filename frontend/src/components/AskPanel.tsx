@@ -14,7 +14,14 @@ const STARTERS = ["What stands out on this dashboard?", "Which category is growi
  * Ask questions about a dashboard's data. Read-only: answers come from the same measures the
  * dashboard uses, each with "how this was calculated". The conversation lives in this browser tab.
  */
-export function AskPanel(props: { dashboardId: string; side: "draft" | "published"; onClose?: () => void; scope?: () => PageScope }) {
+export function AskPanel(props: {
+  dashboardId: string;
+  side: "draft" | "published";
+  onClose?: () => void;
+  scope?: () => PageScope;
+  /** A question to ask at once, such as "Explain this chart" from a visual's button. */
+  question?: { text: string; at: number } | null;
+}) {
   const { dashboardId, side, onClose } = props;
   const [turns, setTurns] = useState<Turn[]>([]);
   const [text, setText] = useState("");
@@ -25,6 +32,11 @@ export function AskPanel(props: { dashboardId: string; side: "draft" | "publishe
   useEffect(() => {
     list.current?.scrollTo({ top: list.current.scrollHeight });
   }, [turns, busy]);
+
+  useEffect(() => {
+    if (props.question) void ask(props.question.text);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.question?.at]);
 
   async function ask(question: string) {
     const clean = question.trim();
@@ -118,7 +130,10 @@ export function AskPanel(props: { dashboardId: string; side: "draft" | "publishe
   );
 }
 
-export function Answer({ response, onFollowUp, busy }: { response: AskResponse; onFollowUp: (q: string) => void; busy: boolean }) {
+/** Anything an answer can be added to the page as (creators, in the Report chat). */
+export type AddChart = (result: AskResult) => Promise<void>;
+
+export function Answer({ response, onFollowUp, busy, onAddChart }: { response: AskResponse; onFollowUp: (q: string) => void; busy: boolean; onAddChart?: AddChart }) {
   return (
     <div className="chat-msg assistant answer">
       <Markdown text={response.answer || response.cannot_answer || ""} />
@@ -126,7 +141,7 @@ export function Answer({ response, onFollowUp, busy }: { response: AskResponse; 
         <p className="unverified small">⚠ Unverified number{response.check.unmatched.length > 1 ? "s" : ""}: {response.check.unmatched.join(", ")}. Check the results below.</p>
       )}
       {response.results.map((result, i) => (
-        <ResultCard key={i} result={result} formats={response.formats} />
+        <ResultCard key={i} result={result} formats={response.formats} onAddChart={onAddChart} />
       ))}
       <p className="muted small">
         Data as of {response.as_of ?? "unknown"}, dataset v{response.dataset_version}
@@ -145,16 +160,42 @@ export function Answer({ response, onFollowUp, busy }: { response: AskResponse; 
   );
 }
 
-function ResultCard({ result, formats }: { result: AskResult; formats: Record<string, MeasureFormat> }) {
+function ResultCard({ result, formats, onAddChart }: { result: AskResult; formats: Record<string, MeasureFormat>; onAddChart?: AddChart }) {
   useTheme(); // repaint the chart in the new theme's colours
+  const [adding, setAdding] = useState<"idle" | "busy" | "done" | string>("idle");
   if (result.error) return <p className="bad small">{result.title}: {result.error}</p>;
   const groups = result.query.group_by.length;
   const measures = result.query.measures;
   const single = groups === 0 && result.rows.length === 1;
+  // A chart on the page has no date range or filters of its own, so only plain results are offered.
+  const addable = onAddChart && result.show_as !== "change" && !result.period && !(result.query.filters?.length) && groups <= 3;
   return (
     <div className="ask-result">
-      <div className="ask-title">{result.title}</div>
-      {single ? (
+      <div className="ask-title">
+        {result.title}
+        {addable && (
+          <button
+            className="link small add-chart"
+            disabled={adding === "busy" || adding === "done"}
+            onClick={async () => {
+              setAdding("busy");
+              try {
+                await onAddChart!(result);
+                setAdding("done");
+              } catch (e) {
+                setAdding((e as Error).message);
+              }
+            }}
+          >
+            {adding === "done" ? "Added to the page" : adding === "busy" ? "Adding…" : "Add to the page"}
+          </button>
+        )}
+      </div>
+      {!["idle", "busy", "done"].includes(adding) && <p className="bad small">{adding}</p>}
+      {result.period && <p className="muted small ask-period">For {result.period}</p>}
+      {result.show_as === "change" ? (
+        <ChangeTable result={result} format={formats[measures[0]]} />
+      ) : single ? (
         <div className="ask-number">
           {measures.map((m, i) => (
             <div key={m}>
@@ -211,6 +252,53 @@ function ResultCard({ result, formats }: { result: AskResult; formats: Record<st
         </details>
       )}
     </div>
+  );
+}
+
+/** Why a measure changed: the total, then the biggest movers per breakdown column. */
+function ChangeTable({ result, format }: { result: AskResult; format: MeasureFormat | undefined }) {
+  const fmt = format ?? { type: "number", decimals: 0 };
+  return (
+    <>
+    {result.periods && (
+      <p className="muted small ask-period">
+        Then: {result.periods.before}
+        <br />
+        Now: {result.periods.after}
+      </p>
+    )}
+    <div className="table-wrap ask-table">
+      <table className="grid change-table">
+        <thead>
+          <tr>
+            <th>{result.columns[0]}</th>
+            <th>{result.columns[1]}</th>
+            <th className="num">Then</th>
+            <th className="num">Now</th>
+            <th className="num">{result.columns[4]}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {result.rows.map((row, r) => {
+            const change = row[4] as number;
+            return (
+              <tr key={r} className={r === 0 ? "total-row" : ""}>
+                <td>{String(row[0]).replace(/^.*\[(.*)\]$/, "$1")}</td>
+                <td>{row[1] === null ? "(blank)" : String(row[1])}</td>
+                <td className="num">{formatMeasure(row[2] as number | null, fmt)}</td>
+                <td className="num">{formatMeasure(row[3] as number | null, fmt)}</td>
+                <td className={`num ${change > 0 ? "up" : change < 0 ? "down" : ""}`}>
+                  {change > 0 ? "+" : ""}
+                  {formatMeasure(change, fmt)}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+    {result.skipped?.length ? <p className="muted small">Not split by: {result.skipped.map((x) => x.split(":")[0]).join(", ")} (no relationship leads there).</p> : null}
+    </>
   );
 }
 

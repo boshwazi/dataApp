@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 
 import { Send, Square, X } from "lucide-react";
 import type { ChatMessage, ChatMode, ChatThread } from "../api";
 import { Markdown } from "./Markdown";
-import { Answer } from "./AskPanel";
+import { Answer, type AddChart } from "./AskPanel";
 
 const MODE_KEY = "chatMode";
 
@@ -26,6 +26,7 @@ export function ChatPanel(props: {
   suggestions: string[];
   disabled?: string | null;
   onApplied: () => void;
+  onAddChart?: AddChart;
   onClose?: () => void;
   handle?: (handle: ChatHandle) => void;
 }) {
@@ -149,7 +150,7 @@ export function ChatPanel(props: {
           </div>
         )}
         {messages.map((m) => (
-          <Message key={m.id + m.at} message={m} busy={busy} onDecide={(id, d) => run(() => thread.decide(id, d))} onAsk={send} />
+          <Message key={m.id + m.at} message={m} busy={busy} onDecide={(id, d) => run(() => thread.decide(id, d))} onAsk={send} onAddChart={props.onAddChart} />
         ))}
         {busy && <div className="chat-msg assistant thinking">Thinking…</div>}
         {stopped && (
@@ -192,6 +193,7 @@ function Message(props: {
   busy: boolean;
   onDecide: (id: string, d: "approve" | "reject") => void;
   onAsk: (question: string) => void;
+  onAddChart?: AddChart;
 }) {
   const { message, busy, onDecide } = props;
   const change = message.change;
@@ -200,7 +202,7 @@ function Message(props: {
     return (
       <div className="chat-answer">
         <p className="muted small chat-answer-note">From the data model: {message.answer.question}</p>
-        <Answer response={message.answer} onFollowUp={props.onAsk} busy={busy} />
+        <Answer response={message.answer} onFollowUp={props.onAsk} busy={busy} onAddChart={props.onAddChart} />
       </div>
     );
   }

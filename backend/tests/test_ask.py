@@ -124,3 +124,48 @@ def test_instructions_reach_every_ai_prompt(tmp_path):
         assert system.index("Instructions from the people") > 100  # after the agent's own rules
     too_long = p.api.put(f"{p.dataset}/instructions", json={"instructions": "x" * 2001})
     assert too_long.status_code == 400 and "2,000" in too_long.json()["detail"]
+
+
+# Relative dates and why-did-it-change (M12b)
+
+
+@pytest.mark.parametrize("period, n, expected, dates", [
+    ("this_year_to_date", None, 24.0, "2025-01-01 to 2025-02-02"),
+    ("last_year_to_date", None, 20.0, "2024-01-01 to 2024-02-02"),
+    ("last_year", None, 40.0, "2024-01-01 to 2024-12-31"),
+    ("last_n_months", 4, 34.0, "2024-11-01 to 2025-02-02"),
+    ("last_month", None, 20.0, "2025-01-01 to 2025-01-31"),
+    ("last_quarter", None, 10.0, "2024-10-01 to 2024-12-31"),
+])
+def test_relative_dates_count_back_from_the_latest_data(tmp_path, period, n, expected, dates):
+    p, _ = published_project(tmp_path, {"queries": [{"measures": ["Revenue"], "period": period, "n": n}]}, {"answer": "ok"})
+    result = ok(ask(p, "How much?"))["results"][0]
+    assert result["rows"] == [[expected]] and dates in result["period"]
+    assert any("Date[Date] at least" in f for f in result["how"]["filters"])
+
+
+def test_why_did_it_change_breaks_the_change_down(tmp_path):
+    p, ai = published_project(
+        tmp_path,
+        {"queries": [{"measures": ["Revenue"], "period": "this_year_to_date", "compare_to": "last_year_to_date",
+                      "group_by": SEGMENT}]},
+        {"answer": "Revenue rose RM 4, all from Online."},
+    )
+    result = ok(ask(p, "Why did revenue change this year?"))["results"][0]
+    assert result["show_as"] == "change"
+    assert result["rows"][0] == ["Total", "", 20.0, 24.0, 4.0]
+    assert result["rows"][1] == ["customers[segment]", "Online", None, 4.0, 4.0]  # Retail didn't move
+    assert "biggest contributors" in ai.calls[1]["messages"][0]["content"]
+
+
+def test_a_breakdown_column_out_of_reach_is_skipped_not_fatal(tmp_path):
+    p, ai = published_project(
+        tmp_path,
+        {"queries": [{"measures": ["Revenue"], "period": "this_year_to_date", "compare_to": "last_year_to_date",
+                      "group_by": [{"table": "sales", "column": "customer"}, {"table": "nowhere", "column": "x"}]}]},
+        {"answer": "Revenue rose RM 4."},
+    )
+    result = ok(ask(p, "Why did revenue change?"))["results"][0]
+    assert result["error"] is None and result["rows"][0][4] == 4.0
+    assert result["skipped"] and "nowhere" in result["skipped"][0]
+    assert "could_not_split_by" in ai.calls[1]["messages"][-1]["content"]

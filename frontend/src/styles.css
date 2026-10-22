@@ -5949,3 +5949,61 @@ button.chip-button:hover:not(:disabled) {
   align-items: center;
   gap: 8px;
 }
+
+/* Ask: periods, change breakdowns, add to the page */
+
+.ask-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.ask-title .add-chart {
+  margin-left: auto;
+  min-height: 0;
+  padding: 0;
+  white-space: nowrap;
+}
+
+.ask-period {
+  margin: 0 0 6px;
+}
+
+.change-table .total-row td {
+  font-weight: 650;
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.change-table td.up {
+  color: var(--ok);
+}
+
+.change-table td.down {
+  color: var(--warn);
+}
+
+/* A visual's Explain button: shown on hover or focus */
+
+.canvas-visual .explain-button {
+  margin-left: auto;
+  min-height: 22px;
+  min-width: 22px;
+  color: var(--ai);
+  opacity: 0;
+}
+
+.canvas-visual:hover .explain-button,
+.canvas-visual .explain-button:focus-visible {
+  opacity: 1;
+}
+
+.canvas-visual .explain-button + .drill-state,
+.canvas-visual .explain-button + .drill-hint {
+  margin-left: 4px;
+}
+
+@media (hover: none) {
+  .canvas-visual .explain-button {
+    opacity: 1;
+  }
+}

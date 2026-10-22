@@ -54,6 +54,7 @@ export function Dashboard() {
   const [aiOpen, setAiOpen] = useState(false);
   const [showActivity, setShowActivity] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
+  const [explainQuestion, setExplainQuestion] = useState<{ text: string; at: number } | null>(null);
   const [presenting, setPresenting] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   // Slicer choices per page. They are this viewer's own: never saved, sent with each look, Ask and chat.
@@ -146,6 +147,14 @@ export function Dashboard() {
     const rest = current.filter((f) => f.source !== visual.id);
     const same = mine && mine.values?.length === 1 && mine.values[0] === value;
     choose(pageId, same ? rest : [...rest, { table: group.table, column: group.column, operator: "in", values: [value], source: visual.id }]);
+  }
+
+  /** A visual's Explain button: the Report chat for creators (it has the visual's numbers), Ask for viewers. */
+  function explain(visual: Visual) {
+    const text = `Explain the chart "${visual.title}": what it shows, what stands out, and what could be behind it.`;
+    setAiOpen(true);
+    if (side === "draft") setTimeout(() => chat.current?.send(text), 0);
+    else setExplainQuestion({ text, at: Date.now() });
   }
 
   function drillUp(visualId: string) {
@@ -366,6 +375,7 @@ export function Dashboard() {
                   onChoose={(filters) => choose(page.id, filters)}
                   onPick={(visual, value) => pick(page.id, visual, value)}
                   onDrillUp={drillUp}
+                  onExplain={explain}
                 />
               </div>
             )}
@@ -404,12 +414,27 @@ export function Dashboard() {
             onApplied={load}
             onClose={() => setAiOpen(false)}
             handle={(h) => (chat.current = h)}
+            onAddChart={async (result) => {
+              const page = state.pages.find((p) => p.id === scope.current.page_id) ?? state.pages[0];
+              if (!page) throw new Error("Add a page first.");
+              const groups = result.query.group_by.length;
+              const type = groups === 0 ? "kpi" : groups > 1 || result.show_as === "table" ? "table" : result.show_as === "line" ? "line" : "bar";
+              const next = await change(() =>
+                reportApi.addVisual(dashboardId, page.id, {
+                  type,
+                  title: result.title,
+                  measures: type === "kpi" ? result.query.measures.slice(0, 1) : result.query.measures,
+                  group_by: result.query.group_by,
+                }),
+              );
+              if (!next) throw new Error("The chart couldn't be added; see the message above the page.");
+            }}
           />
         </div>
       )}
       {aiOpen && !editing && state.published && (
         <div className="ai-dock" role="dialog" aria-label="Ask">
-          <AskPanel dashboardId={dashboardId} side="published" onClose={() => setAiOpen(false)} scope={() => scope.current} />
+          <AskPanel dashboardId={dashboardId} side="published" onClose={() => setAiOpen(false)} scope={() => scope.current} question={explainQuestion} />
         </div>
       )}
       {showInstructions && (
@@ -544,6 +569,7 @@ function ReportCanvas(props: {
   onChoose: (filters: PageFilter[]) => void;
   onPick: (visual: Visual, value: Value) => void;
   onDrillUp: (visualId: string) => void;
+  onExplain: (visual: Visual) => void;
 }) {
   const { dashboardId, page, formats, editing, selected, onSelect, onChange } = props;
   const grid = useRef<HTMLDivElement>(null);
@@ -660,7 +686,7 @@ function ReportCanvas(props: {
                 if (editing) onSelect(v.id);
               }}
             >
-              <VisualFrame visual={v} editing={editing} onGrab={(e) => begin(e, v.id, "move")} onDrillUp={() => props.onDrillUp(v.id)}>
+              <VisualFrame visual={v} editing={editing} onGrab={(e) => begin(e, v.id, "move")} onDrillUp={() => props.onDrillUp(v.id)} onExplain={() => props.onExplain(v)}>
                 {v.type === "kpi" ? (
                   <KpiCard visual={v} format={formats[v.measures[0]]} />
                 ) : (
@@ -688,7 +714,14 @@ function ReportCanvas(props: {
   );
 }
 
-function VisualFrame(props: { visual: Visual; editing: boolean; onGrab: (e: ReactPointerEvent) => void; onDrillUp: () => void; children: ReactNode }) {
+function VisualFrame(props: {
+  visual: Visual;
+  editing: boolean;
+  onGrab: (e: ReactPointerEvent) => void;
+  onDrillUp: () => void;
+  onExplain: () => void;
+  children: ReactNode;
+}) {
   const { visual, editing } = props;
   // The AI sometimes titles a card just "KPI"; the measure name says more.
   const title = visual.type === "kpi" && /^\s*kpi\s*$/i.test(visual.title) ? visual.measures[0] ?? visual.title : visual.title;
@@ -698,6 +731,18 @@ function VisualFrame(props: { visual: Visual; editing: boolean; onGrab: (e: Reac
         {editing && <GripVertical size={13} className="grip" aria-hidden="true" />}
         <h3>{title}</h3>
         {editing && visual.status === "AI" && <span className="badge ai">AI</span>}
+        <button
+          className="tool explain-button"
+          title="Explain this chart"
+          aria-label={`Explain ${visual.title}`}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            props.onExplain();
+          }}
+        >
+          <Sparkles size={13} />
+        </button>
         {visual.drill ? (
           <span className="drill-state">
             <span className="drill-path">{visual.drill.filters.map((f) => f.values?.join(", ")).join(" › ")}</span>

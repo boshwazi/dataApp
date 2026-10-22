@@ -784,12 +784,15 @@ export const activityApi = {
 
 export type AskResult = {
   title: string;
-  show_as: "number" | "bar" | "line" | "table";
+  show_as: "number" | "bar" | "line" | "table" | "change";
+  period?: string;
+  periods?: { before: string; after: string };
+  skipped?: string[];
   columns: string[];
   rows: (string | number | null)[][];
   truncated: boolean;
   error: string | null;
-  query: { measures: string[]; group_by: { table: string; column: string }[] };
+  query: { measures: string[]; group_by: { table: string; column: string }[]; filters?: unknown[] };
   how?: { measures: { name: string; definition: string }[]; split_by: string[]; filters: string[]; tables: string[] };
 };
 
