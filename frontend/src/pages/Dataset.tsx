@@ -10,7 +10,7 @@ import {
   type Dataset as DatasetData,
   type DatasetStage,
 } from "../api";
-import { BadgeCheck, FileDown, ScrollText, GitBranch, History, MoreHorizontal, Pencil, RefreshCw, Sparkles } from "lucide-react";
+import { BadgeCheck, FileDown, ScrollText, GitBranch, History, MoreHorizontal, Pencil, RefreshCw, ShieldCheck, Sparkles } from "lucide-react";
 import { ActivityDrawer } from "../components/ActivityDrawer";
 import { InstructionsDialog } from "../components/InstructionsDialog";
 import { ChatPanel, type ChatHandle } from "../components/ChatPanel";
@@ -73,7 +73,13 @@ export function Dataset() {
   const location = useLocation();
   const navigate = useNavigate();
   const stage = STAGES.find((s) => location.pathname.endsWith(`/${s.path}`)) ?? STAGES[0];
-  const extra = location.pathname.endsWith("/refresh") ? "Refresh" : location.pathname.endsWith("/lineage") ? "Lineage" : null;
+  const extra = location.pathname.endsWith("/refresh")
+    ? "Refresh"
+    : location.pathname.endsWith("/lineage")
+      ? "Lineage"
+      : location.pathname.endsWith("/security")
+        ? "Security"
+        : null;
   const onRefresh = extra !== null;
   const showChat = chatOpen && !onRefresh;
   const thread = useMemo(() => datasetChat(datasetId, stage.key), [datasetId, stage.key]);
@@ -216,6 +222,7 @@ export function Dataset() {
             { label: "AI instructions", icon: <ScrollText size={16} aria-hidden="true" />, onSelect: () => setShowInstructions(true) },
             { label: "Refresh data", icon: <RefreshCw size={16} aria-hidden="true" />, onSelect: () => navigate("refresh") },
             { label: "Lineage", icon: <GitBranch size={16} aria-hidden="true" />, onSelect: () => navigate("lineage") },
+            { label: "Security (who sees which rows)", icon: <ShieldCheck size={16} aria-hidden="true" />, onSelect: () => navigate("security") },
             { label: "Activity", icon: <History size={16} aria-hidden="true" />, onSelect: () => setShowActivity(true) },
             {
               label: "Download for Power BI",

@@ -273,8 +273,14 @@ def slicer_values(con, project: dict, table_ref: str, column: str) -> dict:
     table = model.find_table(found, table_ref)
     col = table.column(column)
     c = model.quote(col.name)
+    role = project.get(model.ROLE_FILTERS)
+    if role is not None and any(f.get("deny") for f in role):
+        raise model.ModelError(model.NO_ACCESS)
+    # Row-level security: a slicer offers only the values its own table's role filters allow.
+    limits = "".join(f" AND {model.filter_sql(table, 't', f)}" for f in role or []
+                     if model.find_table(found, f["table"]).id == table.id)
     rows = con.execute(
-        f"SELECT DISTINCT {c} FROM {table.sql} WHERE {c} IS NOT NULL ORDER BY 1 LIMIT {MAX_SLICER_VALUES + 1}"
+        f"SELECT DISTINCT {c} FROM {table.sql} t WHERE {c} IS NOT NULL{limits} ORDER BY 1 LIMIT {MAX_SLICER_VALUES + 1}"
     ).fetchall()
     values = [model.plain(r[0]) for r in rows]
     return {"table": table.id, "column": col.name, "type": col.type,

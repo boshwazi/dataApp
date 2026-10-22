@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import type { EChartsCoreOption } from "echarts/core";
-import { ArrowUp, Calendar, ChevronDown, FileDown, Filter, GripVertical, History, LayoutDashboard, Maximize2, Minimize2, MoreHorizontal, Pencil, Plus, ScrollText, Sparkles, Table2, Trash2, Undo2, X } from "lucide-react";
+import { ArrowUp, Calendar, ChevronDown, FileDown, Filter, GripVertical, History, LayoutDashboard, Maximize2, Minimize2, MoreHorizontal, Pencil, Plus, ScrollText, Sparkles, Table2, Trash2, Undo2, Users, X } from "lucide-react";
 import {
   activityApi,
   api,
@@ -10,6 +10,8 @@ import {
   formatCompact,
   formatMeasure,
   reportApi,
+  securityApi,
+  setViewAs,
   type ChartData,
   type GridBox,
   type KpiData,
@@ -21,6 +23,8 @@ import {
   type ReportPage,
   type ReportRun,
   type ReportState,
+  type RoleDef,
+  type ViewAs,
   type Visual,
   type VisualType,
 } from "../api";
@@ -31,6 +35,7 @@ import { Chart, SERIES, TOKENS } from "../components/Chart";
 import { ChatPanel, type ChatHandle } from "../components/ChatPanel";
 import { EmptyState, Menu, PopMenu, TopbarActions, type MenuItem, useCrumbs, useDialogs, useShortcut, useToast } from "../components/ui";
 import { useAccount } from "../components/account";
+import { ShareDialog } from "../components/ShareDialog";
 import { useTheme } from "../components/theme";
 import { TypeTag } from "./Transform";
 
@@ -54,6 +59,10 @@ export function Dashboard() {
   const [aiOpen, setAiOpen] = useState(false);
   const [showActivity, setShowActivity] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
+  const [showShare, setShowShare] = useState(false);
+  // Creators can look at the published dashboard as a security role (row-level security).
+  const [roles, setRoles] = useState<RoleDef[]>([]);
+  const [viewAs, setViewAsState] = useState<ViewAs | null>(null);
   const [explainQuestion, setExplainQuestion] = useState<{ text: string; at: number } | null>(null);
   const [presenting, setPresenting] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
@@ -78,8 +87,16 @@ export function Dashboard() {
 
   const fetchState = useCallback(() => {
     const { page_id, filters } = scope.current;
+    setViewAs(side === "published" ? viewAs : null);
     return reportApi.state(dashboardId, side, page_id ?? undefined, filters, drillNow.current);
-  }, [dashboardId, side]);
+  }, [dashboardId, side, viewAs]);
+
+  useEffect(() => () => setViewAs(null), []); // looking as a role ends with the page
+
+  const datasetId = state?.dataset?.id;
+  useEffect(() => {
+    if (creator && side === "published" && datasetId) securityApi.get(datasetId).then((s) => setRoles(s.roles)).catch(() => setRoles([]));
+  }, [creator, side, datasetId]);
 
   const load = useCallback(() => {
     fetchState().then(setState).catch((e) => setError(e.message));
@@ -212,6 +229,7 @@ export function Dashboard() {
     ...(editing && dataset?.published
       ? [{ label: building ? "AI is designing…" : state.pages.length ? "Add pages with AI" : "Build report with AI", icon: <Sparkles size={16} aria-hidden="true" />, onSelect: () => hasKey && !building && void build() }]
       : []),
+    ...(creator ? [{ label: "Share", icon: <Users size={16} aria-hidden="true" />, onSelect: () => setShowShare(true) }] : []),
     ...(creator ? [{ label: "Activity", icon: <History size={16} aria-hidden="true" />, onSelect: () => setShowActivity(true) }] : []),
     ...(state.published ? [{ label: "Export PDF", icon: <FileDown size={16} aria-hidden="true" />, onSelect: () => navigate(`/dashboards/${dashboardId}/export`) }] : []),
   ];
@@ -241,6 +259,30 @@ export function Dashboard() {
               View as viewer
             </button>
           </nav>
+        )}
+        {creator && !editing && roles.length > 0 && (
+          <span className="view-as">
+            <select
+              aria-label="See it as"
+              value={viewAs?.role ?? ""}
+              onChange={(e) => setViewAsState(e.target.value ? { role: e.target.value, email: viewAs?.email ?? "" } : null)}
+            >
+              <option value="">See all the data</option>
+              {roles.map((r) => (
+                <option key={r.id} value={r.id}>
+                  See it as {r.name}
+                </option>
+              ))}
+            </select>
+            {viewAs && roles.find((r) => r.id === viewAs.role)?.per_person && (
+              <input
+                aria-label="As this person (email)"
+                placeholder="person@company.com"
+                defaultValue={viewAs.email ?? ""}
+                onBlur={(e) => setViewAsState({ ...viewAs, email: e.target.value.trim() })}
+              />
+            )}
+          </span>
         )}
         <span className="topbar-grow" />
         <span className={`topbar-status ${state.published ? (state.unpublished_changes ? "warn" : "ok") : ""}`}>
@@ -436,6 +478,15 @@ export function Dashboard() {
         <div className="ai-dock" role="dialog" aria-label="Ask">
           <AskPanel dashboardId={dashboardId} side="published" onClose={() => setAiOpen(false)} scope={() => scope.current} question={explainQuestion} />
         </div>
+      )}
+      {showShare && (
+        <ShareDialog
+          dashboardId={dashboardId}
+          name={state.name}
+          sharing={state.sharing ?? { mode: "workspace" }}
+          onSaved={load}
+          onClose={() => setShowShare(false)}
+        />
       )}
       {showInstructions && (
         <InstructionsDialog

@@ -13,7 +13,7 @@ from dataclasses import asdict
 
 import pandas as pd
 
-from . import model, pbi_dax, transform
+from . import model, pbi_dax, security, transform
 from .pbi_model import AUTO_DATE, PbiModel, PbiTable
 from .projects import now, table_name
 
@@ -215,7 +215,37 @@ def apply_model(con, project: dict, model_: PbiModel, names: dict[str, str]) -> 
     for m, why in left:
         report["not_converted"].append({"measure": m.name, "dax": m.expression, "why": why})
     model.revalidate(con, project)
+    import_roles(con, project, model_, names, report)
     return report
+
+
+def import_roles(con, project: dict, model_: PbiModel, names: dict[str, str], report: dict) -> None:
+    """Power BI's row-level security roles, for the simple filter shapes; members are added in datawazi."""
+    by_role: dict[str, dict] = {}
+    for item in model_.roles:
+        role = by_role.setdefault(item["role"], {"name": item["role"], "filters": [], "per_person": None,
+                                                 "members": {"people": [], "groups": []}})
+        table = names.get(item.get("table"))
+        read = security.from_dax(table, item.get("filter") or "") if table else None
+        if read is None:
+            role["skip"] = f"{item.get('table')}: {item.get('filter')}"
+        elif "per_person" in read:
+            role["per_person"] = read["per_person"]
+        else:
+            role["filters"].append(read["filter"])
+    kept = []
+    for role in by_role.values():
+        if role.pop("skip", None) is not None or not (role["filters"] or role["per_person"]):
+            report["notes"].append(f"The Power BI role {role['name']} has a filter datawazi can't read yet; add it by hand.")
+            continue
+        try:
+            kept += security.check_roles(con, project, [role])
+        except security.SecurityError as exc:
+            report["notes"].append(f"The Power BI role {role['name']} wasn't added: {exc}")
+    if kept:
+        project["security"] = {"roles": kept}
+        report["notes"].append(f"Row-level security roles: {', '.join(r['name'] for r in kept)}. Add their members in "
+                               "the dataset's Security page.")
 
 
 def _id_of(found: dict, name: str) -> str | None:

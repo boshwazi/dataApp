@@ -6054,6 +6054,12 @@ button.chip-button:hover:not(:disabled) {
   width: min(620px, calc(100vw - 32px));
 }
 
+/* Dialogs without a form inside carry their own padding. */
+.instructions-dialog,
+.share-dialog {
+  padding: 22px 22px 18px;
+}
+
 .instructions-dialog h2 {
   margin: 0 0 6px;
   font-size: 17px;
@@ -6481,4 +6487,130 @@ button.chip-button:hover:not(:disabled) {
 
 .semantic > section + section {
   margin-top: 20px;
+}
+
+/* Permissions (M16): security roles, sharing, groups, audit */
+
+.security {
+  display: grid;
+  gap: 14px;
+}
+
+.security-lead {
+  max-width: 80ch;
+  margin: 4px 0 0;
+}
+
+.role-card {
+  display: grid;
+  gap: 8px;
+}
+
+.role-card h3 {
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+
+.role-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.role-head input {
+  flex: 1;
+  max-width: 420px;
+  font: inherit;
+  font-weight: 600;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.role-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.role-filter select,
+.role-filter input:not([type="checkbox"]),
+.role-card .field input,
+.group-row input,
+.view-as select,
+.view-as input,
+.share-who input {
+  font: inherit;
+  font-size: 13px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+}
+
+.role-filter input:not([type="checkbox"]) {
+  min-width: 220px;
+}
+
+.role-reach {
+  margin: 0;
+  color: var(--muted);
+}
+
+.role-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+
+.security-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.security-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.view-as {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: 8px;
+}
+
+.share-dialog {
+  width: min(520px, calc(100vw - 32px));
+}
+
+.share-dialog h2 {
+  margin: 0 0 6px;
+  font-size: 17px;
+}
+
+.share-modes,
+.share-who {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.access-section {
+  margin-top: 28px;
+}
+
+.group-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 220px) 1fr auto;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+@media (max-width: 640px) {
+  .group-row {
+    grid-template-columns: 1fr auto;
+  }
 }

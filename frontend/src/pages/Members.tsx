@@ -3,6 +3,7 @@ import { Send, Trash2, UserPlus } from "lucide-react";
 import { accountApi, type Delivery, type People, type Role } from "../api";
 import { useAccount } from "../components/account";
 import { Skeleton, useCrumbs, useDialogs, useToast } from "../components/ui";
+import { AuditSection, GroupsSection } from "../components/AccessSections";
 
 const ROLE_HELP: Record<Role, string> = {
   admin: "Everything, plus inviting people and changing roles",
@@ -194,6 +195,8 @@ export function Members() {
           </ul>
         </section>
       )}
+      <GroupsSection />
+      <AuditSection />
     </div>
   );
 }

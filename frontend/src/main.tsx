@@ -37,6 +37,7 @@ const Transform = page(() => import("./pages/Transform"), "Transform");
 const Model = page(() => import("./pages/Model"), "Model");
 const Refresh = page(() => import("./pages/Refresh"), "Refresh");
 const Lineage = page(() => import("./pages/Lineage"), "Lineage");
+const Security = page(() => import("./pages/Security"), "Security");
 const Autopilot = page(() => import("./pages/Autopilot"), "Autopilot");
 const SemanticModels = page(() => import("./pages/SemanticModels"), "SemanticModels");
 const Settings = page(() => import("./pages/Settings"), "Settings");
@@ -90,6 +91,7 @@ createRoot(document.getElementById("root")!).render(
             <Route path="model" element={<Model />} />
             <Route path="refresh" element={<Refresh />} />
             <Route path="lineage" element={<Lineage />} />
+            <Route path="security" element={<Security />} />
             <Route path="autopilot" element={<Autopilot />} />
           </Route>
           <Route

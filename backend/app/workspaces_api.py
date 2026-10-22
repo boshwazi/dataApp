@@ -2,6 +2,7 @@
 
 import logging
 import os
+from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
@@ -28,7 +29,8 @@ class InviteBody(BaseModel):
     role: str = "viewer"
 
 
-def build_router(store: WorkspaceStore, config: AuthConfig, mailer: SupabaseAdmin | None = None) -> APIRouter:
+def build_router(store: WorkspaceStore, config: AuthConfig, mailer: SupabaseAdmin | None = None,
+                 audit: Callable[[str, str], None] | None = None) -> APIRouter:
     router = APIRouter()
 
     def checked(action):
@@ -93,16 +95,26 @@ def build_router(store: WorkspaceStore, config: AuthConfig, mailer: SupabaseAdmi
         wid = workspaces.current().workspace_id
         return {"members": store.members(wid), "invites": [invite_view(i) for i in store.invites(wid)]}
 
+    def note(action: str, detail: str) -> None:
+        if audit is not None:
+            audit(action, detail)
+
+    def email_of(wid: str, user_id: str) -> str:
+        return next((m["email"] for m in store.members(wid) if m["user_id"] == user_id), user_id)
+
     @router.put("/api/workspaces/current/members/{user_id}")
     def set_role(user_id: str, body: RoleBody):
         wid = workspaces.current().workspace_id
         checked(lambda: store.set_role(wid, user_id, body.role))
+        note("members", f"{email_of(wid, user_id)} is now {body.role}")
         return members()
 
     @router.delete("/api/workspaces/current/members/{user_id}")
     def remove_member(user_id: str):
         wid = workspaces.current().workspace_id
+        who = email_of(wid, user_id)
         checked(lambda: store.remove_member(wid, user_id))
+        note("members", f"{who} was removed")
         return members()
 
     @router.post("/api/workspaces/current/invites")
@@ -111,6 +123,7 @@ def build_router(store: WorkspaceStore, config: AuthConfig, mailer: SupabaseAdmi
         if config.mode == "local":
             raise HTTPException(400, "Inviting people needs sign-in, which the hosted version adds.")
         created = checked(lambda: store.invite(access.workspace_id, body.email, body.role, access.user))
+        note("members", f"{body.email.strip().lower()} was invited as {body.role}")
         return {**deliver(request, created), **members()}
 
     @router.post("/api/workspaces/current/invites/{invite_id}/resend")

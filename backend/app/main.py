@@ -17,7 +17,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import ai_report, db, guidance, ingest, links, llm, refresh, workspaces
+from . import ai_report, db, guidance, ingest, links, llm, refresh, security, workspaces
 from .auth import AuthConfig, AuthGuard
 from .autopilot import Autopilot
 from .autopilot import build_router as build_autopilot_router
@@ -76,6 +76,10 @@ async def scheduler_lifespan(app: FastAPI):
 
 class InstructionsBody(BaseModel):
     instructions: str = ""
+
+
+class GroupsBody(BaseModel):
+    groups: list[dict]
 
 
 def create_app(
@@ -148,7 +152,8 @@ def create_app(
 
     projects.on_publish = after_publish
     app.add_middleware(AuthGuard, config=auth, store=members)
-    app.include_router(build_workspaces_router(members, auth, admin))
+    app.include_router(build_workspaces_router(members, auth, admin,
+                                               audit=lambda action, detail: security.audit(preferences, action, detail)))
     routers = [
         build_router(projects, boards, store, client_factory, fetch_url, SAMPLES_DIR),
         build_transform_router(projects, store, client_factory),
@@ -167,6 +172,28 @@ def create_app(
     @app.get("/api/health")
     def health():
         return {"status": "ok"}
+
+    @app.get("/api/workspaces/current/groups")
+    def get_groups():
+        return {"groups": security.groups(preferences)}
+
+    @app.put("/api/workspaces/current/groups")
+    def put_groups(body: GroupsBody):
+        if not workspaces.current().at_least("admin"):
+            raise HTTPException(403, "Only workspace admins can change groups.")
+        try:
+            saved = security.set_groups(preferences, body.groups)
+        except security.SecurityError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        security.audit(preferences, "groups", "Groups are now " + (", ".join(g["name"] for g in saved) or "none"))
+        return {"groups": saved}
+
+    @app.get("/api/workspaces/current/audit")
+    def get_audit():
+        """Who changed members, groups, roles and sharing, and who published, newest first."""
+        if not workspaces.current().at_least("admin"):
+            raise HTTPException(403, "Only workspace admins can read the audit log.")
+        return {"entries": preferences.load().get("audit") or []}
 
     @app.get("/api/refresh-alerts")
     def refresh_alerts():

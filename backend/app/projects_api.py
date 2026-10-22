@@ -22,6 +22,7 @@ from . import (
     pbi_model,
     publishing,
     refresh,
+    security,
     transform,
 )
 from .dashboards import DashboardStore
@@ -42,6 +43,10 @@ class RefreshSettingsBody(BaseModel):
     at: str | None = None  # HH:MM, Malaysia time, for daily, weekday and weekly schedules
     day: int | None = None  # 0 Monday to 6 Sunday, for weekly schedules
     follow_links: bool | None = None
+
+
+class SecurityBody(BaseModel):
+    roles: list[dict]
 
 
 class LoadBody(BaseModel):
@@ -67,7 +72,7 @@ class SheetBody(BaseModel):
     name: str = ""
 
 
-HIDDEN_KEYS = ("sources", "transform", "model", "published", "published_history", "report", "activity", "stage_marks", "chats", "powerbi")
+HIDDEN_KEYS = ("sources", "transform", "model", "published", "published_history", "security", "report", "activity", "stage_marks", "chats", "powerbi")
 
 
 def project_view(project: dict, dashboards: list[dict] | None = None, versions: dict | None = None,
@@ -287,7 +292,38 @@ def build_router(
             activity.log(project, "publish", f"Published version {published['version']}")
         store.remove_old_copies(project_id, keep=publishing.kept_files(project))
         store.published(project_id)
+        security.audit(getattr(store, "preferences", None), "publish", f"{project['name']}: published version {published['version']}")
         return {**full_view(project), "broken_visuals": problems}
+
+    # Row-level security
+
+    def security_view(project: dict) -> dict:
+        project_id = project["id"]
+        with store.connect(project_id) as con:
+            transform.apply_all(con, project)
+            roles = [{**role, "reach": security.reach(con, project, role)} for role in security.roles(project)]
+            fields = [{"id": t.id, "name": t.name, "columns": [{"name": c.name, "type": c.type} for c in t.columns]}
+                      for t in model.tables(con, project).values()]
+        return {"roles": roles, "fields": fields, "groups": security.groups(getattr(store, "preferences", None)),
+                "dataset_id": project_id}
+
+    @router.get("/{project_id}/security")
+    def get_security(project_id: str):
+        return security_view(load(project_id))
+
+    @router.put("/{project_id}/security")
+    def set_security(project_id: str, body: SecurityBody):
+        """The dataset's roles: who sees which rows on its dashboards. Checked against the model."""
+        load(project_id)
+        try:
+            with store.edit(project_id) as project, store.connect(project_id) as con:
+                transform.apply_all(con, project)
+                project["security"] = {"roles": security.check_roles(con, project, body.roles)}
+        except security.SecurityError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        names = ", ".join(r["name"] for r in project["security"]["roles"]) or "none"
+        security.audit(getattr(store, "preferences", None), "roles", f"{project['name']}: roles are now {names}")
+        return security_view(project)
 
     @router.get("/{project_id}/versions")
     def versions(project_id: str):
@@ -310,6 +346,8 @@ def build_router(
                 raise HTTPException(409, {"message": f"Version {version} would break dashboard visuals.", "problems": problems})
             published = publishing.roll_back(store, project, version)
             activity.log(project, "publish", f"Rolled back to version {version} (published as version {published['version']})")
+        security.audit(getattr(store, "preferences", None), "publish",
+                       f"{project['name']}: rolled back to version {version}")
         store.remove_old_copies(project_id, keep=publishing.kept_files(project))
         store.published(project_id)
         return {**full_view(project), "versions": publishing.versions(project), "broken_visuals": problems}

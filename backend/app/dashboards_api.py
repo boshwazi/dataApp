@@ -13,7 +13,7 @@ from contextlib import contextmanager
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from . import activity, ai_report, ask, dashboards, export, guidance, llm, model, publishing, report, templates, workspaces
+from . import activity, ai_report, ask, dashboards, export, guidance, llm, model, publishing, report, security, templates, workspaces
 from .dashboards import DashboardStore
 from .projects import NotFound, ProjectStore
 from .settings import ProviderSettings, SettingsStore
@@ -22,6 +22,12 @@ from .settings import ProviderSettings, SettingsStore
 class NewDashboardBody(BaseModel):
     name: str
     dataset_id: str
+
+
+class SharingBody(BaseModel):
+    mode: str  # "workspace" or "people"
+    people: list[str] = []
+    groups: list[str] = []
 
 
 class DesignBody(BaseModel):
@@ -93,6 +99,8 @@ def summary(dashboard: dict, datasets: ProjectStore) -> dict:
         "updated_at": dashboard["updated_at"],
         "pages": len(dashboard["draft"]["pages"]),
         "dataset": data,
+        "owner": dashboard.get("owner"),
+        "sharing": dashboard.get("sharing") or {"mode": "workspace"},
         **dashboards.status(dashboard),
     }
 
@@ -147,8 +155,33 @@ def build_router(
         if frozen is None:
             yield dataset, None, None
             return
+        try:
+            # Row-level security: whoever is asking sees only their rows, on every path through here.
+            security.restrict(frozen, dataset, groups())
+        except security.SecurityError as exc:
+            raise HTTPException(400, str(exc)) from exc
         with datasets.connect_published(dataset["id"], dataset["published"]["file"]) as con:
             yield dataset, frozen, con
+
+    def groups() -> list[dict]:
+        return security.groups(getattr(datasets, "preferences", None))
+
+    def visible(dashboard_id: str) -> dict:
+        """The dashboard, if the asker may see it (viewers: published and shared with them)."""
+        try:
+            dash = boards.get(dashboard_id)
+        except NotFound as exc:
+            raise HTTPException(404, str(exc)) from exc
+        if not security.can_see(dash, groups()):
+            raise HTTPException(404, "Dashboard not found.")
+        return dash
+
+    def view_as(as_role: str | None, as_email: str | None) -> None:
+        """A creator checking what a role sees: ?as_role=<role id>&as_email=<person, for per-person roles>."""
+        if as_role:
+            if not workspaces.current().at_least("creator"):
+                raise HTTPException(403, "Only creators can view as a role.")
+            security.VIEW_AS.set({"role": as_role, "email": as_email})
 
     def respond(dashboard_id: str, change=None, side: str = "draft", with_data: bool = True,
                 summary: str | None = None, actor: str = "You", selection: tuple | None = None,
@@ -182,6 +215,8 @@ def build_router(
              selection: tuple | None = None, drill: dict | None = None) -> dict:
         source = dash["draft"] if side == "draft" else (dash["published"] or {"pages": []})
         pages = []
+        # Insights and summaries were written about all the data: not for someone who sees only some of it.
+        restricted = frozen is not None and frozen.get(model.ROLE_FILTERS) is not None
         if frozen is not None:
             project = publishing.bind(frozen, {"pages": source["pages"], "history": []})
             for page in source["pages"]:
@@ -200,7 +235,7 @@ def build_router(
                              "drill_next": report.next_level(shown)}
                     if with_data:
                         try:
-                            key = results.key(dataset, shown, project[model.PAGE_FILTERS])
+                            key = results.key(dataset, shown, [project[model.PAGE_FILTERS], frozen.get(model.ROLE_FILTERS)])
                             data = results.get(key)
                             if data is None:
                                 data = report.visual_data(con, project, shown)
@@ -209,7 +244,7 @@ def build_router(
                             entry["advice"] = report.advice(visual, entry["data"])
                         except (report.ReportError, model.ModelError) as exc:
                             entry["data"], entry["error"] = None, str(exc)
-                        if chosen or entry["drill"]:
+                        if chosen or entry["drill"] or restricted:
                             entry["insight"] = None  # written about the whole page, not this selection
                         elif entry["data"] and visual.get("insight"):
                             # Checked against today's data, so an insight that went stale is flagged.
@@ -218,7 +253,7 @@ def build_router(
                                                 "stale": bool(visual["insight"].get("stale"))}  # new data changed it
                     visuals.append(entry)
                 pages.append({**page, "slicers": page.get("slicers", []), "filters": page.get("filters", []),
-                              "selected": chosen, "visuals": visuals})
+                              "selected": chosen, "visuals": visuals, **({"summary": ""} if restricted else {})})
             project.pop(model.PAGE_FILTERS, None)
         formats = {m["name"]: m["format"] for m in model.state(frozen)["measures"]} if frozen else {}
         fields = report.fields(con, frozen) if frozen and side == "draft" and not viewer() else []
@@ -232,6 +267,8 @@ def build_router(
             "as_of": report.as_of(con, frozen) if frozen else None,
             "can_undo": bool(dash["draft"]["history"]),
             "instructions": dash.get("instructions", ""),
+            "restricted": restricted,
+            "viewing_as": security.VIEW_AS.get(),
         }
 
     def undoable(action):
@@ -247,8 +284,9 @@ def build_router(
 
     @router.get("")
     def list_dashboards():
-        # Viewers only ever see published dashboards.
-        return [summary(d, datasets) for d in boards.all() if d.get("published") or not viewer()]
+        # Viewers only ever see published dashboards shared with them.
+        everyone = groups()
+        return [summary(d, datasets) for d in boards.all() if security.can_see(d, everyone)]
 
     @router.post("")
     def create(body: NewDashboardBody):
@@ -256,21 +294,34 @@ def build_router(
             datasets.get(body.dataset_id)
         except NotFound as exc:
             raise HTTPException(404, str(exc)) from exc
-        return summary(boards.create(body.name, body.dataset_id), datasets)
+        with boards.edit(boards.create(body.name, body.dataset_id)["id"]) as dash:
+            dash["owner"] = workspaces.current_user().email
+        return summary(dash, datasets)
+
+    @router.put("/{dashboard_id}/sharing")
+    def set_sharing(dashboard_id: str, body: SharingBody):
+        """Who sees the published dashboard: the whole workspace (the default), or chosen people and groups."""
+        try:
+            sharing = security.check_sharing(body.model_dump())
+            with boards.edit(dashboard_id) as dash:
+                dash["sharing"] = sharing
+        except security.SecurityError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        except NotFound as exc:
+            raise HTTPException(404, str(exc)) from exc
+        who = "the whole workspace" if sharing["mode"] == "workspace" else \
+            ", ".join(sharing["people"] + [g["name"] for g in groups() if g["id"] in sharing["groups"]]) or "nobody yet"
+        security.audit(getattr(datasets, "preferences", None), "sharing", f"{dash['name']}: shared with {who}")
+        return summary(dash, datasets)
 
     @router.get("/{dashboard_id}")
     def get_dashboard(dashboard_id: str, side: str = "draft", page: str | None = None, filters: str | None = None,
-                      drill: str | None = None):
+                      drill: str | None = None, as_role: str | None = None, as_email: str | None = None):
         if side not in ("draft", "published"):
             raise HTTPException(400, "side is draft or published.")
+        visible(dashboard_id)
+        view_as(as_role, as_email)
         if viewer():
-            published = False
-            try:
-                published = bool(boards.get(dashboard_id).get("published"))
-            except NotFound:
-                pass
-            if not published:
-                raise HTTPException(404, "Dashboard not found.")
             side = "published"
         selection = None
         if page and filters:
@@ -306,14 +357,10 @@ def build_router(
                 raise HTTPException(400, str(exc)) from exc
 
     @router.get("/{dashboard_id}/values")
-    def slicer_values(dashboard_id: str, table: str, column: str):
-        """The values a slicer offers, from the dataset's published version."""
-        try:
-            dash = boards.get(dashboard_id)
-        except NotFound as exc:
-            raise HTTPException(404, str(exc)) from exc
-        if viewer() and not dash.get("published"):
-            raise HTTPException(404, "Dashboard not found.")
+    def slicer_values(dashboard_id: str, table: str, column: str, as_role: str | None = None, as_email: str | None = None):
+        """The values a slicer offers, from the dataset's published version (and the asker's rows)."""
+        dash = visible(dashboard_id)
+        view_as(as_role, as_email)
         with opened(dash) as (dataset, frozen, con):
             if frozen is None:
                 raise HTTPException(400, "This dashboard's data isn't published yet.")
@@ -531,10 +578,7 @@ def build_router(
         settings = settings_store.load()
         if not settings.api_key:
             raise HTTPException(400, "The AI is not set up yet. Ask an admin to add an API key in Settings.")
-        try:
-            dash = boards.get(dashboard_id)
-        except NotFound as exc:
-            raise HTTPException(404, str(exc)) from exc
+        dash = visible(dashboard_id)
         pages = (dash.get("published") or {}).get("pages") or []
         if not pages:
             raise HTTPException(400, "Publish the dashboard first.")
@@ -557,7 +601,7 @@ def build_router(
         return {"bullets": bullets}
 
     @router.post("/{dashboard_id}/ask")
-    def ask_question(dashboard_id: str, body: AskBody):
+    def ask_question(dashboard_id: str, body: AskBody, as_role: str | None = None, as_email: str | None = None):
         """Answer a question about the dashboard's data. Read-only; anyone who can see the dashboard may ask.
         The conversation is kept by the browser, not stored, so each viewer's questions stay their own."""
         settings = settings_store.load()
@@ -570,10 +614,8 @@ def build_router(
             raise HTTPException(400, "Type a question first.")
         if len(question) > 1000:
             raise HTTPException(400, "Keep questions under 1,000 characters.")
-        try:
-            dash = boards.get(dashboard_id)
-        except NotFound as exc:
-            raise HTTPException(404, str(exc)) from exc
+        dash = visible(dashboard_id)
+        view_as(as_role, as_email)
         pages = ((dash.get("published") or {}) if body.side == "published" else dash["draft"]).get("pages") or []
         with opened(dash) as (dataset, frozen, con):
             if frozen is None:

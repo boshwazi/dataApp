@@ -44,6 +44,10 @@ TIME_CALCS = {
 MAX_ROLLING_MONTHS = 36
 # A dashboard page's slicers and filters, put on the bound project; every evaluate() adds them.
 PAGE_FILTERS = "page_filters"
+# Row-level security: the asker's row filters (security.py). Unlike page filters they are never left out;
+# each one applies to measures whose table reaches its table. [{"deny": True}] means no data at all.
+ROLE_FILTERS = "role_filters"
+NO_ACCESS = "You don't have access to this data. Ask the dashboard's owner to add you to a role."
 
 
 class ModelError(ValueError):
@@ -766,7 +770,10 @@ def windowed_sql(found, relationships, measure: dict, group_by: list[dict], filt
 def evaluate(con, project: dict, measure_names: list[str], group_by: list[dict] | None = None,
              filters: list[dict] | None = None, limit: int = MAX_GROUPS, page_filters: str = "all") -> dict:
     """`page_filters`: "all" adds the page's slicers and filters; "except_dates" leaves out those on the
-    date table (a KPI's comparison with last year); "none" ignores them."""
+    date table (a KPI's comparison with last year); "none" ignores them. Row-level security filters always hold."""
+    role = project.get(ROLE_FILTERS)
+    if role is not None and any(f.get("deny") for f in role):
+        raise ModelError(NO_ACCESS)
     model = state(project)
     found = tables(con, project)
     by_name = {m["name"].lower(): m for m in model["measures"]}
@@ -775,6 +782,21 @@ def evaluate(con, project: dict, measure_names: list[str], group_by: list[dict] 
         extra = [f for f in extra if f.get("table") != DATE_ID]
     group_by, filters = group_by or [], list(filters or []) + extra
     results: dict[str, dict[tuple, object]] = {}
+
+    def guarded(measure: dict) -> list[dict]:
+        """The filters for one aggregation: the asked-for ones, plus the role's that reach its table."""
+        if not role:
+            return filters
+        reached = paths_from(find_table(found, measure["table"]).id,
+                             with_relationship(model["relationships"], measure.get("use_relationship")))
+        mine = []
+        for item in role:
+            try:
+                if find_table(found, item["table"]).id in reached:
+                    mine.append(item)
+            except ModelError as exc:  # a role naming a table that's gone shows nothing rather than everything
+                raise ModelError("A security role refers to a table that no longer exists. Ask the owner to fix it.") from exc
+        return filters + mine
 
     def compute(name: str) -> dict[tuple, object]:
         measure = by_name.get(str(name).lower())
@@ -786,7 +808,7 @@ def evaluate(con, project: dict, measure_names: list[str], group_by: list[dict] 
         if key in results:
             return results[key]
         if measure["kind"] == "aggregate":
-            sql = aggregate_sql(found, model["relationships"], measure, group_by, filters)
+            sql = aggregate_sql(found, model["relationships"], measure, group_by, guarded(measure))
             rows = con.execute(sql).fetchall()
             results[key] = {tuple(plain(v) for v in row[:-1]): plain(row[-1]) for row in rows}
         elif measure["kind"] == "time":
@@ -809,7 +831,7 @@ def evaluate(con, project: dict, measure_names: list[str], group_by: list[dict] 
         if key in timed:
             return timed[key]
         if measure["kind"] == "aggregate":
-            sql = aggregate_sql(found, model["relationships"], measure, group_by, filters, window)
+            sql = aggregate_sql(found, model["relationships"], measure, group_by, guarded(measure), window)
             rows = con.execute(sql).fetchall()
             timed[key] = {tuple(plain(v) for v in row[:-1]): plain(row[-1]) for row in rows}
         elif measure["kind"] == "formula":

@@ -542,6 +542,33 @@ export type SemanticResult = {
   notes: { conformed: string[]; renamed: string[]; skipped: string[] };
 };
 
+// Permissions (M16)
+
+export type RoleFilter = { table: string; column: string; operator: "in"; values: (string | number)[] };
+export type RoleDef = {
+  id?: string;
+  name: string;
+  filters: RoleFilter[];
+  per_person: { table: string; column: string } | null;
+  members: { people: string[]; groups: string[] };
+  reach?: { restricted: string[]; not_restricted: string[] };
+};
+export type Group = { id: string; name: string; members: string[] };
+export type SecurityState = {
+  roles: RoleDef[];
+  fields: { id: string; name: string; columns: { name: string; type: LogicalType }[] }[];
+  groups: Group[];
+};
+export type AuditEntry = { at: string; by: string; action: string; detail: string };
+
+export const securityApi = {
+  get: (pid: string) => request<SecurityState>(`/api/datasets/${pid}/security`),
+  save: (pid: string, roles: RoleDef[]) => request<SecurityState>(`/api/datasets/${pid}/security`, json("PUT", { roles })),
+  groups: () => request<{ groups: Group[] }>("/api/workspaces/current/groups"),
+  saveGroups: (groups: Group[]) => request<{ groups: Group[] }>("/api/workspaces/current/groups", json("PUT", { groups })),
+  audit: () => request<{ entries: AuditEntry[] }>("/api/workspaces/current/audit"),
+};
+
 export const semanticApi = {
   catalogue: () => request<LinkCatalogue>("/api/semantic-models/catalogue"),
   build: (name: string, tables: { dataset_id: string; table: string }[]) =>
@@ -666,11 +693,15 @@ export type ReportPage = {
   visuals: Visual[];
 };
 
+export type Sharing = { mode: "workspace" } | { mode: "people"; people: string[]; groups: string[] };
+
 export type DashboardSummary = {
   id: string;
   name: string;
   updated_at: string;
   pages: number;
+  owner?: string | null;
+  sharing?: Sharing;
   dataset: ({ id: string; name: string } & PublishStatus) | null;
   published: boolean;
   published_at: string | null;
@@ -686,6 +717,9 @@ export type ReportState = Omit<DashboardSummary, "pages"> & {
   as_of: string | null;
   can_undo: boolean;
   instructions?: string;
+  /** Row-level security limits what this person sees (so AI insights, written about all the data, are hidden). */
+  restricted?: boolean;
+  viewing_as?: ViewAs | null;
 };
 
 export type ReportRun = ReportState & {
@@ -697,6 +731,18 @@ export type ReportRun = ReportState & {
 
 const rp = (id: string) => `/api/dashboards/${id}`;
 
+/** A creator looking at dashboards as a security role (and, for per-person roles, as one person). */
+export type ViewAs = { role: string; email?: string | null };
+let viewingAs: ViewAs | null = null;
+export function setViewAs(next: ViewAs | null) {
+  viewingAs = next;
+}
+function asQuery(): string {
+  if (!viewingAs) return "";
+  return `as_role=${encodeURIComponent(viewingAs.role)}` + (viewingAs.email ? `&as_email=${encodeURIComponent(viewingAs.email)}` : "");
+}
+const withAs = (url: string) => (asQuery() ? `${url}${url.includes("?") ? "&" : "?"}${asQuery()}` : url);
+
 export const dashboardsApi = {
   list: () => request<DashboardSummary[]>("/api/dashboards"),
   create: (name: string, datasetId: string) =>
@@ -704,6 +750,7 @@ export const dashboardsApi = {
   rename: (id: string, name: string) => request<ReportState>(rp(id), json("PATCH", { name })),
   remove: (id: string) => request<unknown>(rp(id), { method: "DELETE" }),
   publish: (id: string) => request<ReportState>(`${rp(id)}/publish`, { method: "POST" }),
+  share: (id: string, sharing: Sharing) => request<DashboardSummary>(`${rp(id)}/sharing`, json("PUT", sharing)),
 };
 
 /** What the Report AI aims for: a template, the user's own words, or its pick of template. */
@@ -714,12 +761,14 @@ export type DashboardTemplate = { id: string; name: string; description: string;
 export const reportApi = {
   state: (id: string, side: "draft" | "published" = "draft", page?: string, filters?: PageFilter[], drill?: Record<string, Drill>) =>
     request<ReportState>(
-      `${rp(id)}?side=${side}` +
-        (page && filters?.length ? `&page=${encodeURIComponent(page)}&filters=${encodeURIComponent(JSON.stringify(filters))}` : "") +
-        (drill && Object.keys(drill).length ? `&drill=${encodeURIComponent(JSON.stringify(drill))}` : ""),
+      withAs(
+        `${rp(id)}?side=${side}` +
+          (page && filters?.length ? `&page=${encodeURIComponent(page)}&filters=${encodeURIComponent(JSON.stringify(filters))}` : "") +
+          (drill && Object.keys(drill).length ? `&drill=${encodeURIComponent(JSON.stringify(drill))}` : ""),
+      ),
     ),
   values: (id: string, table: string, column: string) =>
-    request<SlicerValues>(`${rp(id)}/values?table=${encodeURIComponent(table)}&column=${encodeURIComponent(column)}`),
+    request<SlicerValues>(withAs(`${rp(id)}/values?table=${encodeURIComponent(table)}&column=${encodeURIComponent(column)}`)),
   setSlicers: (id: string, pageId: string, slicers: { table: string; column: string }[]) =>
     request<ReportState>(`${rp(id)}/pages/${pageId}/slicers`, json("PUT", { slicers })),
   setInstructions: (id: string, instructions: string) => request<ReportState>(`${rp(id)}/instructions`, json("PUT", { instructions })),
@@ -867,7 +916,7 @@ export const askApi = {
     side: "draft" | "published",
     signal?: AbortSignal,
     scope?: PageScope,
-  ) => request<AskResponse>(`/api/dashboards/${dashboardId}/ask`, { ...json("POST", { question, history, side, ...scope }), signal }),
+  ) => request<AskResponse>(withAs(`/api/dashboards/${dashboardId}/ask`), { ...json("POST", { question, history, side, ...scope }), signal }),
 };
 
 // Refresh
