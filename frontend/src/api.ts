@@ -75,6 +75,8 @@ export type Dataset = {
   status: PublishStatus;
   stale: Record<DatasetStage, string | null>;
   certified: boolean;
+  /** A semantic model: every table linked from these datasets. */
+  semantic?: { how: "merge" | "tables"; from: { id: string; name: string }[]; built_at: string };
   linked_by: { id: string; name: string; tables: string[] }[];
   dashboards: { id: string; name: string }[];
   progress: { sources: number; steps: number; relationships: number; measures: number };
@@ -534,6 +536,19 @@ export type ModelRun = ModelState & {
 };
 
 const md = (pid: string) => `/api/datasets/${pid}/model`;
+
+export type SemanticResult = {
+  dataset: Dataset;
+  notes: { conformed: string[]; renamed: string[]; skipped: string[] };
+};
+
+export const semanticApi = {
+  catalogue: () => request<LinkCatalogue>("/api/semantic-models/catalogue"),
+  build: (name: string, tables: { dataset_id: string; table: string }[]) =>
+    request<SemanticResult>("/api/semantic-models", json("POST", { name, tables })),
+  merge: (name: string, datasetIds: string[]) =>
+    request<SemanticResult>("/api/semantic-models/merge", json("POST", { name, dataset_ids: datasetIds })),
+};
 
 export const modelApi = {
   state: (pid: string) => request<ModelState>(md(pid)),

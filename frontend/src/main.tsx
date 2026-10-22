@@ -5,6 +5,7 @@ import { Layout } from "./Layout";
 import { Dataset } from "./pages/Dataset";
 import { GetData } from "./pages/GetData";
 import { Autopilot } from "./pages/Autopilot";
+import { SemanticModels } from "./pages/SemanticModels";
 import { Home } from "./pages/Home";
 import { Invite } from "./pages/Invite";
 import { Members } from "./pages/Members";
@@ -70,6 +71,7 @@ createRoot(document.getElementById("root")!).render(
           <Route index element={<Home />} />
           <Route path="datasets" element={<Need role="creator"><Home show="datasets" /></Need>} />
           <Route path="dashboards" element={<Home show="dashboards" />} />
+          <Route path="semantic-models" element={<Need role="creator"><SemanticModels /></Need>} />
           <Route path="settings" element={<PlatformAdmin><Settings /></PlatformAdmin>} />
           <Route path="members" element={<Need role="admin"><Members /></Need>} />
           <Route path="datasets/:datasetId" element={<Need role="creator"><Dataset /></Need>}>

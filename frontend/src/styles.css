@@ -6316,3 +6316,112 @@ button.chip-button:hover:not(:disabled) {
 .ai-tag.autopilot-tag {
   color: var(--accent);
 }
+
+/* Semantic models (M22) */
+
+.semantic-lead {
+  max-width: 75ch;
+  margin: 4px 0 16px;
+}
+
+.semantic-new {
+  display: grid;
+  gap: 10px;
+}
+
+.semantic-new .segmented {
+  margin-left: 0;
+  justify-self: start;
+}
+
+.semantic-new > p {
+  margin: 0;
+  max-width: 75ch;
+}
+
+.semantic-picks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.semantic-picks fieldset {
+  margin: 0;
+  padding: 8px 12px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 4px;
+}
+
+.semantic-picks legend {
+  padding: 0 4px;
+  font-weight: 600;
+}
+
+.semantic-picks label.check {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.semantic-picks .pick-name {
+  font-weight: 600;
+}
+
+.semantic-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  padding-top: 6px;
+}
+
+.semantic-actions label {
+  display: grid;
+  gap: 4px;
+  flex: 0 1 320px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.semantic-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.semantic-built {
+  margin-top: 16px;
+}
+
+.semantic-built h2 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+
+.semantic-built ul {
+  margin: 6px 0;
+  padding-left: 18px;
+}
+
+.semantic-ai {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ai);
+}
+
+.semantic-built a.button {
+  display: inline-flex;
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  font-weight: 600;
+}
+
+.semantic > section + section {
+  margin-top: 20px;
+}

@@ -24,7 +24,8 @@ from .guidance import PreferenceStore
 from .supabase_admin import PublishedBackup, SupabaseAdmin, SupabaseError
 from .auth import AuthConfig, AuthGuard
 from .projects import LOCAL_WORKSPACE, ProjectStore
-from .projects_api import build_router
+from .projects_api import build_router, project_view
+from .semantic import build_router as build_semantic_router
 from .transform_api import build_router as build_transform_router
 from .model_api import build_router as build_model_router
 from .dashboards import DashboardStore, migrate
@@ -158,6 +159,7 @@ def create_app(
     # Autopilot runs the same endpoints in order, in the background.
     calls = {name: fn for router in routers for name, fn in router.calls.items()}
     app.include_router(build_autopilot_router(Autopilot(projects, boards, store, jobs, calls)))
+    app.include_router(build_semantic_router(projects, project_view))
     app.include_router(build_chat_router(projects, boards, store, client_factory, fetch_url))
 
     @app.get("/api/health")
