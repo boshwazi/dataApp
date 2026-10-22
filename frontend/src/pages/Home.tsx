@@ -1,7 +1,17 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { BadgeCheck, Database, LayoutDashboard, Plus, Search, Trash2 } from "lucide-react";
-import { api, dashboardsApi, type DashboardSummary, type Dataset, type ProviderSettings, type RefreshAlert } from "../api";
+import {
+  api,
+  dashboardsApi,
+  reportApi,
+  type DashboardSummary,
+  type DashboardTemplate,
+  type Dataset,
+  type DesignBrief,
+  type ProviderSettings,
+  type RefreshAlert,
+} from "../api";
 import { EmptyState, Skeleton, useCrumbs, useDialogs, useToast } from "../components/ui";
 import { useAccount } from "../components/account";
 import { QuickStart } from "./Autopilot";
@@ -149,6 +159,7 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
           choice={creating}
           onChoice={setCreating}
           published={published}
+          ai={!!settings?.has_api_key}
           onCreated={(path) => navigate(path)}
           onError={(m) => toast(m, "error")}
         />
@@ -301,20 +312,40 @@ function NewDashboard(props: {
   choice: Choice;
   onChoice: (choice: Choice) => void;
   published: Dataset[];
+  ai: boolean;
   onCreated: (path: string) => void;
   onError: (message: string) => void;
 }) {
   const { choice, published } = props;
   const [name, setName] = useState("");
   const [datasetId, setDatasetId] = useState(published[0]?.id ?? "");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [templates, setTemplates] = useState<DashboardTemplate[]>([]);
+  const [start, setStart] = useState<string>(props.ai ? "choose" : "blank"); // "blank", "choose" or a template id
+  const [description, setDescription] = useState("");
+
+  useEffect(() => {
+    if (props.ai) reportApi.templates().then(setTemplates).catch(() => setTemplates([]));
+  }, [props.ai]);
 
   async function create(event: FormEvent) {
     event.preventDefault();
-    setBusy(true);
+    setBusy("Creating…");
     try {
       if (choice === "existing") {
         const dashboard = await dashboardsApi.create(name || "Untitled dashboard", datasetId);
+        const brief: DesignBrief | null =
+          start === "blank" && !description.trim()
+            ? null
+            : { ...(start === "choose" ? { choose: true } : start !== "blank" ? { template: start } : {}), description: description.trim() || undefined };
+        if (props.ai && brief) {
+          setBusy("Designing the pages…");
+          try {
+            await reportApi.ai(dashboard.id, brief);
+          } catch (e) {
+            props.onError(`The dashboard was made, but the AI couldn't design it: ${(e as Error).message}`);
+          }
+        }
         props.onCreated(`/dashboards/${dashboard.id}`);
       } else {
         // New data: the dataset comes first; the dashboard waits for it to be published.
@@ -325,7 +356,7 @@ function NewDashboard(props: {
       }
     } catch (e) {
       props.onError((e as Error).message);
-      setBusy(false);
+      setBusy(null);
     }
   }
 
@@ -375,10 +406,44 @@ function NewDashboard(props: {
             </select>
           </label>
         )}
-        <button type="submit" className="align-end" disabled={busy || (choice === "existing" && !datasetId)}>
-          {busy ? "Creating…" : choice === "existing" ? "Create dashboard" : "Start with data"}
+        <button type="submit" className="align-end" disabled={!!busy || (choice === "existing" && !datasetId)}>
+          {busy ?? (choice === "existing" ? "Create dashboard" : "Start with data")}
         </button>
       </div>
+      {choice === "existing" && props.ai && (
+        <fieldset className="template-picker" disabled={!!busy}>
+          <legend>Start with</legend>
+          <div className="template-grid" role="radiogroup" aria-label="Start with">
+            {[
+              { id: "choose", name: "Let the AI choose", description: "It picks the template that fits this data and fills it." },
+              ...templates,
+              { id: "blank", name: "A blank page", description: "Add visuals yourself, or ask the AI later." },
+            ].map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                role="radio"
+                aria-checked={start === t.id}
+                className={`template-card ${start === t.id ? "on" : ""}`}
+                onClick={() => setStart(t.id)}
+              >
+                <strong>{t.name}</strong>
+                <span className="muted small">{t.description}</span>
+                {"pages" in t && <span className="template-pages small">{(t as DashboardTemplate).pages.join(" / ")}</span>}
+              </button>
+            ))}
+          </div>
+          <label className="field">
+            <span>What should it show? (optional)</span>
+            <textarea
+              rows={2}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="For example: a monthly view for branch managers, focused on which products are slowing down"
+            />
+          </label>
+        </fieldset>
+      )}
     </form>
   );
 }

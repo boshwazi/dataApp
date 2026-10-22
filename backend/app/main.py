@@ -26,6 +26,7 @@ from .auth import AuthConfig, AuthGuard
 from .projects import LOCAL_WORKSPACE, ProjectStore
 from .projects_api import build_router, project_view
 from .semantic import build_router as build_semantic_router
+from .templates import build_router as build_templates_router
 from .transform_api import build_router as build_transform_router
 from .model_api import build_router as build_model_router
 from .dashboards import DashboardStore, migrate
@@ -160,6 +161,7 @@ def create_app(
     calls = {name: fn for router in routers for name, fn in router.calls.items()}
     app.include_router(build_autopilot_router(Autopilot(projects, boards, store, jobs, calls)))
     app.include_router(build_semantic_router(projects, project_view))
+    app.include_router(build_templates_router())
     app.include_router(build_chat_router(projects, boards, store, client_factory, fetch_url))
 
     @app.get("/api/health")

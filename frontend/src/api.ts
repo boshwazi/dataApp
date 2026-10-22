@@ -706,6 +706,11 @@ export const dashboardsApi = {
   publish: (id: string) => request<ReportState>(`${rp(id)}/publish`, { method: "POST" }),
 };
 
+/** What the Report AI aims for: a template, the user's own words, or its pick of template. */
+export type DesignBrief = { template?: string; description?: string; choose?: boolean };
+
+export type DashboardTemplate = { id: string; name: string; description: string; pages: string[] };
+
 export const reportApi = {
   state: (id: string, side: "draft" | "published" = "draft", page?: string, filters?: PageFilter[], drill?: Record<string, Drill>) =>
     request<ReportState>(
@@ -720,7 +725,8 @@ export const reportApi = {
   setInstructions: (id: string, instructions: string) => request<ReportState>(`${rp(id)}/instructions`, json("PUT", { instructions })),
   setFilters: (id: string, pageId: string, filters: PageFilter[]) =>
     request<ReportState>(`${rp(id)}/pages/${pageId}/filters`, json("PUT", { filters })),
-  ai: (pid: string) => request<ReportRun>(`${rp(pid)}/ai`, { method: "POST" }),
+  ai: (pid: string, brief?: DesignBrief) => request<ReportRun & { template: string | null }>(`${rp(pid)}/ai`, json("POST", brief ?? {})),
+  templates: () => request<DashboardTemplate[]>("/api/dashboard-templates"),
   approve: (pid: string, itemId?: string) =>
     request<ReportState>(`${rp(pid)}/approve${itemId ? `?item_id=${itemId}` : ""}`, { method: "POST" }),
   undo: (pid: string) => request<ReportState>(`${rp(pid)}/undo`, { method: "POST" }),

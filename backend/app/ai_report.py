@@ -61,6 +61,7 @@ DESIGN_SCHEMA = {
     "type": "object",
     "properties": {
         "summary": {"type": "string"},
+        "template": {"type": "string", "description": "Only when asked to pick a template: its id."},
         "pages": {
             "type": "array",
             "items": {
@@ -93,7 +94,7 @@ INSIGHT_SCHEMA = {
 }
 
 
-def design_prompt(con, project: dict) -> str:
+def design_prompt(con, project: dict, brief: str = "") -> str:
     found = model.tables(con, project)
     current = model.state(project)
     names = {t.id: t.name for t in found.values()}
@@ -128,13 +129,14 @@ def design_prompt(con, project: dict) -> str:
         f"Measures:\n{json.dumps(measures, default=str)}\n\n"
         f"Columns you can split by (only via active relationships from the measure's table):\n"
         f"{json.dumps(columns, default=str)}\n\nActive relationships:\n{json.dumps(relationships)}\n\n"
-        f"Data as of: {report.as_of(con, project)}\n\nDesign the report pages."
+        f"Data as of: {report.as_of(con, project)}\n\n" + (f"{brief}\n\n" if brief else "") + "Design the report pages."
     )
 
 
-def design(client, model_name: str, capabilities: dict, con, project: dict) -> dict:
-    return llm.ask_json(client, model_name, capabilities, DESIGN_SYSTEM, design_prompt(con, project), "design_report",
-                        DESIGN_SCHEMA)
+def design(client, model_name: str, capabilities: dict, con, project: dict, brief: str = "") -> dict:
+    """Pages for this model; `brief` (a template, the user's description) says what to aim for (see templates.py)."""
+    return llm.ask_json(client, model_name, capabilities, DESIGN_SYSTEM, design_prompt(con, project, brief),
+                        "design_report", DESIGN_SCHEMA)
 
 
 def apply_design(con, project: dict, proposal: dict) -> dict:
@@ -160,7 +162,8 @@ def apply_design(con, project: dict, proposal: dict) -> dict:
             pages.append(page)
         else:
             report.state(project)["pages"].remove(page)
-    return {"summary": str(proposal.get("summary") or ""), "added": added, "refused": refused, "pages": pages}
+    return {"summary": str(proposal.get("summary") or ""), "added": added, "refused": refused, "pages": pages,
+            "template": proposal.get("template") if isinstance(proposal.get("template"), str) else None}
 
 
 def insight_prompt(pages: list[dict], data: dict[str, dict]) -> str:

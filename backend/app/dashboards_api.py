@@ -10,7 +10,7 @@ from typing import Callable
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from . import guidance, activity, ai_report, ask, dashboards, export, llm, model, publishing, report, workspaces
+from . import guidance, activity, ai_report, ask, dashboards, export, llm, model, publishing, report, templates, workspaces
 from .dashboards import DashboardStore
 from .projects import NotFound, ProjectStore
 from .settings import ProviderSettings, SettingsStore
@@ -19,6 +19,12 @@ from .settings import ProviderSettings, SettingsStore
 class NewDashboardBody(BaseModel):
     name: str
     dataset_id: str
+
+
+class DesignBody(BaseModel):
+    template: str | None = None  # a template id (templates.py)
+    description: str | None = None  # what the user wants, in their words
+    choose: bool = False  # let the AI pick the template that fits the data
 
 
 class NameBody(BaseModel):
@@ -419,7 +425,12 @@ def build_router(
         return respond(dashboard_id, lambda p, con: report.undo(p), summary="Undid the last change")
 
     @router.post("/{dashboard_id}/ai")
-    def ai_report_pass(dashboard_id: str):
+    def ai_report_pass(dashboard_id: str, body: DesignBody | None = None):
+        body = body or DesignBody()
+        try:
+            brief = templates.brief(body.template, body.description, body.choose)
+        except templates.TemplateError as exc:
+            raise HTTPException(400, str(exc)) from exc
         settings = settings_store.load()
         if not settings.api_key:
             raise HTTPException(400, "Add an API key in Settings to let the AI build the report.")
@@ -436,7 +447,7 @@ def build_router(
                 raise HTTPException(400, "Build the model first: the report needs measures.")
             try:
                 proposal = ai_report.design(client, settings.model, settings.capabilities, con,
-                                            publishing.bind(frozen, dash["draft"]))
+                                            publishing.bind(frozen, dash["draft"]), brief)
             except llm.AIError as exc:
                 raise HTTPException(502, f"AI report design failed: {exc}") from exc
 
@@ -471,9 +482,9 @@ def build_router(
 
             if written:
                 respond(dashboard_id, save, with_data=False)
-        body = respond(dashboard_id)
+        chosen = body.template or (result["template"] if body.choose and result["template"] in templates.BY_ID else None)
         return {"summary": result["summary"], "added": result["added"], "refused": result["refused"],
-                "new_pages": page_ids, **body}
+                "new_pages": page_ids, "template": chosen, **respond(dashboard_id)}
 
     @router.post("/{dashboard_id}/export/summary")
     def export_summary(dashboard_id: str):

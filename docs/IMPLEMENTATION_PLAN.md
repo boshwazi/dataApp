@@ -291,7 +291,7 @@ Phase 1 (M0 to M10b) is done, with M11, M11b and most of M12 and M13. The order 
 - M21 Autopilot (data straight to dashboard) (done)
 - M24 Refresh you can rely on (done)
 - M22 Semantic models (done)
-- M23 Dashboard templates
+- M23 Dashboard templates (done)
 - M14 Performance and code health
 - M16 Permissions and RLS
 - pulled from M20: extend a dataset, Power BI report export, notifications, Bahasa Malaysia, help docs

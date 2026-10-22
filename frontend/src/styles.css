@@ -318,6 +318,63 @@ input {
   background: var(--selected);
 }
 
+.template-picker {
+  border: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.template-picker legend {
+  padding: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 8px;
+}
+
+.template-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  background: var(--panel);
+  color: var(--text);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.template-card:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.template-card.on {
+  border-color: var(--accent);
+  background: var(--selected);
+}
+
+.template-pages {
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  padding-top: 4px;
+  margin-top: auto;
+}
+
+.template-picker textarea {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  resize: vertical;
+  max-width: 640px;
+}
+
 .new-dashboard select {
   font: inherit;
   padding: 8px 10px;
