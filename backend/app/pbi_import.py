@@ -153,7 +153,6 @@ def apply_model(con, project: dict, model_: PbiModel, names: dict[str, str]) -> 
         names[name] = model.DATE_NAME
 
     # Relationships, through the engine's checks.
-    existing = {(r["from_table"], r["from_column"], r["to_table"], r["to_column"]) for r in model.state(project)["relationships"]}
     for r in model_.relationships:
         label = f"{r.from_table}[{r.from_column}] → {'Date' if r.to_table == AUTO_DATE else r.to_table}[{r.to_column}]"
         if r.from_table not in names or r.to_table not in names:

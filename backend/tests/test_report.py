@@ -604,7 +604,8 @@ def test_a_measure_can_use_an_inactive_relationship(tmp_path):
     m = f"{base}/model"
     ok(api.put(f"{m}/date-table", json={}))
     ok(api.post(f"{m}/relationships", json={"from_table": "orders", "from_column": "ordered", "to_table": "Date", "to_column": "Date"}))
-    rels = ok(api.post(f"{m}/relationships", json={"from_table": "orders", "from_column": "shipped", "to_table": "Date", "to_column": "Date"}))["relationships"]
+    shipped = {"from_table": "orders", "from_column": "shipped", "to_table": "Date", "to_column": "Date"}
+    rels = ok(api.post(f"{m}/relationships", json=shipped))["relationships"]
     shipped = next(r for r in rels if r["from_column"] == "shipped")
     assert shipped["active"] is False  # only one path between two tables is active, as in Power BI
     amount = {"kind": "aggregate", "table": "orders", "aggregation": "sum", "expression": "[amount]", "format": {"type": "number"}}

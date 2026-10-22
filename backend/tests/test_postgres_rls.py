@@ -7,10 +7,10 @@ import uuid
 
 import psycopg
 import pytest
+from test_workspaces import DATABASE_URL
 
 from app.db import Database
 from app.workspaces import User
-from test_workspaces import DATABASE_URL
 
 pytestmark = pytest.mark.skipif(not DATABASE_URL, reason="No DATABASE_URL in .env")
 

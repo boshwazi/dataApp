@@ -10,6 +10,8 @@ Each change snapshots the previous steps, so it can be undone.
 """
 
 import copy
+import hashlib
+import json
 from dataclasses import dataclass
 
 import duckdb
@@ -427,14 +429,45 @@ def drop_source(project: dict, source_id: str) -> None:
 # Running
 
 
+ENGINE_VERSION = 2  # bump when steps compile differently, so every table is built again
+CROSS_QUERY_OPS = ("merge", "append")  # steps that read other tables
+
+
+def applied_key(project: dict, query: dict) -> str:
+    """What a table's output depends on: its steps, its source's data and, when it reads other tables, all of
+    them. The same key means the stored output is still right, so the table needn't be built again."""
+    sources = {s["id"]: (s["table"], s.get("refreshed_at") or s["added_at"], s["profile"]["rows"])
+               for s in project["sources"]}
+
+    def own(q):
+        return [q["name"], q.get("source_id"), q.get("base_query"), q.get("base_step"),
+                [(step["op"], step["params"]) for step in q["steps"]], sources.get(q.get("source_id"))]
+
+    reads_others = query.get("base_query") or any(step["op"] in CROSS_QUERY_OPS for step in query["steps"])
+    parts = [ENGINE_VERSION, own(query)]
+    if reads_others:
+        parts.append([own(q) for q in state(project)["queries"]])
+    return hashlib.sha256(json.dumps(parts, sort_keys=True, default=str).encode()).hexdigest()[:20]
+
+
 def apply_all(con, project: dict) -> None:
-    """Materialize every query into the clean schema and profile the result."""
+    """Materialize every query into the clean schema and profile the result.
+
+    Tables whose steps and inputs haven't changed since they were last built are kept as they are."""
     con.execute(f"CREATE SCHEMA IF NOT EXISTS {OUTPUT_SCHEMA}")
     transform = state(project)
     transform["applied_sources"] = sorted(s["id"] for s in project["sources"])
     queries = transform["queries"]
     keep = set()
+    built = {name for (name,) in con.execute(
+        "SELECT table_name FROM information_schema.tables WHERE table_schema = ?", [OUTPUT_SCHEMA]).fetchall()}
     for query in queries:
+        key = applied_key(project, query)
+        if query.get("applied") == key and (query.get("error") or (query.get("output") and query["name"] in built)):
+            if not query.get("error"):
+                keep.add(query["name"])
+            continue
+        query["applied"] = key
         try:
             compiled = validate(con, project, query)
             con.execute(f"CREATE OR REPLACE TABLE {OUTPUT_SCHEMA}.{quote(query['name'])} AS {compiled.sql()}")

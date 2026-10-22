@@ -88,7 +88,7 @@ def fill(store: ProjectStore, project_id: str, sources: list, chosen: list, how:
     notes = {"conformed": [], "renamed": [], "skipped": []}
     names: dict[tuple[str, str], str] = {}  # (dataset id, query id) -> table name in the new model
     kept: dict[str, tuple[list[str], str, str]] = {}  # lower name -> (columns, table name, from dataset)
-    for dataset, frozen, query in chosen:
+    for dataset, _frozen, query in chosen:
         key = query["name"].lower()
         same = kept.get(key)
         if same and same[0] == columns_of(query):
@@ -121,7 +121,7 @@ def carry_over(con, project: dict, sources: list, names: dict, notes: dict) -> N
     for dataset, frozen, _ in sources:
         old = model.state(frozen)
 
-        def table_name(ref):
+        def table_name(ref, dataset=dataset):
             return model.DATE_ID if ref == model.DATE_ID else names.get((dataset["id"], ref))
 
         rel_ids = {}
@@ -145,7 +145,7 @@ def carry_over(con, project: dict, sources: list, names: dict, notes: dict) -> N
                 renames[measure["name"]] = f"{measure['name']} ({dataset['name']})"
             measure_names.add(renames.get(measure["name"], measure["name"]).lower())
 
-        def renamed(text):
+        def renamed(text, renames=renames):
             for before, after in renames.items():
                 text = re.sub(r"\[\s*" + re.escape(before) + r"\s*\]", f"[{after}]", text, flags=re.IGNORECASE)
             return text
@@ -176,7 +176,7 @@ def carry_over(con, project: dict, sources: list, names: dict, notes: dict) -> N
             if proposal["name"] != measure["name"]:
                 notes["renamed"].append(f"{measure['name']} from {dataset['name']} is now {proposal['name']}")
         # Formulas can refer to measures listed after them: try twice.
-        for attempt in range(2):
+        for _attempt in range(2):
             failed = []
             for proposal in pending:
                 try:

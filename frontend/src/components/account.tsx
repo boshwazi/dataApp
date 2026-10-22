@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { Mail } from "lucide-react";
 import { accountApi, ApiError, configureSession, type Me, type Role, type WorkspaceRef } from "../api";
 import { BrandMark } from "./ui";
@@ -63,6 +63,8 @@ export function AccountProvider({ children }: { children: ReactNode }) {
         await load();
         return;
       }
+      // The sign-in library loads only where sign-in is on (not in local mode).
+      const { createClient } = await import("@supabase/supabase-js");
       const supabase = createClient(config.supabase_url, config.supabase_key, {
         auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, flowType: "pkce" },
       });

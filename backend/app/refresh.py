@@ -26,7 +26,7 @@ import contextvars
 import copy
 import logging
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 
 from . import activity, ingest, links, model, profiling, publishing, report, transform
 from .projects import ProjectStore, load_sql, now, quote
@@ -86,14 +86,14 @@ def next_slot(config: dict, after: datetime) -> datetime | None:
         day_fits = (schedule == "daily" or (schedule == "weekdays" and candidate.weekday() < 5)
                     or (schedule == "weekly" and candidate.weekday() == config["day"]))
         if candidate > local and day_fits:
-            return candidate.astimezone(timezone.utc)
+            return candidate.astimezone(UTC)
         candidate += timedelta(days=1)
     return None
 
 
 def schedule_next(project: dict, start: datetime | None = None) -> None:
     config = settings(project)
-    slot = next_slot(config, start or datetime.now(timezone.utc)) if sheet_sources(project) else None
+    slot = next_slot(config, start or datetime.now(UTC)) if sheet_sources(project) else None
     config["next_run"] = slot.isoformat(timespec="seconds") if slot else None
 
 
@@ -342,7 +342,7 @@ def run(store: ProjectStore, boards, project_id: str, new_data: dict[str, tuple[
 def plan_next(project: dict, entry: dict, status: str, failures: dict) -> None:
     """After a scheduled pull: retry soon if it couldn't download, otherwise wait for the next slot."""
     config = settings(project)
-    current = datetime.now(timezone.utc)
+    current = datetime.now(UTC)
     if status == "failed" and failures and config["retry"] < len(RETRY_MINUTES):
         wait = RETRY_MINUTES[config["retry"]]
         config["retry"] += 1
@@ -409,7 +409,7 @@ def replace_file(store: ProjectStore, boards, project_id: str, source_id: str, f
 
 
 def due(store: ProjectStore, at: datetime | None = None) -> list[str]:
-    at = at or datetime.now(timezone.utc)
+    at = at or datetime.now(UTC)
     return [p["id"] for p in store.all() if is_due(p, at)]
 
 

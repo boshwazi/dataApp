@@ -20,7 +20,7 @@ import threading
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from .projects import LOCAL_WORKSPACE, new_id, now
@@ -272,7 +272,7 @@ class WorkspaceStore:
         wanted = token_hash(token)
         for invite in data["invites"]:
             if secrets.compare_digest(invite.get("token_hash", ""), wanted):
-                if datetime.fromisoformat(invite["expires_at"]) < datetime.now(timezone.utc):
+                if datetime.fromisoformat(invite["expires_at"]) < datetime.now(UTC):
                     raise WorkspaceError("This invite has expired. Ask for a new one.", 410)
                 return invite
         raise WorkspaceError("This invite link is not valid. It may have been used or withdrawn.", 404)
@@ -303,7 +303,7 @@ def token_hash(token: str) -> str:
 
 
 def _expiry() -> str:
-    return (datetime.now(timezone.utc) + timedelta(days=INVITE_DAYS)).isoformat(timespec="seconds")
+    return (datetime.now(UTC) + timedelta(days=INVITE_DAYS)).isoformat(timespec="seconds")
 
 def move_to_workspaces(data_dir: Path) -> None:
     """Older versions kept one set of datasets and dashboards; they become the local workspace."""

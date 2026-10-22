@@ -1,11 +1,11 @@
 """HTTP routes for the Model stage."""
 
-from typing import Callable
+from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from . import guidance, activity, ai_model, llm, model, transform
+from . import activity, ai_model, guidance, llm, model, transform
 from .projects import NotFound, ProjectStore
 from .settings import ProviderSettings, SettingsStore
 
@@ -291,7 +291,8 @@ def build_router(
         project = store.get(project_id)
         try:
             with store.connect(project_id) as con:
-                proposal = ai_model.propose(guidance.guided(client_factory(settings), guidance.for_project(store, project)), settings.model, settings.capabilities, con, project)
+                client = guidance.guided(client_factory(settings), guidance.for_project(store, project))
+                proposal = ai_model.propose(client, settings.model, settings.capabilities, con, project)
         except llm.AIError as exc:
             raise HTTPException(502, f"AI modeling failed: {exc}") from exc
         result = {}

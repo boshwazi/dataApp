@@ -120,7 +120,7 @@ def found(values: list, results: list[dict], kind: str) -> list:
 
 
 def main(words: list[str]) -> int:
-    from app import ask, model, publishing
+    from app import ask, publishing
     from app.settings import SettingsStore
 
     data_dir = Path(tempfile.mkdtemp(prefix="datawazi-eval-"))
@@ -139,8 +139,8 @@ def main(words: list[str]) -> int:
         cases = [c for c in CASES if all(w.lower() in c[0] for w in words)]
         outcomes, passed = [], 0
         # The right answers: the engine runs the hand-written queries.
-        from app.projects import ProjectStore
         from app import workspaces
+        from app.projects import ProjectStore
         store = ProjectStore(data_dir / "workspaces" / "local" / "datasets")
         with workspaces.use("local"):
             dataset = store.get(dataset_id)

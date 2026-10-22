@@ -14,7 +14,7 @@ import {
 } from "../api";
 import { EmptyState, Skeleton, useCrumbs, useDialogs, useToast } from "../components/ui";
 import { useAccount } from "../components/account";
-import { QuickStart } from "./Autopilot";
+import { QuickStart } from "../components/QuickStart";
 
 type Choice = "existing" | "new";
 type Show = "all" | "datasets" | "dashboards";

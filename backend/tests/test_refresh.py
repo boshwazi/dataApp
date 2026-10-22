@@ -1,12 +1,12 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi.testclient import TestClient
+from test_report import SEGMENT, Project, clean_env, ok  # noqa: F401  (clean_env is an autouse fixture)
 
 from app import refresh
 from app.dashboards import DashboardStore
 from app.main import create_app
 from app.projects import ProjectStore
-from test_report import SEGMENT, Project, clean_env, ok  # noqa: F401  (clean_env is an autouse fixture)
 
 NEXT_SALES = (
     "order,day,customer,qty,price\n"
@@ -87,6 +87,7 @@ def test_big_row_drops_are_flagged(tmp_path):
 
 def test_excel_replacement_is_matched_by_sheet(tmp_path):
     import io
+
     from openpyxl import Workbook
 
     def book(rows):
@@ -149,11 +150,12 @@ def test_schedules_only_for_sheets_and_run_when_due(tmp_path):
     api, pid = sheet_project(tmp_path / "sheets", fetch)
     settings = ok(api.put(f"/api/datasets/{pid}/refresh", json={"schedule": "hourly"}))["settings"]
     next_run = datetime.fromisoformat(settings["next_run"])
-    assert timedelta(minutes=59) < next_run - datetime.now(timezone.utc) <= timedelta(hours=1)
+    assert timedelta(minutes=59) < next_run - datetime.now(UTC) <= timedelta(hours=1)
 
-    store, boards = ProjectStore(tmp_path / "sheets" / "workspaces" / "local" / "datasets"), DashboardStore(tmp_path / "sheets" / "workspaces" / "local" / "dashboards")
+    folder = tmp_path / "sheets" / "workspaces" / "local"
+    store, boards = ProjectStore(folder / "datasets"), DashboardStore(folder / "dashboards")
     fetch.body = "region,target\nNorth,10\nSouth,20\nEast,5\n"
-    assert refresh.run_due(store, boards, fetch, datetime.now(timezone.utc)) == []  # not due yet
+    assert refresh.run_due(store, boards, fetch, datetime.now(UTC)) == []  # not due yet
     assert refresh.run_due(store, boards, fetch, next_run + timedelta(seconds=1)) == [pid]
     state = api.get(f"/api/datasets/{pid}/refresh").json()
     assert state["history"][0]["trigger"] == "schedule" and state["history"][0]["sources"][0]["rows_after"] == 3
@@ -177,6 +179,7 @@ def wait_for(check, seconds=10):
 
 def test_shared_links_become_direct_downloads():
     import base64
+
     from app import ingest
     assert ingest.shared_file_url("https://drive.google.com/file/d/1AbCdEfGhIjKlMn/view?usp=sharing") == (
         "gdrive", "https://drive.google.com/uc?export=download&id=1AbCdEfGhIjKlMn")
@@ -228,14 +231,14 @@ def test_files_from_shared_links_are_pulled_again(tmp_path):
 def test_schedules_run_at_a_time_of_day_in_malaysia():
     config = {**refresh.DEFAULTS, "schedule": "daily", "at": "07:30"}
     # 22:00 UTC on a Thursday is 06:00 Friday in Malaysia: that day's 07:30 is still ahead.
-    thursday_night = datetime(2026, 10, 22, 22, 0, tzinfo=timezone.utc)
-    assert refresh.next_slot(config, thursday_night) == datetime(2026, 10, 22, 23, 30, tzinfo=timezone.utc)
-    friday_noon_myt = datetime(2026, 10, 23, 4, 0, tzinfo=timezone.utc)
-    assert refresh.next_slot(config, friday_noon_myt) == datetime(2026, 10, 23, 23, 30, tzinfo=timezone.utc)  # Saturday
+    thursday_night = datetime(2026, 10, 22, 22, 0, tzinfo=UTC)
+    assert refresh.next_slot(config, thursday_night) == datetime(2026, 10, 22, 23, 30, tzinfo=UTC)
+    friday_noon_myt = datetime(2026, 10, 23, 4, 0, tzinfo=UTC)
+    assert refresh.next_slot(config, friday_noon_myt) == datetime(2026, 10, 23, 23, 30, tzinfo=UTC)  # Saturday
     weekdays = {**config, "schedule": "weekdays"}
-    assert refresh.next_slot(weekdays, friday_noon_myt) == datetime(2026, 10, 25, 23, 30, tzinfo=timezone.utc)  # Monday
+    assert refresh.next_slot(weekdays, friday_noon_myt) == datetime(2026, 10, 25, 23, 30, tzinfo=UTC)  # Monday
     weekly = {**config, "schedule": "weekly", "day": 2}
-    assert refresh.next_slot(weekly, friday_noon_myt) == datetime(2026, 10, 27, 23, 30, tzinfo=timezone.utc)  # Wednesday
+    assert refresh.next_slot(weekly, friday_noon_myt) == datetime(2026, 10, 27, 23, 30, tzinfo=UTC)  # Wednesday
     assert refresh.next_slot({**config, "schedule": "off"}, friday_noon_myt) is None
 
 

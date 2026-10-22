@@ -16,9 +16,7 @@ owner publishes it. Progress is kept on the dataset (project["autopilot"]) for t
 
 import logging
 
-from fastapi import HTTPException
-
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from . import model, transform

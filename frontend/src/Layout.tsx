@@ -243,6 +243,8 @@ function QuickSearch({ onClose }: { onClose: () => void }) {
     ref.current?.showModal();
     if (canCreate) api.listDatasets().then(setDatasets).catch(() => {});
     dashboardsApi.list().then(setDashboards).catch(() => {});
+    // Once, when the search opens: showing the dialog twice throws.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const items = useMemo<Item[]>(() => {

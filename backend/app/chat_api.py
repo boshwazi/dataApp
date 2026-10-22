@@ -4,13 +4,14 @@ The AI is asked without holding any lock. Its actions are then checked or applie
 a locked edit, against the latest state, so a slow AI reply can't overwrite other changes.
 """
 
+from collections.abc import Callable
 from contextlib import contextmanager
-from typing import Callable, Literal
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from . import guidance, activity, ask, chat, llm, model, publishing, report, transform
+from . import activity, ask, chat, guidance, llm, model, publishing, report, transform
 from .dashboards import DashboardStore
 from .projects import NotFound, ProjectStore
 from .settings import ProviderSettings, SettingsStore

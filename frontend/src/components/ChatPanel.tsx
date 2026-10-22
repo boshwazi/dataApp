@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { Suspense, lazy, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { Send, Square, X } from "lucide-react";
 import type { ChatMessage, ChatMode, ChatThread } from "../api";
 import { Markdown } from "./Markdown";
-import { Answer, type AddChart } from "./AskPanel";
+import type { AddChart } from "./AskPanel";
+
+// Answers with charts bring the chart library; it loads the first time one is shown.
+const Answer = lazy(() => import("./AskPanel").then((m) => ({ default: m.Answer })));
 
 const MODE_KEY = "chatMode";
 
@@ -202,7 +205,9 @@ function Message(props: {
     return (
       <div className="chat-answer">
         <p className="muted small chat-answer-note">From the data model: {message.answer.question}</p>
-        <Answer response={message.answer} onFollowUp={props.onAsk} busy={busy} onAddChart={props.onAddChart} />
+        <Suspense fallback={<p className="muted small">Loading the answer…</p>}>
+          <Answer response={message.answer} onFollowUp={props.onAsk} busy={busy} onAddChart={props.onAddChart} />
+        </Suspense>
       </div>
     );
   }

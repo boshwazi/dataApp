@@ -11,8 +11,8 @@ import io
 import re
 import urllib.parse
 import urllib.request
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable
 
 import pandas as pd
 
@@ -60,15 +60,20 @@ def read_csv(name: str, data: bytes) -> LoadedTable:
         return fields[:width]
 
     width = len(next(csv.reader(io.StringIO(text), delimiter=sep)))
-    frame = pd.read_csv(
-        io.StringIO(text),
-        sep=sep,
-        header=None,
-        dtype=str,
-        keep_default_na=False,
-        engine="python",
-        on_bad_lines=keep_first_fields,
-    )
+    try:
+        # The fast parser, for well-formed files; it refuses rows with more values than the header.
+        frame = pd.read_csv(io.StringIO(text), sep=sep, header=None, dtype=str, keep_default_na=False, engine="c",
+                            names=range(width))
+    except pd.errors.ParserError:
+        frame = pd.read_csv(
+            io.StringIO(text),
+            sep=sep,
+            header=None,
+            dtype=str,
+            keep_default_na=False,
+            engine="python",
+            on_bad_lines=keep_first_fields,
+        )
     warnings = []
     if long_rows:
         rows = "1 row" if long_rows == 1 else f"{long_rows} rows"

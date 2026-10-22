@@ -10,7 +10,7 @@ import json
 import logging
 import re
 from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import psycopg
@@ -170,7 +170,7 @@ class PgWorkspaceStore:
             raise WorkspaceError("Enter a valid email address.")
         clean_role(role)
         token = workspaces.new_token()
-        expires = datetime.now(timezone.utc) + timedelta(days=INVITE_DAYS)
+        expires = datetime.now(UTC) + timedelta(days=INVITE_DAYS)
         with self._tx() as con:
             if con.execute(f"select 1 from {self.db.t('members')} where workspace_id = %s and email = %s",
                            [workspace_id, email]).fetchone():
@@ -196,7 +196,7 @@ class PgWorkspaceStore:
     def renew(self, workspace_id: str, invite_id: str) -> dict:
         """A fresh link (and 14 more days) for a pending invite; the old link stops working."""
         token = workspaces.new_token()
-        expires = datetime.now(timezone.utc) + timedelta(days=INVITE_DAYS)
+        expires = datetime.now(UTC) + timedelta(days=INVITE_DAYS)
         with self._tx() as con:
             row = con.execute(f"update {self.db.t('invites')} set token_hash = %s, expires_at = %s "
                               "where workspace_id = %s and id = %s "
@@ -218,7 +218,7 @@ class PgWorkspaceStore:
             row = con.execute(f"select * from {self.db.t('invite_info')}(%s)", [token_hash(token)]).fetchone()
         if not row:
             raise WorkspaceError("This invite link is not valid. It may have been used or withdrawn.", 404)
-        if row["expires_at"] < datetime.now(timezone.utc):
+        if row["expires_at"] < datetime.now(UTC):
             raise WorkspaceError("This invite has expired. Ask for a new one.", 410)
         return {"workspace": row["workspace"], "email": row["email"], "role": row["role"], "invited_by": row["invited_by"]}
 

@@ -1,19 +1,8 @@
-import { StrictMode, Suspense, lazy, type ReactNode } from "react";
+import { StrictMode, Suspense, lazy, type ComponentType, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 import { Layout } from "./Layout";
-import { Dataset } from "./pages/Dataset";
-import { GetData } from "./pages/GetData";
-import { Autopilot } from "./pages/Autopilot";
-import { SemanticModels } from "./pages/SemanticModels";
 import { Home } from "./pages/Home";
-import { Invite } from "./pages/Invite";
-import { Members } from "./pages/Members";
-import { Model } from "./pages/Model";
-import { Lineage } from "./pages/Lineage";
-import { Refresh } from "./pages/Refresh";
-import { Settings } from "./pages/Settings";
-import { Transform } from "./pages/Transform";
 import "@fontsource/inter/400.css";
 import "@fontsource/inter/500.css";
 import "@fontsource/inter/600.css";
@@ -26,9 +15,33 @@ import type { Role } from "./api";
 import "./styles.css";
 import { applyTheme } from "./components/theme";
 
-// Dashboards carry the chart library, so they load only when opened.
-const Dashboard = lazy(() => import("./pages/Dashboard").then((m) => ({ default: m.Dashboard })));
-const ExportView = lazy(() => import("./pages/ExportView").then((m) => ({ default: m.ExportView })));
+/** A page loaded when it's first opened, so the first screen downloads only what it shows. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function page<K extends string>(load: () => Promise<{ [key in K]: ComponentType<any> }>, name: K) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const Lazy = lazy<ComponentType<any>>(() => load().then((module) => ({ default: module[name] })));
+  return function Page(props: Record<string, unknown>) {
+    return (
+      <Suspense fallback={<p className="muted page-loading">Loading…</p>}>
+        <Lazy {...props} />
+      </Suspense>
+    );
+  };
+}
+
+const Dashboard = page(() => import("./pages/Dashboard"), "Dashboard");
+const ExportView = page(() => import("./pages/ExportView"), "ExportView");
+const Dataset = page(() => import("./pages/Dataset"), "Dataset");
+const GetData = page(() => import("./pages/GetData"), "GetData");
+const Transform = page(() => import("./pages/Transform"), "Transform");
+const Model = page(() => import("./pages/Model"), "Model");
+const Refresh = page(() => import("./pages/Refresh"), "Refresh");
+const Lineage = page(() => import("./pages/Lineage"), "Lineage");
+const Autopilot = page(() => import("./pages/Autopilot"), "Autopilot");
+const SemanticModels = page(() => import("./pages/SemanticModels"), "SemanticModels");
+const Settings = page(() => import("./pages/Settings"), "Settings");
+const Members = page(() => import("./pages/Members"), "Members");
+const Invite = page(() => import("./pages/Invite"), "Invite");
 
 // Links from before datasets and dashboards were split.
 function OldProjectLink() {
@@ -61,11 +74,7 @@ createRoot(document.getElementById("root")!).render(
         {/* The PDF export is a page of its own, without the app's sidebar. */}
         <Route
           path="dashboards/:dashboardId/export"
-          element={
-            <Suspense fallback={<p className="muted">Preparing the export…</p>}>
-              <ExportView />
-            </Suspense>
-          }
+          element={<ExportView />}
         />
         <Route element={<Layout />}>
           <Route index element={<Home />} />
@@ -85,11 +94,7 @@ createRoot(document.getElementById("root")!).render(
           </Route>
           <Route
             path="dashboards/:dashboardId"
-            element={
-              <Suspense fallback={<p className="muted">Loading…</p>}>
-                <Dashboard />
-              </Suspense>
-            }
+            element={<Dashboard />}
           />
           <Route path="projects/:projectId/*" element={<OldProjectLink />} />
         </Route>

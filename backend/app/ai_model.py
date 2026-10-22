@@ -169,8 +169,8 @@ def apply(con, project: dict, proposal: dict) -> dict:
     date_plan = proposal.get("date_table") or {}
     if date_plan.get("create") and not current["date_table"]:
         attempt("date table", "Date table", lambda: model.set_date_table(con, project, status="AI", reason=str(date_plan.get("reason") or "")))
-    links = [{"from_table": l.get("table"), "from_column": l.get("column"), "to_table": model.DATE_ID, "to_column": "Date",
-              "reason": "Links dates to the date table."} for l in date_plan.get("link") or [] if isinstance(l, dict)]
+    links = [{"from_table": link.get("table"), "from_column": link.get("column"), "to_table": model.DATE_ID, "to_column": "Date",
+              "reason": "Links dates to the date table."} for link in date_plan.get("link") or [] if isinstance(link, dict)]
 
     # Fact-to-dimension relationships go first, then date links from fact tables, then from dimensions:
     # only one active path may join two tables, and a dimension's own date (e.g. a join date) is the one

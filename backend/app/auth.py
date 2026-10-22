@@ -19,8 +19,8 @@ from dataclasses import dataclass, field
 import jwt
 
 from . import workspaces
-from .workspaces import LOCAL_USER, Access, User, WorkspaceStore
 from .projects import LOCAL_WORKSPACE
+from .workspaces import LOCAL_USER, Access, User, WorkspaceStore
 
 log = logging.getLogger(__name__)
 

@@ -13,8 +13,8 @@ On one server this is enough. Running several servers (M18) needs a shared queue
 import contextvars
 import logging
 import threading
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from typing import Callable
 
 log = logging.getLogger(__name__)
 

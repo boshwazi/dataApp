@@ -7,8 +7,8 @@ SQL literals and names become quoted identifiers, so no one ever writes SQL dire
 
 import math
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 from . import model_expr
 from .profiling import BOOLEANS, DAY_FIRST, MONTH_FIRST, NUMBER_NOISE, PLACEHOLDERS, TRUE_WORDS, WORDY_DATES, quote, with_times
@@ -384,7 +384,8 @@ OPERATIONS = {
     for op in [
         Operation(
             "change_type", change_type,
-            "Convert a column to a type. Dates keep the day and drop any time of day. Decimal and integer strip currency symbols (RM, $) and thousands "
+            "Convert a column to a type. Dates keep the day and drop any time of day. "
+            "Decimal and integer strip currency symbols (RM, $) and thousands "
             "separators. Values that do not convert become blank.",
             {"column": "string", "to": list(LOGICAL_TYPES),
              "date_order": {"enum": list(DATE_ORDERS), "note": "for slash dates like 05/01/2024: day first (dmy) or month first (mdy)"}},

@@ -21,7 +21,7 @@ from pathlib import Path
 
 import duckdb
 
-from . import model, model_expr, pbi_dax, transform
+from . import model, pbi_dax, transform
 
 THEME_FILE = "datawazi.json"
 # House style: Okabe-Ito colours (colour-blind safe), dark text on white, the app's blue for tables.
@@ -47,8 +47,8 @@ def tag() -> str:
 
 
 def doc(text: str, indent: str) -> str:
-    lines = [l for l in (text or "").splitlines() if l.strip()]
-    return "".join(f"{indent}/// {l.strip()}\n" for l in lines)
+    lines = [line for line in (text or "").splitlines() if line.strip()]
+    return "".join(f"{indent}/// {line.strip()}\n" for line in lines)
 
 
 def logical(column) -> str:

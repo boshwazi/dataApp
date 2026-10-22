@@ -1,13 +1,29 @@
 """HTTP routes for projects and the Get Data stage."""
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from fastapi import APIRouter, HTTPException, Response, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
-from . import guidance, activity, ai_profile, ingest, lineage, links, llm, model, pbi_dax, pbi_export, pbi_import, pbi_model, publishing, refresh, transform
+from . import (
+    activity,
+    ai_profile,
+    guidance,
+    ingest,
+    lineage,
+    links,
+    llm,
+    model,
+    pbi_dax,
+    pbi_export,
+    pbi_import,
+    pbi_model,
+    publishing,
+    refresh,
+    transform,
+)
 from .dashboards import DashboardStore
 from .projects import NotFound, ProjectStore
 from .settings import ProviderSettings, SettingsStore
@@ -570,7 +586,8 @@ def build_router(
         samples = store.sample_rows(project, source_id, ai_profile.SAMPLE_ROWS)
         try:
             ai = ai_profile.describe(
-                guidance.guided(client_factory(settings), guidance.for_project(store, project)), settings.model, settings.capabilities, source["table"], source["profile"], samples
+                guidance.guided(client_factory(settings), guidance.for_project(store, project)), settings.model,
+                settings.capabilities, source["table"], source["profile"], samples
             )
         except llm.AIError as exc:
             raise HTTPException(502, f"AI profiling failed: {exc}") from exc

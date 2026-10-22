@@ -3,14 +3,17 @@
 A dashboard's pages always read its dataset's published copy, opened read-only.
 """
 
+import copy
 import json
+import threading
+from collections import OrderedDict
+from collections.abc import Callable
 from contextlib import contextmanager
-from typing import Callable
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from . import guidance, activity, ai_report, ask, dashboards, export, llm, model, publishing, report, templates, workspaces
+from . import activity, ai_report, ask, dashboards, export, guidance, llm, model, publishing, report, templates, workspaces
 from .dashboards import DashboardStore
 from .projects import NotFound, ProjectStore
 from .settings import ProviderSettings, SettingsStore
@@ -94,6 +97,36 @@ def summary(dashboard: dict, datasets: ProjectStore) -> dict:
     }
 
 
+class ResultCache:
+    """Visual results, by what they depend on: the published version's data file (never changed once written),
+    the visual's definition and the filters in force. Least recently used results go first.
+    (Row-level security, M16, adds who is looking to the key.)"""
+
+    UNUSED = ("insight", "layout", "status", "reason", "by", "added_at", "title", "data", "error", "advice")
+
+    def __init__(self, size: int = 512):
+        self.size, self.items, self.lock = size, OrderedDict(), threading.Lock()
+
+    def key(self, dataset: dict, visual: dict, filters: list) -> str:
+        spec = {k: v for k, v in visual.items() if k not in self.UNUSED}
+        return json.dumps([dataset["workspace_id"], dataset["id"], dataset["published"]["file"], spec, filters],
+                          sort_keys=True, default=str)
+
+    def get(self, key: str):
+        with self.lock:
+            if key in self.items:
+                self.items.move_to_end(key)
+                return copy.deepcopy(self.items[key])
+        return None
+
+    def put(self, key: str, value) -> None:
+        with self.lock:
+            self.items[key] = copy.deepcopy(value)
+            self.items.move_to_end(key)
+            while len(self.items) > self.size:
+                self.items.popitem(last=False)
+
+
 def build_router(
     datasets: ProjectStore,
     boards: DashboardStore,
@@ -101,6 +134,7 @@ def build_router(
     client_factory: Callable[[ProviderSettings], object],
 ) -> APIRouter:
     router = APIRouter(prefix="/api/dashboards")
+    results = ResultCache()
 
     @contextmanager
     def opened(dashboard: dict):
@@ -166,7 +200,12 @@ def build_router(
                              "drill_next": report.next_level(shown)}
                     if with_data:
                         try:
-                            entry["data"], entry["error"] = report.visual_data(con, project, shown), None
+                            key = results.key(dataset, shown, project[model.PAGE_FILTERS])
+                            data = results.get(key)
+                            if data is None:
+                                data = report.visual_data(con, project, shown)
+                                results.put(key, data)
+                            entry["data"], entry["error"] = data, None
                             entry["advice"] = report.advice(visual, entry["data"])
                         except (report.ReportError, model.ModelError) as exc:
                             entry["data"], entry["error"] = None, str(exc)

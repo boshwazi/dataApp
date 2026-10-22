@@ -8,7 +8,6 @@ from fastapi.testclient import TestClient
 from app.main import create_app
 from app.settings import ENV_VARS
 
-
 SALES = (
     "order,day,customer,qty,price\n"
     "1,2024-01-05,C1,2,10\n"

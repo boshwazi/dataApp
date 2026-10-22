@@ -5,10 +5,11 @@ Run from the repo root:  uvicorn app.main:default_app --factory --app-dir backen
 
 import functools
 import logging
+import os
 import threading
+from collections.abc import Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Callable
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -16,26 +17,25 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-import os
-
 from . import ai_report, db, guidance, ingest, links, llm, refresh, workspaces
+from .auth import AuthConfig, AuthGuard
+from .autopilot import Autopilot
+from .autopilot import build_router as build_autopilot_router
+from .chat_api import build_router as build_chat_router
+from .dashboards import DashboardStore, migrate
+from .dashboards_api import build_router as build_dashboards_router
 from .db import Database, PgRecords, PgWorkspaceStore
 from .guidance import PreferenceStore
-from .supabase_admin import PublishedBackup, SupabaseAdmin, SupabaseError
-from .auth import AuthConfig, AuthGuard
+from .jobs import Jobs
+from .model_api import build_router as build_model_router
 from .projects import LOCAL_WORKSPACE, ProjectStore
 from .projects_api import build_router, project_view
 from .semantic import build_router as build_semantic_router
+from .settings import ProviderSettings, SettingsStore, public_view
+from .supabase_admin import PublishedBackup, SupabaseAdmin, SupabaseError
 from .templates import build_router as build_templates_router
 from .transform_api import build_router as build_transform_router
-from .model_api import build_router as build_model_router
-from .dashboards import DashboardStore, migrate
-from .dashboards_api import build_router as build_dashboards_router
-from .chat_api import build_router as build_chat_router
-from .autopilot import Autopilot, build_router as build_autopilot_router
-from .jobs import Jobs
 from .workspaces_api import build_router as build_workspaces_router
-from .settings import ProviderSettings, SettingsStore, public_view
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DATA_DIR = REPO_ROOT / "data"

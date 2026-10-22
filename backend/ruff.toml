@@ -1,0 +1,17 @@
+# Lint rules for the backend: real mistakes (pyflakes, pycodestyle errors), bug-prone patterns (bugbear),
+# tidy imports and modern syntax. Lines up to 150; the code favours one idea per line.
+line-length = 150
+target-version = "py313"
+
+[lint]
+select = ["E", "F", "W", "B", "I", "UP"]
+ignore = [
+    "E731",  # small lambdas assigned to names read well in tests and routers
+    "B008",  # FastAPI's dependency defaults
+    "B905",  # zip() over lists built side by side; strict= would only add noise
+]
+
+[lint.per-file-ignores]
+"tests/*" = ["B011"]
+"app/ai_model.py" = ["E501"]  # the agent's instructions are long prose strings
+"app/chat.py" = ["E501"]

@@ -14,8 +14,8 @@ Removing data always waits for approval, whatever the mode.
 import copy
 import json
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable
 
 from . import ingest, llm, model, report, transform
 from .projects import new_id, now, quote, table_name
@@ -162,7 +162,7 @@ def step_at(q: dict, number) -> dict:
     try:
         index = int(number) - 1
     except (TypeError, ValueError):
-        raise ChatError("Steps are given by their number, starting at 1.")
+        raise ChatError("Steps are given by their number, starting at 1.") from None
     if not 0 <= index < len(q["steps"]):
         raise ChatError(f"{q['name']} has no step {number}.")
     return q["steps"][index]

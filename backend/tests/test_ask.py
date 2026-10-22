@@ -1,5 +1,4 @@
 import pytest
-
 from test_chat import ScriptedAI
 from test_report import SEGMENT, Project, clean_env, ok  # noqa: F401  (clean_env is an autouse fixture)
 

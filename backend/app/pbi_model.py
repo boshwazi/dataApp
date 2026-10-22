@@ -214,7 +214,8 @@ def read_pbix(data: bytes, name: str) -> PbiModel:
             to_table = AUTO_DATE if AUTO_TABLES.match(str(row.ToTableName)) else row.ToTableName
             model.relationships.append(PbiRelationship(
                 from_table=row.FromTableName, from_column=row.FromColumnName, to_table=to_table,
-                to_column="Date" if to_table == AUTO_DATE else row.ToColumnName, active=bool(row.IsActive), many_to_many=str(row.Cardinality) == "M:M",
+                to_column="Date" if to_table == AUTO_DATE else row.ToColumnName, active=bool(row.IsActive),
+                many_to_many=str(row.Cardinality) == "M:M",
                 both_directions=str(row.CrossFilteringBehavior).lower().startswith("both")))
         try:
             for row in pbix.rls.itertuples():
@@ -282,7 +283,7 @@ def read_pbip(data: bytes, name: str) -> PbiModel:
 def parse_tmdl(files: dict[str, str], name: str) -> PbiModel:
     """`files` maps a path inside definition/ (model.tmdl, tables/X.tmdl, relationships.tmdl...) to its text."""
     model = PbiModel(name=name, kind="pbip")
-    for path, text in sorted(files.items()):
+    for _path, text in sorted(files.items()):
         for node in _tree(text):
             head = node["head"]
             if head.startswith("table "):
@@ -380,8 +381,7 @@ def _props(node: dict) -> dict:
 
 
 def _expression(node: dict) -> str:
-    lines = [l for l in node["expr_lines"]]
-    return "\n".join(lines).strip()
+    return "\n".join(node["expr_lines"]).strip()
 
 
 def _tmdl_table(model: PbiModel, node: dict) -> None:

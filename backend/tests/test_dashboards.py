@@ -1,12 +1,11 @@
 import json
 import shutil
 
+import pytest
 from fastapi.testclient import TestClient
-
-from app.main import create_app
 from test_report import SEGMENT, Project, clean_env, ok  # noqa: F401  (clean_env is an autouse fixture)
 
-import pytest
+from app.main import create_app
 
 
 @pytest.fixture
