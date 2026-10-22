@@ -501,3 +501,33 @@ def test_removing_duplicates_first_keeps_real_records_without_a_warning(tmp_path
     ok(p.add("trips", "change_type", column="start", to="date", date_order="mdy"))
     trips = p.query("trips")
     assert trips["warnings"] == [] and trips["rows"] == 3  # only the real duplicate went
+
+
+# Row order
+
+
+def numbered(n=2000, repeats=(10, 500, 1500)):
+    lines = ["n,code"] + [f"{i},{'AB'[i % 2]}" for i in range(n)]
+    lines += [f"{i},{'AB'[i % 2]}" for i in repeats]  # exact copies, appended at the end
+    return "\n".join(lines) + "\n"
+
+
+def test_rows_keep_source_order_through_duplicates_merges_and_appends(tmp_path):
+    p = Project(tmp_path)
+    p.upload("big.csv", numbered())
+    p.upload("more.csv", "n,code\n9001,A\n9002,B\n")
+    p.upload("codes.csv", "code,label\nA,Alpha\nB,Beta\n")
+    ok(p.add("big", "change_type", column="n", to="integer"))
+    ok(p.add("more", "change_type", column="n", to="integer"))
+    ok(p.add("big", "remove_duplicates"))
+    ok(p.add("big", "merge", query="codes", left_on=["code"], right_on=["code"], columns=["label"]))
+    ok(p.add("big", "append", queries=["more"]))
+    steps = len(p.query("big")["steps"])
+    for step in range(3, steps + 1):
+        seen = [p.rows("big", step)["after"]["rows"] for _ in range(5)]
+        assert all(rows == seen[0] for rows in seen), f"step {step} changes order between loads"
+        assert [int(r[0]) for r in seen[0][:100]] == list(range(100)), f"step {step} lost the source order"
+    query = p.query("big")
+    assert query["rows"] == 2002  # 2,000 unique rows plus the 2 appended
+    tail = ok(p.api.get(f"{p.base}/queries/{query['id']}/preview", params={"step": steps}))
+    assert tail["after"]["total"] == 2002

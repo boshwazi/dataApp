@@ -229,14 +229,30 @@ def fill_blanks(params, ctx):
     return select(ctx, {column.name: f"coalesce({quote(column.name)}, {typed_literal(params['value'], column)})"})
 
 
+# Grouping, joining and stacking hand rows back in whatever order the database's threads finish, so
+# these steps number their input rows and put them back in that order: the preview, and every step
+# after, then see the rows in source order on every load.
+POS, PART = "__datawazi_row", "__datawazi_part"
+
+
+def numbered(source: str) -> str:
+    return f"(SELECT *, row_number() OVER () AS {POS} FROM {source})"
+
+
+def plain_columns(ctx, alias: str = "") -> str:
+    return ", ".join(f"{alias}{quote(c.name)}" for c in ctx.columns)
+
+
 def remove_duplicates(params, ctx):
     if not params.get("columns"):
-        return f"SELECT DISTINCT * FROM {ctx.source}"
-    keys = columns_param(params, ctx)
-    # Keep the first row of each group in a stable order, so a replay gives the same result.
-    order = ", ".join(f"{quote(c.name)} NULLS LAST" for c in ctx.columns)
-    partition = ", ".join(quote(c.name) for c in keys)
-    return f"SELECT * FROM {ctx.source} QUALIFY row_number() OVER (PARTITION BY {partition} ORDER BY {order}) = 1"
+        # Exact copies: the first one stays.
+        partition, order = plain_columns(ctx), POS
+    else:
+        # By key columns: which row stays is decided by its values, as before, so results don't change.
+        partition = ", ".join(quote(c.name) for c in columns_param(params, ctx))
+        order = ", ".join(f"{quote(c.name)} NULLS LAST" for c in ctx.columns)
+    return (f"SELECT {plain_columns(ctx)} FROM {numbered(ctx.source)} "
+            f"QUALIFY row_number() OVER (PARTITION BY {partition} ORDER BY {order}) = 1 ORDER BY {POS}")
 
 
 def remove_columns(params, ctx):
@@ -309,7 +325,7 @@ def merge(params, ctx):
     left = ", ".join(f"l.{quote(c.name)} AS {quote(c.name)}" for c in ctx.columns)
     right = ", ".join(f"{expr} AS {quote(name)}" for name, expr in added)
     join = "LEFT JOIN" if how == "left" else "JOIN"
-    return f"SELECT {left}, {right} FROM {ctx.source} AS l {join} ({right_sql}) AS r ON {on}"
+    return f"SELECT {left}, {right} FROM {numbered(ctx.source)} AS l {join} ({right_sql}) AS r ON {on} ORDER BY l.{POS}"
 
 
 def append(params, ctx):
@@ -318,14 +334,16 @@ def append(params, ctx):
         ids = [ids]
     if not isinstance(ids, list) or not ids:
         raise StepError("'queries' must list at least one table to append.")
-    parts = [f"SELECT * FROM {ctx.source}"]
+    parts = [f"SELECT *, 0 AS {PART} FROM {numbered(ctx.source)}"]
     resolved = []
-    for ref in ids:
+    for i, ref in enumerate(ids, start=1):
         sql, _, query_id = ctx.resolve_query(ref)
         resolved.append(query_id)
-        parts.append(f"SELECT * FROM ({sql})")
+        parts.append(f"SELECT *, {i} AS {PART} FROM {numbered(f'({sql})')}")
     params["queries"] = resolved
-    return " UNION ALL BY NAME ".join(parts)
+    stacked = " UNION ALL BY NAME ".join(parts)
+    # This table's rows first, then each appended table's, each in its own order.
+    return f"SELECT * EXCLUDE ({PART}, {POS}) FROM ({stacked}) ORDER BY {PART}, {POS}"
 
 
 @dataclass
