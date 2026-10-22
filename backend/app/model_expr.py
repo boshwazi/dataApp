@@ -52,7 +52,7 @@ def tokenize(text: str) -> list[tuple[str, str]]:
     return tokens
 
 
-def parse(text: str):
+def parse(text: str, text_results: bool = False):
     """Parse into nested tuples: ("ref", name) | ("num", value) | ("str", text) | ("neg", x) | (op, left, right)
     | ("cmp", op, left, right) | ("if", cond, then, else) | ("switch", subject, [(value, result)], default)
     | ("and", [x...]) | ("or", [x...]) | ("not", x)."""
@@ -148,7 +148,8 @@ def parse(text: str):
     tree = expression()
     if pos != len(tokens):
         raise ExprError(f"Unexpected '{tokens[pos][1]}'.")
-    check_values(tree)
+    if not text_results:  # measures are numbers; a calculated column may hold text
+        check_values(tree)
     return tree
 
 
@@ -219,6 +220,16 @@ def numeric_refs(tree) -> list[str]:
             out += numeric_refs(result) + ([] if match[0] in ("ref", "str", "num") else numeric_refs(match))
         return out + (numeric_refs(tree[3]) if tree[3] is not None else [])
     return [r for child in children(tree) for r in numeric_refs(child)]
+
+
+def arithmetic_refs(tree, inside: bool = False) -> list[str]:
+    """References used in + - * / (these must be numbers), as opposed to compared or passed through."""
+    kind = tree[0]
+    if kind == "ref":
+        return [tree[1]] if inside else []
+    if kind in ("+", "-", "*", "/", "neg"):
+        return [r for child in children(tree) for r in arithmetic_refs(child, True)]
+    return [r for child in children(tree) for r in arithmetic_refs(child, False)]
 
 
 def _sql_string(text: str) -> str:

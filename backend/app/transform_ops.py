@@ -10,6 +10,7 @@ import re
 from dataclasses import dataclass
 from typing import Callable
 
+from . import model_expr
 from .profiling import BOOLEANS, DAY_FIRST, MONTH_FIRST, NUMBER_NOISE, PLACEHOLDERS, TRUE_WORDS, WORDY_DATES, quote, with_times
 
 LOGICAL_TYPES = ("text", "integer", "decimal", "date", "boolean")
@@ -255,6 +256,29 @@ def remove_duplicates(params, ctx):
             f"QUALIFY row_number() OVER (PARTITION BY {partition} ORDER BY {order}) = 1 ORDER BY {POS}")
 
 
+def add_column(params, ctx):
+    """A calculated column: arithmetic and conditions over this table's columns, worked out row by row."""
+    name = params.get("name")
+    if not isinstance(name, str) or not name.strip() or "[" in name or "]" in name:
+        raise StepError("The new column needs a name without square brackets.")
+    name = name.strip()
+    params["name"] = name
+    if any(c.name.lower() == name.lower() for c in ctx.columns):
+        raise StepError(f"There is already a column called '{name}'.")
+    try:
+        tree = model_expr.parse(params.get("expression") or "", text_results=True)
+    except model_expr.ExprError as exc:
+        raise StepError(str(exc)) from exc
+    for ref in model_expr.refs(tree):
+        find(ctx.columns, ref)
+    for ref in model_expr.arithmetic_refs(tree):
+        column = find(ctx.columns, ref)
+        if column.type not in ("integer", "decimal"):
+            raise StepError(f"'{column.name}' is {column.type}; change it to a number before calculating with it.")
+    expr = model_expr.to_sql(tree, lambda ref: quote(find(ctx.columns, ref).name))
+    return select(ctx, extra=[(name, expr)])
+
+
 def remove_columns(params, ctx):
     columns = columns_param(params, ctx)
     if len(columns) >= len(ctx.columns):
@@ -384,6 +408,12 @@ OPERATIONS = {
                   "Remove duplicate rows: exact duplicates, or rows repeating the given key columns (keeps one).",
                   {"columns": "optional list of key columns"}, changes_rows=True),
         Operation("remove_columns", remove_columns, "Remove columns that are not needed.", {"columns": ["string"]}),
+        Operation(
+            "add_column", add_column,
+            "Add a calculated column, worked out row by row: [Column] arithmetic and conditions, e.g. [Qty] * [Price] "
+            'or IF([Miles] > 20, "Long", "Short"); SWITCH, AND, OR, NOT and comparisons work too.',
+            {"name": "string", "expression": "string"},
+        ),
         Operation("rename_column", rename_column, "Rename a column.", {"column": "string", "to": "string"}),
         Operation("filter_rows", filter_rows, "Keep only rows that match a condition.",
                   {"column": "string", "operator": list(FILTER_OPERATORS), "value": "for comparisons", "values": "for in / not_in"},
@@ -440,6 +470,8 @@ def describe(op: str, params: dict, query_names: dict[str, str]) -> str:
         return f"Remove {cols()}"
     if op == "rename_column":
         return f"Rename {params.get('column')} to {params.get('to')}"
+    if op == "add_column":
+        return f"Add column {params.get('name')} = {params.get('expression')}"
     if op == "filter_rows":
         value = params.get("values") if params.get("operator") in ("in", "not_in") else params.get("value")
         label = re.sub("_", " ", str(params.get("operator")))

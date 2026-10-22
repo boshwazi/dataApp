@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from "react";
-import { AlertTriangle, ArrowDown, ArrowUp, ChevronDown, ChevronRight, Combine, CopyMinus, MoreHorizontal, Rows3, Sparkles, Table2, Undo2, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { AlertTriangle, ArrowDown, ArrowUp, ChevronDown, ChevronRight, Combine, CopyMinus, MoreHorizontal, Plus, Rows3, Sparkles, Table2, Undo2, X } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import {
   api,
@@ -201,8 +201,8 @@ function QueryWorkspace({ projectId, query, others, canUndo, hasKey, cleaning, r
   const [side, setSide] = useState<"after" | "before" | "removed">("after");
   const [removed, setRemoved] = useState<(StepRows & { comparable: boolean }) | null>(null);
   const [menu, setMenu] = useState<{ column: string; type: LogicalType; x: number; y: number } | null>(null);
-  const [combine, setCombine] = useState<{ kind: "merge" | "append"; x: number; y: number } | null>(null);
-  const openCombine = (kind: "merge" | "append") => (e: ReactMouseEvent) => {
+  const [combine, setCombine] = useState<{ kind: "merge" | "append" | "column"; x: number; y: number } | null>(null);
+  const openCombine = (kind: "merge" | "append" | "column") => (e: ReactMouseEvent) => {
     const box = (e.currentTarget as HTMLElement).getBoundingClientRect();
     setCombine({ kind, x: box.left, y: box.bottom + 4 });
   };
@@ -301,6 +301,9 @@ function QueryWorkspace({ projectId, query, others, canUndo, hasKey, cleaning, r
           <span className="tool-sep" />
           <button className="tool labelled" onClick={() => add("remove_duplicates", {})} disabled={!!query.error}>
             <CopyMinus size={15} aria-hidden="true" /> Remove duplicates
+          </button>
+          <button className="tool labelled" onClick={openCombine("column")} disabled={!!query.error} title="Add a column worked out from other columns">
+            <Plus size={15} aria-hidden="true" /> Add column
           </button>
           <button className="tool labelled" onClick={openCombine("merge")} disabled={!!query.error || !others.length} title="Bring in columns from another table by matching keys">
             <Combine size={15} aria-hidden="true" /> Merge
@@ -529,8 +532,10 @@ function QueryWorkspace({ projectId, query, others, canUndo, hasKey, cleaning, r
 
       {menu && <ColumnMenu menu={menu} onClose={() => setMenu(null)} onAdd={add} />}
       {combine && (
-        <PopMenu x={combine.x} y={combine.y} onClose={() => setCombine(null)} label={combine.kind === "merge" ? "Merge" : "Append"}>
-          {combine.kind === "merge" ? (
+        <PopMenu x={combine.x} y={combine.y} onClose={() => setCombine(null)} label={combine.kind === "merge" ? "Merge" : combine.kind === "append" ? "Append" : "Add column"}>
+          {combine.kind === "column" ? (
+            <AddColumnForm query={query} onAdd={(params) => (setCombine(null), void add("add_column", params))} />
+          ) : combine.kind === "merge" ? (
             <MergeForm query={query} others={others} onAdd={(params) => (setCombine(null), void add("merge", params))} />
           ) : (
             <AppendForm query={query} others={others} onAdd={(params) => (setCombine(null), void add("append", params))} />
@@ -712,6 +717,55 @@ function ColumnMenu(props: {
           operatorNeeds === null || first.trim() !== "",
         )}
     </PopMenu>
+  );
+}
+
+/** A calculated column, like Power Query's Custom Column: worked out row by row from this table's columns. */
+function AddColumnForm({ query, onAdd }: { query: QuerySummary; onAdd: (params: Record<string, unknown>) => void }) {
+  const [name, setName] = useState("");
+  const [expression, setExpression] = useState("");
+  const box = useRef<HTMLTextAreaElement>(null);
+
+  function insert(text: string) {
+    const el = box.current;
+    const at = el?.selectionStart ?? expression.length;
+    const next = expression.slice(0, at) + text + expression.slice(el?.selectionEnd ?? at);
+    setExpression(next);
+    requestAnimationFrame(() => {
+      el?.focus();
+      el?.setSelectionRange(at + text.length, at + text.length);
+    });
+  }
+
+  return (
+    <form
+      className="pop-form combine-form"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (name.trim() && expression.trim()) onAdd({ name: name.trim(), expression: expression.trim() });
+      }}
+    >
+      <div className="pop-head">Add a column to {query.name}</div>
+      <label className="pop-field">
+        <span>Name</span>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Total" />
+      </label>
+      <label className="pop-field">
+        <span>Formula, worked out for each row</span>
+        <textarea ref={box} className="formula-input" rows={3} value={expression} onChange={(e) => setExpression(e.target.value)} placeholder='[Qty] * [Price]   or   IF([Miles] > 20, "Long", "Short")' spellCheck={false} />
+      </label>
+      <div className="column-chips" aria-label="Columns to insert">
+        {query.columns.map((c) => (
+          <button key={c.name} type="button" className="chip-button" onClick={() => insert(`[${c.name}]`)} title={`Insert [${c.name}]`}>
+            <TypeTag type={c.type} /> {c.name}
+          </button>
+        ))}
+      </div>
+      <p className="muted small pad-x">Use + - * /, comparisons, IF, SWITCH, AND, OR and NOT. Text goes in quotes.</p>
+      <button type="submit" disabled={!name.trim() || !expression.trim()}>
+        Add column step
+      </button>
+    </form>
   );
 }
 

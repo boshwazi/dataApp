@@ -531,3 +531,31 @@ def test_rows_keep_source_order_through_duplicates_merges_and_appends(tmp_path):
     assert query["rows"] == 2002  # 2,000 unique rows plus the 2 appended
     tail = ok(p.api.get(f"{p.base}/queries/{query['id']}/preview", params={"step": steps}))
     assert tail["after"]["total"] == 2002
+
+
+# Calculated columns (M12)
+
+
+def test_calculated_columns_with_arithmetic_and_conditions(p):
+    ok(p.add("sales", "change_type", column="price", to="decimal"))
+    ok(p.add("sales", "change_type", column="qty", to="decimal"))
+    ok(p.add("sales", "add_column", name="Total", expression="[qty] * [price]"))
+    ok(p.add("sales", "add_column", name="Size", expression='IF([qty] >= 3, "Large", "Small")'))
+    query = p.query("sales")
+    types = {c["name"]: c["type"] for c in query["columns"]}
+    assert types["Total"] == "decimal" and types["Size"] == "text"
+    assert query["steps"][-2]["label"] == "Add column Total = [qty] * [price]"
+    rows = {r[0]: r for r in p.rows("sales")["after"]["rows"]}
+    assert rows["1"][5:] == ["2400.0", "Small"] and rows["2"][5:] == ["46.5", "Large"]
+    assert rows["3"][5] is None  # a blank price gives a blank total
+
+
+@pytest.mark.parametrize("params, message", [
+    ({"name": "X", "expression": "[region] * 2"}, "change it to a number"),
+    ({"name": "qty", "expression": "1"}, "already a column"),
+    ({"name": "X", "expression": "[nope] + 1"}, "nope"),
+    ({"name": "X", "expression": "IF([qty] > 1"}, "not closed"),
+])
+def test_bad_calculated_columns_are_refused(p, params, message):
+    response = p.add("sales", "add_column", **params)
+    assert response.status_code == 400 and message in response.json()["detail"]
