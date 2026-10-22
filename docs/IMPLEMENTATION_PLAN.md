@@ -285,19 +285,18 @@ choose from, the data-platform look, a sign-in redesign and onboarding.
 
 ## Milestones from here
 
-Phase 1 (M0 to M10b) is done. The rest of the work to a paid, secure launch is in
-[PHASE2_PLAN.md](PHASE2_PLAN.md):
-- M12 AI engines and model depth
-- M13 Professional workspace UI
+Phase 1 (M0 to M10b) is done, with M11, M11b and most of M12 and M13. The order to Gate 1 (approved
+22 October 2026) is in [PHASE2_PLAN.md](PHASE2_PLAN.md):
+- M12b AI engines and custom instructions
+- M21 Autopilot (data straight to dashboard)
+- M24 Refresh you can rely on
+- M22 Semantic models
+- M23 Dashboard templates
 - M14 Performance and code health
-- M15 Accounts and brand
 - M16 Permissions and RLS
-- M17 Billing
-- M18 Go online
-- private beta
-- M19 Compliance and hardening
-- public launch
-- M20 Product depth
+- pulled from M20: extend a dataset, Power BI report export, notifications, Bahasa Malaysia, help docs
+- **Gate 1: product complete for a private beta, still local**
+- then M15 accounts and brand, M17 billing, M18 go online, private beta, M19 compliance, launch, rest of M20
 
 Development stays local until M18.
 

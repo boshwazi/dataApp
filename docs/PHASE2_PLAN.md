@@ -528,6 +528,30 @@ Measured in October 2026:
 - **Hunt the flaky test** seen in Phase 1. Make every test independent of timing.
 
 
+## Order to Gate 1 (approved 22 October 2026)
+
+Product first: everything that makes the app work comes before the domain, payment and going online.
+
+1. **M12b** AI engines and custom instructions
+2. **M21** Autopilot: from data straight to dashboard, with the job queue
+3. **M24** Refresh you can rely on
+4. **M22** Semantic models: build from existing tables, and AI merge of models
+5. **M23** Dashboard templates
+6. **M14** Performance and code health
+7. **M16** Permissions and RLS
+8. From M20, pulled forward: extend a dataset, Power BI report export, notifications and scheduled digests, Bahasa Malaysia, help docs; and the M13 leftovers
+
+**Gate 1: product complete for a private beta, still local.** Everything above works and has been tried by
+3 to 5 analysts and 2 to 3 business owners with no technical background (who try Autopilot).
+
+After Gate 1: M15 accounts and brand, M17 billing, M18 go online, the private beta, M19 compliance and
+hardening, public launch, then the rest of M20 (database connectors with a gateway agent, Power BI service
+connector).
+
+**Autopilot defaults (approved):** the AI's changes are checked by the engine and accepted at once, each one
+marked "Added by Autopilot" and open to review, undo and the stage's chat; the dataset is published; the
+dashboard stays a draft until you publish it, so nothing reaches viewers unseen.
+
 ## Milestones
 
 | # | Delivers | Needs from you |
@@ -535,6 +559,11 @@ Measured in October 2026:
 | **M11** Power BI interoperability ✓ done | Import `.pbix` (model and data) and `.pbip` (model, then match data); DAX to measures with an import report; export a `.pbip` project with TMDL, DAX and data files; round-trip tests | A few real `.pbix`/`.pbip` files to test with |
 | **M11b** Power BI follow-ups ✓ done | Connector and "snapshot as of" labels per table; DirectQuery and live-connection files flagged; refresh a dataset by uploading a newer `.pbix` | Nothing |
 | **M12** AI engines and model depth | **Report chat answers from the data: done early** (each visual's numbers in its context, the data model queried through Ask when the answer isn't on the dashboard, every number checked); still to do: an Explain button per visual and "add that as a chart". **Time intelligence: done** (year, quarter and month to date, same period last year, last year to date, rolling months; one range join per measure; in the formula bar as YTD([Revenue]) and so on; the Model AI and chat propose them; Power BI's TOTALYTD, SAMEPERIODLASTYEAR, DATEADD, DATESYTD and DATESINPERIOD import and export). **Model depth: done** (calculated columns as a Transform "Add column" step; measure filters on related tables with an editor; IF, SWITCH, AND, OR, NOT and comparisons in measures and columns; measures that use an inactive relationship; all through Power BI DAX import and export). Later: model-level calculated columns, many-to-many, two-way filtering. **AI:** evaluation suite; metering per call; dashboard filters and slicers; time-intelligence measures; hierarchies and synonyms; chat read tools in a tool loop with streaming; Transform plan-check-repair loop and ordering rules; Ask relative dates and "why" analysis; personal-data detection and masking; Power Query (M) from a `.pbip` replayed as Transform steps by the AI, with review | Nothing (uses the current AI key); a second AI provider key later, for fallback |
+| **M12b** AI engines and custom instructions | Custom instructions for the AI, for the workspace (in Settings) and per dataset or dashboard, added to every AI prompt; an evaluation suite of fixed questions with expected numbers; an Explain button per visual and "add that as a chart"; Ask resolves relative dates (this year so far, last quarter) and answers "why did X change?" by splitting the change by each dimension; chat read tools in a tool loop with streaming | Nothing |
+| **M21** Autopilot | "Do it for me" on Get Data: describe, clean, model, publish and design a dashboard in one run, as a background job; a progress screen with numbered steps (a spinning ring on the current one, a tick when done) ending in "View dashboard"; every change marked "Added by Autopilot" in the normal editors, open to review, undo and the stage's chat; the job queue it needs (pulled from M14) | Nothing |
+| **M22** Semantic models | A Semantic models section: build a model from tables of several published datasets without loading them again; AI merge of whole models (their tables, relationships and measures, clashing names renamed, shared dimensions such as Customer or Date found and conformed, relationships across proposed and checked) | Nothing |
+| **M23** Dashboard templates | Page blueprints (Executive overview, Sales performance, Operations, Finance, Customers) with slots such as "main money measure by month"; start from a template (the AI fills the slots with your measures), from a description, or let the AI choose from what the data looks like | Template priorities |
+| **M24** Refresh you can rely on | Files refreshed from shared OneDrive, SharePoint and Google Drive links on a schedule (private files after M15's sign-in apps); schedules at a time of day in Malaysia time, run by the job queue, with retries and alerts when a refresh fails or warns; append-only loads for large growing files; AI insights rewritten and re-checked after each refresh; datasets that link a table refresh when its source publishes; roll back to an earlier published version | Nothing |
 | **M13** Professional workspace UI | **First part done** ([mockups](design/workspace-mockups.html)): icon rail and slim top bar; Ctrl I opens the AI as a floating panel; three-pane editors: a Power Query-style Transform grid (type tags, column quality, changed cells, a column menu that adds checked steps, Applied steps with Accept and Reject); a model diagram you arrange by dragging and relate by dragging one column onto another (the engine's checks show before you drop), a formula bar with autocomplete and a live check, and a properties pane; a report canvas on a 12-column grid (move, resize, drop fields to add visuals) with Build and Format panes; one column on phones; page slicers (each viewer's own choice, never saved) and fixed page filters that every visual, KPI, Ask and the Report chat respect; click a bar, slice or row to filter the rest of the page; date charts drill down (Year, month, day) and back up; Merge and Append dialogs in Transform; every colour on theme tokens, with a dark theme (Light, Dark or the computer's setting; PDF exports stay light). One stylesheet: unused rules and always-overridden declarations removed, checked pixel by pixel on 52 screens in both themes. **Still to do:** alignment guides; density; folding the remaining layered rules for the same components together (with fewer !important); tested with 3 to 5 analysts | 3 to 5 analysts for an hour each |
 | **M14** Performance and code health | Incremental Transform, cached results per version and filter, connection reuse, history out of records, job queue, 1M and 10M row tests; split bundles and request cache; generated API client, Ruff, Pyright, ESLint and Playwright in CI, large modules split, one error model | Nothing |
 | **M15** Accounts and brand | Logo and brand, landing page, sign-up and onboarding, account and workspace settings, MFA, Google and Microsoft sign-in, delete and export | Logo direction; Google and Microsoft app registrations |
@@ -547,7 +576,7 @@ Measured in October 2026:
 | **M20** Product depth | Extend a dataset, Power BI report export (dashboards as report pages), database connectors with a gateway agent, Power BI service connector, notifications, scheduled digests, templates, Bahasa Malaysia, help docs | Template priorities |
 
 Why this order:
-- **Local first.** M11 to M17 build and test on this computer with the current Seoul test project and Gmail sender. Nothing there needs a domain.
+- **Local first, product first.** Everything up to Gate 1 builds and tests on this computer with the current Seoul test project and Gmail sender. Nothing there needs a domain.
 - **Some security work can start early.** Parts of M18 (CI, rate limits, security headers) and of M14 (the job queue) don't need hosting and can be pulled forward whenever convenient.
 - **Going online comes before the beta,** because beta companies need a real address, reliable email and data in Singapore.
 - **Billing is built before the beta and switched on at launch,** after the beta has shown which limits matter.
