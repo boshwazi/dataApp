@@ -19,7 +19,7 @@ import logging
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from . import model, transform
+from . import model, notices, transform, workspaces
 from .projects import NotFound, new_id, now
 
 log = logging.getLogger(__name__)
@@ -123,6 +123,14 @@ class Autopilot:
     def _finish(self, project_id: str, status: str, **extra) -> None:
         with self.store.edit(project_id) as project:
             project["autopilot"].update(status=status, finished_at=now(), **extra)
+            run, name = project["autopilot"], project["name"]
+        done = status == "done"
+        notices.notify(getattr(self.store, "preferences", None), "autopilot",
+                       f"Autopilot {'finished' if done else 'stopped'}: {name}",
+                       text="" if done else run.get("error") or "",
+                       link=f"/dashboards/{run['dashboard_id']}" if done and run.get("dashboard_id") else
+                       f"/datasets/{project_id}/autopilot",
+                       to=[workspaces.current_user().email])
 
     def _set(self, project_id: str, **values) -> None:
         with self.store.edit(project_id) as project:

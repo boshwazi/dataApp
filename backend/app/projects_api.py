@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from . import (
     activity,
     ai_profile,
+    extend,
     guidance,
     ingest,
     lineage,
@@ -23,6 +24,7 @@ from . import (
     publishing,
     refresh,
     security,
+    semantic,
     transform,
 )
 from .dashboards import DashboardStore
@@ -325,6 +327,16 @@ def build_router(
         security.audit(getattr(store, "preferences", None), "roles", f"{project['name']}: roles are now {names}")
         return security_view(project)
 
+    @router.post("/{project_id}/extend")
+    def extend_dataset(project_id: str, body: NameBody):
+        """A new dataset on top of this published one: its tables and model, inherited and kept in step."""
+        load(project_id)
+        try:
+            created = extend.create(store, project_id, body.name)
+        except semantic.SemanticError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        return project_view(created)
+
     @router.get("/{project_id}/versions")
     def versions(project_id: str):
         return {"versions": publishing.versions(load(project_id)), "keep": publishing.KEEP_VERSIONS}
@@ -600,8 +612,10 @@ def build_router(
 
     @router.delete("/{project_id}/sources/{source_id}")
     def delete_source(project_id: str, source_id: str):
-        find_source(load(project_id), source_id)
-        name = find_source(load(project_id), source_id)["table"]
+        source = find_source(load(project_id), source_id)
+        if source.get("inherited"):
+            raise HTTPException(400, f"{source['table']} comes from the dataset this one extends; it stays while it extends it.")
+        name = source["table"]
         store.delete_source(project_id, source_id)
         with store.edit(project_id) as project, store.connect(project_id) as con:
             transform.drop_source(project, source_id)

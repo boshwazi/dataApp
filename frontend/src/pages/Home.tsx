@@ -15,6 +15,7 @@ import {
 import { EmptyState, Skeleton, useCrumbs, useDialogs, useToast } from "../components/ui";
 import { useAccount } from "../components/account";
 import { QuickStart } from "../components/QuickStart";
+import { t } from "../i18n";
 
 type Choice = "existing" | "new";
 type Show = "all" | "datasets" | "dashboards";
@@ -35,7 +36,7 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
   const toast = useToast();
   const dialogs = useDialogs();
 
-  useCrumbs([{ label: wanted === "all" ? "Home" : show === "datasets" ? "Datasets" : "Dashboards" }]);
+  useCrumbs([{ label: t(wanted === "all" ? "Home" : show === "datasets" ? "Datasets" : "Dashboards") }]);
 
   function load() {
     dashboardsApi.list().then(setDashboards).catch((e) => toast(e.message, "error"));
@@ -110,7 +111,7 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
   const match = (name: string) => name.toLowerCase().includes(filter.trim().toLowerCase());
   const shownDashboards = (dashboards ?? []).filter((d) => match(d.name));
   const shownDatasets = (datasets ?? []).filter((d) => match(d.name));
-  const title = wanted === "all" ? "Home" : show === "datasets" ? "Datasets" : "Dashboards";
+  const title = t(wanted === "all" ? "Home" : show === "datasets" ? "Datasets" : "Dashboards");
 
   return (
     <div className="page wide">
@@ -119,16 +120,16 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
         <span className="spacer" />
         <label className="filter-box">
           <Search size={15} aria-hidden="true" />
-          <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter by name" aria-label="Filter by name" />
+          <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t("Filter by name")} aria-label={t("Filter by name")} />
         </label>
         {creator && show !== "dashboards" && (
           <button className="secondary" onClick={newDataset}>
-            <Database size={16} aria-hidden="true" /> New dataset
+            <Database size={16} aria-hidden="true" /> {t("New dataset")}
           </button>
         )}
         {creator && show !== "datasets" && (
           <button onClick={() => setCreating(creating ? null : published.length ? "existing" : "new")} aria-expanded={!!creating}>
-            <Plus size={16} aria-hidden="true" /> New dashboard
+            <Plus size={16} aria-hidden="true" /> {t("New dashboard")}
           </button>
         )}
       </div>
@@ -136,10 +137,10 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
         <div className="notice">
           {account.me.platform_admin ? (
             <>
-              Connect your AI provider first: <Link to="/settings">open Settings</Link> and run the connection test.
+              {t("Connect your AI provider first:")} <Link to="/settings">{t("open Settings")}</Link> {t("and run the connection test.")}
             </>
           ) : (
-            "The AI isn't connected yet. The people running datawazi need to set it up."
+            t("The AI isn't connected yet. The people running datawazi need to set it up.")
           )}
         </div>
       )}
@@ -147,9 +148,13 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
       {show !== "dashboards" &&
         alerts.map((a) => (
           <div key={a.dataset_id} className="notice refresh-alert" role="status">
-            <strong>{a.dataset_name}</strong>: {a.trigger === "schedule" ? "the scheduled refresh" : "the refresh after a linked table changed"}{" "}
-            {a.status === "failed" ? "failed" : "passed with warnings"} ({new Date(a.at).toLocaleString()}). {a.text}{" "}
-            <Link to={`/datasets/${a.dataset_id}/refresh`}>Open Refresh</Link>
+            <strong>
+              {t(
+                `{name}: the ${a.trigger === "schedule" ? "scheduled refresh" : "refresh after a linked table changed"} ${a.status === "failed" ? "failed" : "passed with warnings"}`,
+                { name: a.dataset_name },
+              )}
+            </strong>{" "}
+            ({new Date(a.at).toLocaleString()}). {a.text} <Link to={`/datasets/${a.dataset_id}/refresh`}>{t("Open Refresh")}</Link>
           </div>
         ))}
       {creator && connected && show === "all" && <QuickStart />}
@@ -167,24 +172,24 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
 
       {show !== "datasets" && (
         <section className="home-section">
-          <h2 className="section-title">Dashboards</h2>
+          <h2 className="section-title">{t("Dashboards")}</h2>
           {dashboards === null ? (
             <Skeleton lines={3} height={52} />
           ) : dashboards.length === 0 ? (
-            <EmptyState icon={<LayoutDashboard size={28} />} title={creator ? "No dashboards yet" : "Nothing published yet"}>
+            <EmptyState icon={<LayoutDashboard size={28} />} title={creator ? t("No dashboards yet") : t("Nothing published yet")}>
               {creator
-                ? "A dashboard is built by the AI from a dataset's measures. Click New dashboard to make the first one."
-                : "Dashboards show up here once someone in your team publishes them."}
+                ? t("A dashboard is built by the AI from a dataset's measures. Click New dashboard to make the first one.")
+                : t("Dashboards show up here once someone in your team publishes them.")}
             </EmptyState>
           ) : (
             <table className="catalog">
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Dataset</th>
-                  <th className="num">Pages</th>
-                  {creator && <th>Status</th>}
-                  <th>Updated</th>
+                  <th>{t("Name")}</th>
+                  <th>{t("Dataset")}</th>
+                  <th className="num">{t("Pages")}</th>
+                  {creator && <th>{t("Status")}</th>}
+                  <th>{t("Updated")}</th>
                   {creator && <th aria-label="Actions" />}
                 </tr>
               </thead>
@@ -197,12 +202,12 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
                         {d.name}
                       </Link>
                     </td>
-                    <td className="muted">{d.dataset ? <span className="ident">{d.dataset.name}</span> : <span className="bad">Removed</span>}</td>
+                    <td className="muted">{d.dataset ? <span className="ident">{d.dataset.name}</span> : <span className="bad">{t("Removed")}</span>}</td>
                     <td className="num">{d.pages}</td>
                     {creator && (
                       <td>
                         <span className={`status-dot ${d.published ? (d.unpublished_changes ? "warn" : "ok") : ""}`}>
-                          {d.published ? (d.unpublished_changes ? "Draft changes" : "Published") : "Draft"}
+                          {t(d.published ? (d.unpublished_changes ? "Draft changes" : "Published") : "Draft")}
                         </span>
                       </td>
                     )}
@@ -233,33 +238,33 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
 
       {show !== "dashboards" && (
         <section className="home-section">
-          <h2 className="section-title">Datasets</h2>
-          <p className="muted small section-hint">Load, clean and model data once, then reuse it in any number of dashboards.</p>
+          <h2 className="section-title">{t("Datasets")}</h2>
+          <p className="muted small section-hint">{t("Load, clean and model data once, then reuse it in any number of dashboards.")}</p>
           {datasets === null ? (
             <Skeleton lines={3} height={52} />
           ) : datasets.length === 0 ? (
             <EmptyState
               icon={<Database size={28} />}
-              title="No datasets yet"
+              title={t("No datasets yet")}
               action={
                 <button onClick={newDataset}>
                   <Plus size={16} aria-hidden="true" /> New dataset
                 </button>
               }
             >
-              Start with a CSV, an Excel file, a Google Sheet or the sample data.
+              {t("Start with a CSV, an Excel file, a Google Sheet or the sample data.")}
             </EmptyState>
           ) : (
             <table className="catalog">
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th className="num">Tables</th>
-                  <th className="num">Steps</th>
-                  <th className="num">Measures</th>
-                  <th>Status</th>
-                  <th className="num">Used by</th>
-                  <th>Updated</th>
+                  <th>{t("Name")}</th>
+                  <th className="num">{t("Tables")}</th>
+                  <th className="num">{t("Steps")}</th>
+                  <th className="num">{t("Measures")}</th>
+                  <th>{t("Status")}</th>
+                  <th className="num">{t("Used by")}</th>
+                  <th>{t("Updated")}</th>
                   <th aria-label="Actions" />
                 </tr>
               </thead>
@@ -278,7 +283,9 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
                     <td className="num">{d.progress.measures}</td>
                     <td>
                       <span className={`status-dot ${d.status.published ? (d.status.unpublished_changes ? "warn" : "ok") : ""}`}>
-                        {d.status.published ? (d.status.unpublished_changes ? `Draft changes, v${d.status.version} live` : `Published v${d.status.version}`) : "Not published"}
+                        {d.status.published
+                          ? t(d.status.unpublished_changes ? "Draft changes, v{v} live" : "Published v{v}", { v: d.status.version ?? "" })
+                          : t("Not published")}
                       </span>
                     </td>
                     <td className="num">{d.dashboards.length}</td>
@@ -330,7 +337,7 @@ function NewDashboard(props: {
 
   async function create(event: FormEvent) {
     event.preventDefault();
-    setBusy("Creating…");
+    setBusy(t("Creating…"));
     try {
       if (choice === "existing") {
         const dashboard = await dashboardsApi.create(name || "Untitled dashboard", datasetId);
@@ -339,7 +346,7 @@ function NewDashboard(props: {
             ? null
             : { ...(start === "choose" ? { choose: true } : start !== "blank" ? { template: start } : {}), description: description.trim() || undefined };
         if (props.ai && brief) {
-          setBusy("Designing the pages…");
+          setBusy(t("Designing the pages…"));
           try {
             await reportApi.ai(dashboard.id, brief);
           } catch (e) {
@@ -372,9 +379,9 @@ function NewDashboard(props: {
           onClick={() => props.onChoice("existing")}
           disabled={!published.length}
         >
-          <strong>Use existing data</strong>
+          <strong>{t("Use existing data")}</strong>
           <span className="muted small">
-            {published.length ? "Build on a published dataset; it stays in sync." : "No published datasets yet."}
+            {published.length ? t("Build on a published dataset; it stays in sync.") : t("No published datasets yet.")}
           </span>
         </button>
         <button
@@ -384,18 +391,18 @@ function NewDashboard(props: {
           className={`choice ${choice === "new" ? "on" : ""}`}
           onClick={() => props.onChoice("new")}
         >
-          <strong>Bring new data</strong>
-          <span className="muted small">Load files or a Google Sheet; the AI cleans and models it first.</span>
+          <strong>{t("Bring new data")}</strong>
+          <span className="muted small">{t("Load files or a Google Sheet; the AI cleans and models it first.")}</span>
         </button>
       </div>
       <div className="inline-form">
         <label className="field grow">
-          <span>Dashboard name</span>
+          <span>{t("Dashboard name")}</span>
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Sales review" />
         </label>
         {choice === "existing" && (
           <label className="field">
-            <span>Dataset</span>
+            <span>{t("Dataset")}</span>
             <select value={datasetId} onChange={(e) => setDatasetId(e.target.value)}>
               {published.map((d) => (
                 <option key={d.id} value={d.id}>
@@ -407,39 +414,39 @@ function NewDashboard(props: {
           </label>
         )}
         <button type="submit" className="align-end" disabled={!!busy || (choice === "existing" && !datasetId)}>
-          {busy ?? (choice === "existing" ? "Create dashboard" : "Start with data")}
+          {busy ?? t(choice === "existing" ? "Create dashboard" : "Start with data")}
         </button>
       </div>
       {choice === "existing" && props.ai && (
         <fieldset className="template-picker" disabled={!!busy}>
-          <legend>Start with</legend>
-          <div className="template-grid" role="radiogroup" aria-label="Start with">
+          <legend>{t("Start with")}</legend>
+          <div className="template-grid" role="radiogroup" aria-label={t("Start with")}>
             {[
-              { id: "choose", name: "Let the AI choose", description: "It picks the template that fits this data and fills it." },
+              { id: "choose", name: t("Let the AI choose"), description: t("It picks the template that fits this data and fills it.") },
               ...templates,
-              { id: "blank", name: "A blank page", description: "Add visuals yourself, or ask the AI later." },
-            ].map((t) => (
+              { id: "blank", name: t("A blank page"), description: t("Add visuals yourself, or ask the AI later.") },
+            ].map((tpl) => (
               <button
-                key={t.id}
+                key={tpl.id}
                 type="button"
                 role="radio"
-                aria-checked={start === t.id}
-                className={`template-card ${start === t.id ? "on" : ""}`}
-                onClick={() => setStart(t.id)}
+                aria-checked={start === tpl.id}
+                className={`template-card ${start === tpl.id ? "on" : ""}`}
+                onClick={() => setStart(tpl.id)}
               >
-                <strong>{t.name}</strong>
-                <span className="muted small">{t.description}</span>
-                {"pages" in t && <span className="template-pages small">{(t as DashboardTemplate).pages.join(" / ")}</span>}
+                <strong>{tpl.name}</strong>
+                <span className="muted small">{tpl.description}</span>
+                {"pages" in tpl && <span className="template-pages small">{(tpl as DashboardTemplate).pages.join(" / ")}</span>}
               </button>
             ))}
           </div>
           <label className="field">
-            <span>What should it show? (optional)</span>
+            <span>{t("What should it show? (optional)")}</span>
             <textarea
               rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="For example: a monthly view for branch managers, focused on which products are slowing down"
+              placeholder={t("For example: a monthly view for branch managers, focused on which products are slowing down")}
             />
           </label>
         </fieldset>
@@ -451,10 +458,10 @@ function NewDashboard(props: {
 /** "3 hours ago", "yesterday", "12 Mar": how long ago, as a data catalog shows it. */
 function ago(iso: string): string {
   const seconds = (Date.now() - new Date(iso).getTime()) / 1000;
-  if (seconds < 60) return "Just now";
-  if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)} h ago`;
-  if (seconds < 172800) return "Yesterday";
-  if (seconds < 604800) return `${Math.floor(seconds / 86400)} days ago`;
+  if (seconds < 60) return t("Just now");
+  if (seconds < 3600) return t("{n} min ago", { n: Math.floor(seconds / 60) });
+  if (seconds < 86400) return t("{n} h ago", { n: Math.floor(seconds / 3600) });
+  if (seconds < 172800) return t("Yesterday");
+  if (seconds < 604800) return t("{n} days ago", { n: Math.floor(seconds / 86400) });
   return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }

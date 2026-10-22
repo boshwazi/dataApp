@@ -14,6 +14,7 @@ import { AccountProvider, WorkspaceGate, useAccount } from "./components/account
 import type { Role } from "./api";
 import "./styles.css";
 import { applyTheme } from "./components/theme";
+import { applyDensity } from "./components/density";
 
 /** A page loaded when it's first opened, so the first screen downloads only what it shows. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -38,6 +39,7 @@ const Model = page(() => import("./pages/Model"), "Model");
 const Refresh = page(() => import("./pages/Refresh"), "Refresh");
 const Lineage = page(() => import("./pages/Lineage"), "Lineage");
 const Security = page(() => import("./pages/Security"), "Security");
+const Help = page(() => import("./pages/Help"), "Help");
 const Autopilot = page(() => import("./pages/Autopilot"), "Autopilot");
 const SemanticModels = page(() => import("./pages/SemanticModels"), "SemanticModels");
 const Settings = page(() => import("./pages/Settings"), "Settings");
@@ -61,6 +63,7 @@ function PlatformAdmin({ children }: { children: ReactNode }) {
 }
 
 applyTheme(); // before the first paint, so a dark screen never flashes white
+applyDensity();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -81,6 +84,7 @@ createRoot(document.getElementById("root")!).render(
           <Route index element={<Home />} />
           <Route path="datasets" element={<Need role="creator"><Home show="datasets" /></Need>} />
           <Route path="dashboards" element={<Home show="dashboards" />} />
+          <Route path="help" element={<Help />} />
           <Route path="semantic-models" element={<Need role="creator"><SemanticModels /></Need>} />
           <Route path="settings" element={<PlatformAdmin><Settings /></PlatformAdmin>} />
           <Route path="members" element={<Need role="admin"><Members /></Need>} />

@@ -285,3 +285,39 @@ def test_refresh_from_a_newer_pbix_replaces_data_and_keeps_the_model(api, monkey
     sales = next(s for s in ok(api.get(f"/api/datasets/{ds}"))["sources"] if s["table"] == "sales")
     assert sales["origin"]["snapshot"] == "2026-10-01T08:00"  # labelled with the newer file's refresh
     assert api.post(f"/api/datasets/{ds}/powerbi/refresh", files=[("file", ("x.zip", b"y"))]).status_code == 400
+
+
+def test_a_dashboard_exports_as_power_bi_report_pages(tmp_path):
+    import io
+    import json as _json
+    import zipfile
+
+    from test_report import SEGMENT, Project
+    from test_report import ok as ok_
+    p = Project(tmp_path)
+    page = p.page("Sales overview")
+    for body in ({"type": "kpi", "title": "Revenue", "measures": ["Revenue"]},
+                 {"type": "bar", "title": "Revenue by segment", "measures": ["Revenue"], "group_by": SEGMENT},
+                 {"type": "line", "title": "Revenue by month", "measures": ["Revenue"],
+                  "group_by": [{"table": "Date", "column": "Year Month"}]},
+                 {"type": "table", "title": "Detail", "measures": ["Revenue", "Orders"], "group_by": SEGMENT}):
+        ok_(p.visual(page, **body))
+    response = p.api.get(f"{p.base}/powerbi")
+    assert response.status_code == 200 and response.headers["content-type"] == "application/zip"
+    archive = zipfile.ZipFile(io.BytesIO(response.content))
+    files = {n.split("/", 1)[1]: archive.read(n) for n in archive.namelist()}
+    report = "Sales.Report/definition"
+    order = _json.loads(files[f"{report}/pages/pages.json"])["pageOrder"]
+    assert len(order) == 1
+    assert _json.loads(files[f"{report}/pages/{order[0]}/page.json"])["displayName"] == "Sales overview"
+    visuals = [_json.loads(v) for k, v in files.items() if k.startswith(f"{report}/pages/{order[0]}/visuals/")]
+    by_type = {v["visual"]["visualType"]: v["visual"] for v in visuals}
+    assert set(by_type) == {"cardVisual", "clusteredBarChart", "lineChart", "tableEx"}
+    bar = by_type["clusteredBarChart"]["query"]
+    assert bar["queryState"]["Y"]["projections"][0]["queryRef"] == "sales.Revenue"
+    assert bar["queryState"]["Category"]["projections"][0]["queryRef"] == "customers.segment"
+    assert bar["sortDefinition"]["sort"][0]["direction"] == "Descending"
+    assert [p_["queryRef"] for p_ in by_type["tableEx"]["query"]["queryState"]["Values"]["projections"]] == [
+        "customers.segment", "sales.Revenue", "sales.Orders"]
+    assert by_type["lineChart"]["query"]["queryState"]["Category"]["projections"][0]["queryRef"] == "Date.Year Month"
+    assert any(n.startswith("Sales.SemanticModel/definition/tables/") for n in files)  # the model comes along

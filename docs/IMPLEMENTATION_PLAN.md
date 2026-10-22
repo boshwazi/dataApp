@@ -294,7 +294,7 @@ Phase 1 (M0 to M10b) is done, with M11, M11b and most of M12 and M13. The order 
 - M23 Dashboard templates (done)
 - M14 Performance and code health (done; tooling leftovers moved to M18)
 - M16 Permissions and RLS (done; share links moved to M18)
-- pulled from M20: extend a dataset, Power BI report export, notifications, Bahasa Malaysia, help docs
+- pulled from M20: extend a dataset, Power BI report export, notifications, Bahasa Malaysia, help docs (done, lean)
 - **Gate 1: product complete for a private beta, still local**
 - then M15 accounts and brand, M17 billing, M18 go online, private beta, M19 compliance, launch, rest of M20
 

@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Boxes, Check, Database, Monitor, Moon, ScrollText, Sun, House, LayoutDashboard, LogOut, Plus, Search, Settings as SettingsIcon, Users } from "lucide-react";
+import { Boxes, Check, CircleHelp, Database, Monitor, Moon, ScrollText, Sun, House, LayoutDashboard, LogOut, Plus, Search, Settings as SettingsIcon, Users } from "lucide-react";
 import { accountApi, api, dashboardsApi, type DashboardSummary, type Dataset, type Role } from "./api";
 import { useAccount } from "./components/account";
 import { InstructionsDialog } from "./components/InstructionsDialog";
+import { Notifications } from "./components/Notifications";
 import { savedTheme, setTheme, type ThemeChoice } from "./components/theme";
+import { savedDensity, setDensity, type Density } from "./components/density";
 import { BrandMark, TopbarContext, useCurrentCrumbs, useDialogs, useShortcut, useToast } from "./components/ui";
+import { language, setLanguage, t, type Language } from "./i18n";
 
 type NavItem = {
   to: string;
@@ -23,6 +26,7 @@ const NAV: NavItem[] = [
   { to: "/datasets", label: "Datasets", icon: Database, end: false, section: "Workspace", role: "creator" },
   { to: "/semantic-models", label: "Semantic models", icon: Boxes, end: false, section: "Workspace", role: "creator" },
   { to: "/dashboards", label: "Dashboards", icon: LayoutDashboard, end: false, section: "Workspace" },
+  { to: "/help", label: "Help", icon: CircleHelp, end: false, section: "Workspace" },
   { to: "/members", label: "Members", icon: Users, end: false, section: "Admin", role: "admin", hosted: true },
   { to: "/settings", label: "Settings", icon: SettingsIcon, end: false, section: "Admin", platform: true },
 ];
@@ -53,7 +57,7 @@ export function Layout() {
             return (
               <div key={section} className="rail-section" role="group" aria-label={section}>
                 {items.map(({ to, label, icon: Icon, end }) => (
-                  <NavLink key={to} to={to} end={end} aria-label={label} data-tip={label}>
+                  <NavLink key={to} to={to} end={end} aria-label={t(label)} data-tip={t(label)}>
                     <Icon size={18} aria-hidden="true" />
                   </NavLink>
                 ))}
@@ -61,6 +65,7 @@ export function Layout() {
             );
           })}
         </nav>
+        <Notifications />
         <WorkspaceMenu />
       </aside>
       <div className="main-column">
@@ -131,7 +136,7 @@ function WorkspaceMenu() {
     }
   }
 
-  const roleName = account.role[0].toUpperCase() + account.role.slice(1);
+  const roleName = t(account.role[0].toUpperCase() + account.role.slice(1));
   return (
     <div className="workspace-menu" ref={root}>
       {instructions && (
@@ -149,7 +154,7 @@ function WorkspaceMenu() {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`Workspace: ${account.workspace?.name ?? ""}`}
-        data-tip={`${account.workspace?.name ?? ""}, ${hosted ? roleName : "on this computer"}`}
+        data-tip={`${account.workspace?.name ?? ""}, ${hosted ? roleName : t("On this computer")}`}
       >
         <span className="workspace-badge" aria-hidden="true">
           {account.workspace?.name[0]?.toUpperCase()}
@@ -159,7 +164,7 @@ function WorkspaceMenu() {
         <div className="menu-list up rail-menu" role="menu">
           <div className="menu-note">
             <strong>{account.workspace?.name}</strong>
-            <span>{hosted ? roleName : "On this computer"}</span>
+            <span>{hosted ? roleName : t("On this computer")}</span>
           </div>
           <div className="menu-separator" role="separator" />
           {account.me.workspaces.map((w) => (
@@ -173,25 +178,77 @@ function WorkspaceMenu() {
           ))}
           {hosted && (
             <button role="menuitem" onClick={create}>
-              <Plus size={16} aria-hidden="true" /> New workspace
+              <Plus size={16} aria-hidden="true" /> {t("New workspace")}
             </button>
           )}
           <div className="menu-separator" role="separator" />
           {account.can("admin") && (
             <button role="menuitem" onClick={() => (setOpen(false), setInstructions(true))}>
-              <ScrollText size={16} aria-hidden="true" /> AI instructions for the workspace
+              <ScrollText size={16} aria-hidden="true" /> {t("AI instructions for the workspace")}
             </button>
           )}
           <ThemePicker />
+          <DensityPicker />
+          <LanguagePicker />
           {hosted && <div className="menu-separator" role="separator" />}
           {hosted && <div className="menu-note">{account.me.user.email}</div>}
           {account.signOut && (
             <button role="menuitem" onClick={() => void account.signOut!()}>
-              <LogOut size={16} aria-hidden="true" /> Sign out
+              <LogOut size={16} aria-hidden="true" /> {t("Sign out")}
             </button>
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Comfortable or compact spacing for tables, grids and panels. */
+function DensityPicker() {
+  const [choice, setChoice] = useState<Density>(savedDensity);
+  const options: { value: Density; label: string }[] = [
+    { value: "comfortable", label: "Comfortable" },
+    { value: "compact", label: "Compact" },
+  ];
+  return (
+    <div className="theme-picker" role="radiogroup" aria-label={t("Density")}>
+      <span>{t("Density")}</span>
+      <span className="segmented compact">
+        {options.map(({ value, label }) => (
+          <button
+            key={value}
+            role="radio"
+            aria-checked={choice === value}
+            className={choice === value ? "on" : ""}
+            onClick={() => {
+              setChoice(value);
+              setDensity(value);
+            }}
+          >
+            {t(label)}
+          </button>
+        ))}
+      </span>
+    </div>
+  );
+}
+
+/** English or Bahasa Malaysia: the main screens and the AI's replies. */
+function LanguagePicker() {
+  const options: { value: Language; label: string }[] = [
+    { value: "en", label: "English" },
+    { value: "ms", label: "Bahasa Melayu" },
+  ];
+  return (
+    <div className="theme-picker" role="radiogroup" aria-label="Language">
+      <span>{t("Language")}</span>
+      <span className="segmented compact">
+        {options.map(({ value, label }) => (
+          <button key={value} role="radio" aria-checked={language === value} className={language === value ? "on" : ""} onClick={() => language !== value && setLanguage(value)}>
+            {label}
+          </button>
+        ))}
+      </span>
     </div>
   );
 }
@@ -205,7 +262,7 @@ function ThemePicker() {
   ];
   return (
     <div className="theme-picker" role="radiogroup" aria-label="Theme">
-      <span>Theme</span>
+      <span>{t("Theme")}</span>
       <span className="segmented compact">
         {options.map(({ value, label, icon: Icon }) => (
           <button
@@ -219,7 +276,7 @@ function ThemePicker() {
               setTheme(value);
             }}
           >
-            <Icon size={13} aria-hidden="true" /> {label}
+            <Icon size={13} aria-hidden="true" /> {t(label)}
           </button>
         ))}
       </span>

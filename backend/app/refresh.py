@@ -28,7 +28,7 @@ import logging
 import re
 from datetime import UTC, datetime, timedelta, timezone
 
-from . import activity, ingest, links, model, profiling, publishing, report, transform
+from . import activity, extend, ingest, links, model, notices, profiling, publishing, report, transform
 from .projects import ProjectStore, load_sql, now, quote
 
 log = logging.getLogger(__name__)
@@ -325,6 +325,10 @@ def run(store: ProjectStore, boards, project_id: str, new_data: dict[str, tuple[
             problem = next((c["text"] for c in checks if c["level"] == "error"), None) or next(
                 (c["text"] for c in checks if c["level"] == "warning"), "")
             project["refresh_alert"] = {"at": entry["at"], "status": status, "trigger": trigger, "text": problem}
+            notices.notify(getattr(store, "preferences", None), "refresh",
+                           f"{project['name']}: the {'scheduled ' if trigger == 'schedule' else ''}refresh "
+                           f"{'failed' if status == 'failed' else 'passed with warnings'}",
+                           text=problem, link=f"/datasets/{project_id}/refresh", by=notices.SYSTEM)
         elif status == "ok":
             project.pop("refresh_alert", None)
         history = project.setdefault("refreshes", [])
@@ -393,7 +397,10 @@ def pull_linked(store: ProjectStore, boards, project_id: str, from_dataset: str,
               if s["origin"].get("dataset_id") == from_dataset and links.update_available(s, versions)]
     if not behind or not settings(project)["follow_links"]:
         return None
-    return pull_sheets(store, boards, project_id, fetch, "linked", "Linked table", source_ids=behind)
+    entry = pull_sheets(store, boards, project_id, fetch, "linked", "Linked table", source_ids=behind)
+    if (project.get("extends") or {}).get("id") == from_dataset:
+        extend.sync(store, project_id)  # the inherited model follows the original's new version
+    return entry
 
 
 def replace_file(store: ProjectStore, boards, project_id: str, source_id: str, filename: str, data: bytes) -> dict:

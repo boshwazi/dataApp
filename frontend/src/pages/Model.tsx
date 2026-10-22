@@ -343,6 +343,7 @@ function MeasureLeaf({ measure, on, onSelect }: { measure: Measure; on: boolean;
         <span className="tree-name">{measure.name}</span>
         {measure.status === "AI" && <span className="badge ai">AI</span>}
         {measure.status !== "AI" && measure.by === "autopilot" && <span className="badge autopilot-badge" title="Added by Autopilot">Autopilot</span>}
+        {measure.inherited && <span className="badge" title="From the dataset this one extends; change it there">Inherited</span>}
       </button>
     </li>
   );

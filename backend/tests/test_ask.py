@@ -168,3 +168,29 @@ def test_a_breakdown_column_out_of_reach_is_skipped_not_fatal(tmp_path):
     assert result["error"] is None and result["rows"][0][4] == 4.0
     assert result["skipped"] and "nowhere" in result["skipped"][0]
     assert "could_not_split_by" in ai.calls[1]["messages"][-1]["content"]
+
+
+def test_the_ai_writes_in_bahasa_malaysia_when_asked(tmp_path):
+    """X-Language: ms adds the language rule to every AI call; numbers stay checkable."""
+    from app import language, llm
+
+    class Client:
+        def __init__(self):
+            self.system = None
+            self.chat = type("C", (), {"completions": type("X", (), {"create": self.create})()})()
+
+        def create(self, **kwargs):
+            self.system = kwargs["messages"][0]["content"]
+            raise RuntimeError("stop here")
+
+    client = Client()
+    token = language.LANGUAGE.set("ms")
+    try:
+        try:
+            llm.ask_json(client, "m", {}, "You are an agent.", "Hi", "t", {"type": "object"})
+        except Exception:  # noqa: BLE001  only the prompt matters here
+            pass
+    finally:
+        language.LANGUAGE.reset(token)
+    assert "Bahasa Malaysia" in client.system and "never in words" in client.system
+    assert language.instruction() == ""  # English again outside that request

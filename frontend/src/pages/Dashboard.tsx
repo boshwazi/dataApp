@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import type { EChartsCoreOption } from "echarts/core";
-import { ArrowUp, Calendar, ChevronDown, FileDown, Filter, GripVertical, History, LayoutDashboard, Maximize2, Minimize2, MoreHorizontal, Pencil, Plus, ScrollText, Sparkles, Table2, Trash2, Undo2, Users, X } from "lucide-react";
+import { ArrowUp, Calendar, ChevronDown, FileDown, Filter, GripVertical, History, LayoutDashboard, Maximize2, Minimize2, MoreHorizontal, Pencil, Plus, ScrollText, Sparkles, Mail, Table2, Trash2, Undo2, Users, X } from "lucide-react";
 import {
   activityApi,
   api,
@@ -36,8 +36,10 @@ import { ChatPanel, type ChatHandle } from "../components/ChatPanel";
 import { EmptyState, Menu, PopMenu, TopbarActions, type MenuItem, useCrumbs, useDialogs, useShortcut, useToast } from "../components/ui";
 import { useAccount } from "../components/account";
 import { ShareDialog } from "../components/ShareDialog";
+import { DigestDialog } from "../components/DigestDialog";
 import { useTheme } from "../components/theme";
 import { TypeTag } from "./Transform";
+import { t } from "../i18n";
 
 const SUGGESTIONS = ["Add a page about customers", "Swap the donut for a bar chart", "Which visual shows the biggest change?"];
 
@@ -60,6 +62,7 @@ export function Dashboard() {
   const [showActivity, setShowActivity] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  const [showDigest, setShowDigest] = useState(false);
   // Creators can look at the published dashboard as a security role (row-level security).
   const [roles, setRoles] = useState<RoleDef[]>([]);
   const [viewAs, setViewAsState] = useState<ViewAs | null>(null);
@@ -82,7 +85,7 @@ export function Dashboard() {
   const toast = useToast();
   const navigate = useNavigate();
 
-  useCrumbs(state && [{ label: "Dashboards", to: "/dashboards" }, { label: state.name }]);
+  useCrumbs(state && [{ label: t("Dashboards"), to: "/dashboards" }, { label: state.name }]);
   useShortcut("i", () => setAiOpen((o) => !o));
 
   const fetchState = useCallback(() => {
@@ -224,14 +227,26 @@ export function Dashboard() {
   const visual = editing ? page?.visuals.find((v) => v.id === selected) ?? null : null;
 
   const moreItems: MenuItem[] = [
-    ...(editing ? [{ label: "Rename", icon: <Pencil size={16} aria-hidden="true" />, onSelect: rename }] : []),
-    ...(editing ? [{ label: "AI instructions", icon: <ScrollText size={16} aria-hidden="true" />, onSelect: () => setShowInstructions(true) }] : []),
+    ...(editing ? [{ label: t("Rename"), icon: <Pencil size={16} aria-hidden="true" />, onSelect: rename }] : []),
+    ...(editing ? [{ label: t("AI instructions"), icon: <ScrollText size={16} aria-hidden="true" />, onSelect: () => setShowInstructions(true) }] : []),
     ...(editing && dataset?.published
       ? [{ label: building ? "AI is designing…" : state.pages.length ? "Add pages with AI" : "Build report with AI", icon: <Sparkles size={16} aria-hidden="true" />, onSelect: () => hasKey && !building && void build() }]
       : []),
-    ...(creator ? [{ label: "Share", icon: <Users size={16} aria-hidden="true" />, onSelect: () => setShowShare(true) }] : []),
-    ...(creator ? [{ label: "Activity", icon: <History size={16} aria-hidden="true" />, onSelect: () => setShowActivity(true) }] : []),
-    ...(state.published ? [{ label: "Export PDF", icon: <FileDown size={16} aria-hidden="true" />, onSelect: () => navigate(`/dashboards/${dashboardId}/export`) }] : []),
+    ...(creator ? [{ label: t("Share"), icon: <Users size={16} aria-hidden="true" />, onSelect: () => setShowShare(true) }] : []),
+    ...(creator && state.published ? [{ label: t("Email digest"), icon: <Mail size={16} aria-hidden="true" />, onSelect: () => setShowDigest(true) }] : []),
+    ...(creator ? [{ label: t("Activity"), icon: <History size={16} aria-hidden="true" />, onSelect: () => setShowActivity(true) }] : []),
+    ...(creator && dataset?.published
+      ? [{
+          label: t("Download for Power BI"),
+          icon: <FileDown size={16} aria-hidden="true" />,
+          onSelect: () =>
+            void dashboardsApi
+              .downloadPowerBI(dashboardId, state.name)
+              .then(() => toast(t("Downloaded a Power BI project (.zip) with these pages. Unzip it and open the .pbip in Power BI Desktop.")))
+              .catch((e) => toast((e as Error).message, "error")),
+        }]
+      : []),
+    ...(state.published ? [{ label: t("Export PDF"), icon: <FileDown size={16} aria-hidden="true" />, onSelect: () => navigate(`/dashboards/${dashboardId}/export`) }] : []),
   ];
 
   const pageTabs = page && (
@@ -253,10 +268,10 @@ export function Dashboard() {
         {creator && (
           <nav className="stage-tabs" aria-label="Mode">
             <button className={editing ? "active" : ""} aria-pressed={editing} onClick={() => go({ view: "draft" })}>
-              Edit
+              {t("Edit")}
             </button>
             <button className={editing ? "" : "active"} aria-pressed={!editing} onClick={() => go({ view: "published" })} disabled={!state.published} title={state.published ? undefined : "Publish first"}>
-              View as viewer
+              {t("View as viewer")}
             </button>
           </nav>
         )}
@@ -267,10 +282,10 @@ export function Dashboard() {
               value={viewAs?.role ?? ""}
               onChange={(e) => setViewAsState(e.target.value ? { role: e.target.value, email: viewAs?.email ?? "" } : null)}
             >
-              <option value="">See all the data</option>
+              <option value="">{t("See all the data")}</option>
               {roles.map((r) => (
                 <option key={r.id} value={r.id}>
-                  See it as {r.name}
+                  {t("See it as {name}", { name: r.name })}
                 </option>
               ))}
             </select>
@@ -286,8 +301,8 @@ export function Dashboard() {
         )}
         <span className="topbar-grow" />
         <span className={`topbar-status ${state.published ? (state.unpublished_changes ? "warn" : "ok") : ""}`}>
-          {state.published ? (state.unpublished_changes ? "Draft changes" : "Published") : "Draft, not published"}
-          {state.as_of ? `, data as of ${state.as_of}` : ""}
+          {t(state.published ? (state.unpublished_changes ? "Draft changes" : "Published") : "Draft, not published")}
+          {state.as_of ? t(", data as of {date}", { date: state.as_of }) : ""}
         </span>
         {editing && (
           <button className="tool" onClick={() => change(() => reportApi.undo(dashboardId))} disabled={!state.can_undo} title="Undo" aria-label="Undo">
@@ -296,18 +311,18 @@ export function Dashboard() {
         )}
         {(editing || state.published) && (
           <button className={`ai-button ${aiOpen ? "on" : ""}`} onClick={() => setAiOpen(!aiOpen)} aria-pressed={aiOpen} title="Ask AI (Ctrl I)">
-            <Sparkles size={15} aria-hidden="true" /> {editing ? "Ask AI" : "Ask"} <kbd>Ctrl I</kbd>
+            <Sparkles size={15} aria-hidden="true" /> {editing ? t("Ask AI") : t("Ask")} <kbd>Ctrl I</kbd>
           </button>
         )}
         {state.pages.length > 0 && (
           <button className="secondary compact" onClick={() => setPresenting(true)}>
-            <Maximize2 size={15} aria-hidden="true" /> Present
+            <Maximize2 size={15} aria-hidden="true" /> {t("Present")}
           </button>
         )}
-        {moreItems.length > 0 && <Menu label="More actions" icon={<MoreHorizontal size={18} />} items={moreItems} />}
+        {moreItems.length > 0 && <Menu label={t("More actions")} icon={<MoreHorizontal size={18} />} items={moreItems} />}
         {editing && (
           <button className="primary-compact" onClick={publish} disabled={publishing || (state.published && !state.unpublished_changes) || !state.pages.length}>
-            {publishing ? "Publishing…" : "Publish"}
+            {publishing ? t("Publishing…") : t("Publish")}
           </button>
         )}
       </TopbarActions>
@@ -381,10 +396,10 @@ export function Dashboard() {
           <section className="pane-center report-stage" aria-label="Canvas">
             {!page ? (
               dataset?.published && (
-                <EmptyState icon={<LayoutDashboard size={28} />} title={editing ? "No pages yet" : "Nothing published yet"} action={editing ? <button onClick={addPage}>Add a page</button> : undefined}>
+                <EmptyState icon={<LayoutDashboard size={28} />} title={editing ? "No pages yet" : t("Nothing published yet")} action={editing ? <button onClick={addPage}>Add a page</button> : undefined}>
                   {editing
                     ? "Add a page and drag fields onto it, or let the AI design a first draft from the More menu. Every visual it makes is an ordinary one you can edit."
-                    : "Publish the draft to show it here."}
+                    : t("Publish the draft to show it here.")}
                 </EmptyState>
               )
             ) : (
@@ -479,6 +494,7 @@ export function Dashboard() {
           <AskPanel dashboardId={dashboardId} side="published" onClose={() => setAiOpen(false)} scope={() => scope.current} question={explainQuestion} />
         </div>
       )}
+      {showDigest && <DigestDialog dashboardId={dashboardId} name={state.name} onClose={() => setShowDigest(false)} />}
       {showShare && (
         <ShareDialog
           dashboardId={dashboardId}
@@ -607,6 +623,16 @@ const hasField = (e: DragEvent) => e.dataTransfer.types.includes(FIELD_TYPE);
 
 type Drag = { id: string; mode: "move" | "resize"; startX: number; startY: number; origin: GridBox };
 
+/** Grid lines (column and row numbers) where `box`'s edges line up with another visual's edges. */
+function alignments(box: GridBox, others: GridBox[]): { columns: number[]; rows: number[] } {
+  const xs = new Set(others.flatMap((o) => [o.x, o.x + o.w]));
+  const ys = new Set(others.flatMap((o) => [o.y, o.y + o.h]));
+  return {
+    columns: [box.x, box.x + box.w].filter((c) => xs.has(c) && c > 0 && c < COLUMNS),
+    rows: [box.y, box.y + box.h].filter((r) => ys.has(r) && r > 0),
+  };
+}
+
 function ReportCanvas(props: {
   dashboardId: string;
   page: ReportPage;
@@ -696,6 +722,8 @@ function ReportCanvas(props: {
   }
 
   const rows = Math.max(...Object.values(boxes).map((b) => b.y + b.h), 0);
+  // While a visual moves or resizes: lines where its edges meet other visuals' edges.
+  const guides = drag && boxes[drag.id] ? alignments(boxes[drag.id], Object.entries(boxes).filter(([id]) => id !== drag.id).map(([, b]) => b)) : null;
 
   return (
     <div className="report-page-frame">
@@ -724,6 +752,12 @@ function ReportCanvas(props: {
         onDragLeave={(e) => e.currentTarget === e.target && setDropCell(null)}
         onDrop={dropField}
       >
+        {guides?.columns.map((c) => (
+          <span key={`c${c}`} className="align-guide vertical" style={{ left: `calc(${c} * (100% + ${GAP}px) / ${COLUMNS} - ${GAP / 2}px)` }} aria-hidden="true" />
+        ))}
+        {guides?.rows.map((r) => (
+          <span key={`r${r}`} className="align-guide horizontal" style={{ top: r * (ROW + GAP) - GAP / 2 }} aria-hidden="true" />
+        ))}
         {page.visuals.map((v) => {
           const b = boxes[v.id];
           if (!b) return null;

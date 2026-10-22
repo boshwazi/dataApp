@@ -17,7 +17,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import ai_report, db, guidance, ingest, links, llm, refresh, security, workspaces
+from . import ai_report, db, digests, guidance, ingest, links, llm, notices, refresh, security, workspaces
 from .auth import AuthConfig, AuthGuard
 from .autopilot import Autopilot
 from .autopilot import build_router as build_autopilot_router
@@ -27,8 +27,9 @@ from .dashboards_api import build_router as build_dashboards_router
 from .db import Database, PgRecords, PgWorkspaceStore
 from .guidance import PreferenceStore
 from .jobs import Jobs
+from .language import LanguageMiddleware
 from .model_api import build_router as build_model_router
-from .projects import LOCAL_WORKSPACE, ProjectStore
+from .projects import LOCAL_WORKSPACE, NotFound, ProjectStore
 from .projects_api import build_router, project_view
 from .semantic import build_router as build_semantic_router
 from .settings import ProviderSettings, SettingsStore, public_view
@@ -53,7 +54,7 @@ class SettingsUpdate(BaseModel):
 
 @asynccontextmanager
 async def scheduler_lifespan(app: FastAPI):
-    """Every minute, start a background job for each dataset whose scheduled refresh is due."""
+    """Every minute, start a background job for each scheduled refresh and dashboard digest that is due."""
     stop = threading.Event()
 
     def loop():
@@ -65,6 +66,9 @@ async def scheduler_lifespan(app: FastAPI):
                         for project_id in refresh.due(projects):
                             app.state.jobs.submit(f"refresh:{project_id}", functools.partial(
                                 refresh.run_scheduled, projects, boards, project_id, fetch))
+                        for dashboard_id in digests.due(boards):
+                            app.state.jobs.submit(f"digest:{dashboard_id}", functools.partial(
+                                app.state.send_digest, dashboard_id))
                 except Exception:  # keep the loop alive; the next tick tries again
                     log.exception("Scheduled refresh failed in workspace %s", workspace_id)
 
@@ -127,6 +131,12 @@ def create_app(
             log.exception("Storage is not available; published data stays on this server only")
 
     app.state.refresh_job = (projects, boards, fetch_url, members)
+
+    def member_emails() -> list[str] | None:
+        """Who digests may go to: the workspace's members (anyone, on a local single-user install)."""
+        if auth.mode == "local":
+            return None
+        return [m["email"] for m in members.members(workspaces.current().workspace_id)]
     app.state.jobs = jobs = Jobs()
 
     def rewrite_insights(con, project, pages, dashboard):
@@ -152,18 +162,20 @@ def create_app(
 
     projects.on_publish = after_publish
     app.add_middleware(AuthGuard, config=auth, store=members)
+    app.add_middleware(LanguageMiddleware)
     app.include_router(build_workspaces_router(members, auth, admin,
                                                audit=lambda action, detail: security.audit(preferences, action, detail)))
     routers = [
         build_router(projects, boards, store, client_factory, fetch_url, SAMPLES_DIR),
         build_transform_router(projects, store, client_factory),
         build_model_router(projects, store, client_factory),
-        build_dashboards_router(projects, boards, store, client_factory),
+        build_dashboards_router(projects, boards, store, client_factory, member_emails=member_emails),
     ]
     for router in routers:
         app.include_router(router)
     # Autopilot runs the same endpoints in order, in the background.
     calls = {name: fn for router in routers for name, fn in router.calls.items()}
+    app.state.send_digest = calls["send_digest"]
     app.include_router(build_autopilot_router(Autopilot(projects, boards, store, jobs, calls)))
     app.include_router(build_semantic_router(projects, project_view))
     app.include_router(build_templates_router())
@@ -194,6 +206,16 @@ def create_app(
         if not workspaces.current().at_least("admin"):
             raise HTTPException(403, "Only workspace admins can read the audit log.")
         return {"entries": preferences.load().get("audit") or []}
+
+    @app.get("/api/notifications")
+    def notifications():
+        """What happened that the asker should know about, newest first; the browser keeps what was seen."""
+        def can_see(dashboard_id):
+            try:
+                return calls["can_see"](dashboard_id)
+            except NotFound:
+                return False
+        return {"notifications": notices.for_me(preferences, can_see)}
 
     @app.get("/api/refresh-alerts")
     def refresh_alerts():

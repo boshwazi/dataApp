@@ -10,7 +10,7 @@ import {
   type Dataset as DatasetData,
   type DatasetStage,
 } from "../api";
-import { BadgeCheck, FileDown, ScrollText, GitBranch, History, MoreHorizontal, Pencil, RefreshCw, ShieldCheck, Sparkles } from "lucide-react";
+import { BadgeCheck, FileDown, ScrollText, GitBranch, History, Layers, MoreHorizontal, Pencil, RefreshCw, ShieldCheck, Sparkles } from "lucide-react";
 import { ActivityDrawer } from "../components/ActivityDrawer";
 import { InstructionsDialog } from "../components/InstructionsDialog";
 import { ChatPanel, type ChatHandle } from "../components/ChatPanel";
@@ -101,6 +101,23 @@ export function Dataset() {
   useEffect(() => {
     refresh().catch((e) => setError(e.message));
   }, [refresh]);
+
+  async function extendIt() {
+    const name = await dialogs.prompt({
+      title: `Extend ${dataset!.name}`,
+      label: "Name of the new dataset",
+      initial: `${dataset!.name} plus`,
+      confirmLabel: "Create",
+      hint: "It starts with this dataset's tables and model, kept in step; you add your own data on top.",
+    });
+    if (!name) return;
+    try {
+      const created = await api.extend(dataset!.id, name);
+      navigate(`/datasets/${created.id}/get-data`);
+    } catch (e) {
+      toast((e as Error).message, "error");
+    }
+  }
 
   async function rename() {
     if (!dataset) return;
@@ -233,6 +250,9 @@ export function Dataset() {
                   .then(() => toast("Downloaded a Power BI project (.zip). Unzip it and open the .pbip in Power BI Desktop."))
                   .catch((e) => toast((e as Error).message, "error")),
             },
+            ...(status.published
+              ? [{ label: "Extend this dataset", icon: <Layers size={16} aria-hidden="true" />, onSelect: () => void extendIt() }]
+              : []),
             {
               label: dataset.certified ? "Remove certification" : "Certify as trusted",
               icon: <BadgeCheck size={16} aria-hidden="true" />,
@@ -245,8 +265,14 @@ export function Dataset() {
         </button>
       </TopbarActions>
 
-      {(error || notice || problems || (!onRefresh && stale[stage.key])) && (
+      {(error || notice || problems || dataset.extends || (!onRefresh && stale[stage.key])) && (
         <div className="workbench-notices">
+      {dataset.extends && (
+        <div className="notice small">
+          Extends <Link to={`/datasets/${dataset.extends.id}/model`}>{dataset.extends.name}</Link> (v{dataset.extends.version}): its tables,
+          relationships and measures are inherited, read-only here, and follow it when it publishes. Add your own data and measures alongside.
+        </div>
+      )}
       {error && <p className="bad">{error}</p>}
       {notice && (
         <div className="notice small">

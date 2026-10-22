@@ -5,6 +5,7 @@ import { Send, Square, X } from "lucide-react";
 import { Chart, TOKENS } from "./Chart";
 import { useTheme } from "./theme";
 import { Markdown } from "./Markdown";
+import { t } from "../i18n";
 
 type Turn = { question: string; response?: AskResponse; error?: string };
 
@@ -68,11 +69,11 @@ export function AskPanel(props: {
   }
 
   return (
-    <aside className="chat-panel ask-panel" aria-label="Ask about this data">
+    <aside className="chat-panel ask-panel" aria-label={t("Ask about this data")}>
       <header className="chat-head">
         <div>
-          <strong>Ask about this data</strong>
-          <span className="muted small">Answers show how each number was calculated</span>
+          <strong>{t("Ask about this data")}</strong>
+          <span className="muted small">{t("Answers show how each number was calculated")}</span>
         </div>
         {onClose && (
           <button className="icon" onClick={onClose} aria-label="Close" title="Close">
@@ -83,7 +84,7 @@ export function AskPanel(props: {
       <div className="chat-messages" ref={list}>
         {turns.length === 0 && (
           <div className="chat-empty">
-            <p className="muted small">Try:</p>
+            <p className="muted small">{t("Try:")}</p>
             {STARTERS.map((s) => (
               <button key={s} className="chip" onClick={() => ask(s)}>
                 {s}
@@ -100,7 +101,7 @@ export function AskPanel(props: {
             {turn.response && <Answer response={turn.response} onFollowUp={ask} busy={busy} />}
           </div>
         ))}
-        {busy && <div className="chat-msg assistant thinking">Working it out…</div>}
+        {busy && <div className="chat-msg assistant thinking">{t("Working it out…")}</div>}
       </div>
       <form className="chat-input" onSubmit={submit}>
         <textarea
@@ -112,17 +113,17 @@ export function AskPanel(props: {
               void ask(text);
             }
           }}
-          placeholder="Ask a question about this data…"
+          placeholder={t("Ask a question about this data…")}
           rows={2}
           aria-label="Question"
         />
         {busy ? (
           <button type="button" className="secondary" onClick={() => controller.current?.abort()} aria-label="Stop this question">
-            <Square size={14} aria-hidden="true" /> Stop
+            <Square size={14} aria-hidden="true" /> {t("Stop")}
           </button>
         ) : (
           <button type="submit" disabled={!text.trim()}>
-            <Send size={15} aria-hidden="true" /> Ask
+            <Send size={15} aria-hidden="true" /> {t("Ask")}
           </button>
         )}
       </form>
@@ -238,7 +239,7 @@ function ResultCard({ result, formats, onAddChart }: { result: AskResult; format
       )}
       {result.how && (
         <details className="how">
-          <summary>How this was calculated</summary>
+          <summary>{t("How this was calculated")}</summary>
           <ul>
             {result.how.measures.map((m) => (
               <li key={m.name}>

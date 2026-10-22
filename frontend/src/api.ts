@@ -1,3 +1,4 @@
+import { language } from "./i18n";
 export type ProviderSettings = {
   base_url: string;
   model: string;
@@ -75,6 +76,8 @@ export type Dataset = {
   status: PublishStatus;
   stale: Record<DatasetStage, string | null>;
   certified: boolean;
+  /** Built on another dataset: its tables and model are inherited, read-only and kept in step. */
+  extends?: { id: string; name: string; version: number };
   /** A semantic model: every table linked from these datasets. */
   semantic?: { how: "merge" | "tables"; from: { id: string; name: string }[]; built_at: string };
   linked_by: { id: string; name: string; tables: string[] }[];
@@ -174,6 +177,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const who: Record<string, string> = {};
   if (token) who.Authorization = `Bearer ${token}`;
   if (session.workspace) who["X-Workspace"] = session.workspace;
+  who["X-Language"] = language; // the AI writes in the person's language
   const response = await fetch(path, {
     ...init,
     // The browser sets the multipart boundary itself for uploads.
@@ -298,6 +302,7 @@ export const api = {
   linkTable: (pid: string, datasetId: string, table: string) =>
     request<AddResult>(`${project(pid)}/sources/link`, json("POST", { dataset_id: datasetId, table })),
   certify: (pid: string, certified: boolean) => request<Dataset>(`${project(pid)}/certify`, json("POST", { certified })),
+  extend: (pid: string, name: string) => request<Dataset>(`${project(pid)}/extend`, json("POST", { name })),
   setInstructions: (pid: string, instructions: string) => request<Dataset>(`${project(pid)}/instructions`, json("PUT", { instructions })),
   lineage: (pid: string) => request<Lineage>(`${project(pid)}/lineage`),
   addSample: (pid: string) => request<AddResult>(`${project(pid)}/sources/sample`, { method: "POST" }),
@@ -482,6 +487,8 @@ export type Measure = {
   reason: string;
   status: "AI" | "Approved";
   by?: "autopilot";
+  /** From the dataset this one extends: read-only here. */
+  inherited?: boolean;
   format: MeasureFormat;
   value: number | null;
   error: string | null;
@@ -567,6 +574,34 @@ export const securityApi = {
   groups: () => request<{ groups: Group[] }>("/api/workspaces/current/groups"),
   saveGroups: (groups: Group[]) => request<{ groups: Group[] }>("/api/workspaces/current/groups", json("PUT", { groups })),
   audit: () => request<{ entries: AuditEntry[] }>("/api/workspaces/current/audit"),
+};
+
+// Notifications and digests
+
+export type Notice = { id: string; at: string; kind: string; title: string; text: string; link: string; by: string };
+
+export const notificationsApi = {
+  list: () => request<{ notifications: Notice[] }>("/api/notifications"),
+};
+
+export type DigestState = {
+  frequency: "off" | "weekly" | "monthly";
+  day: number;
+  at: string;
+  people: string[];
+  groups: string[];
+  next_run: string | null;
+  last_sent: string | null;
+  email: boolean;
+  recipients: string[];
+};
+
+export const digestApi = {
+  get: (id: string) => request<DigestState>(`/api/dashboards/${id}/digest`),
+  set: (id: string, body: Pick<DigestState, "frequency" | "day" | "at" | "people" | "groups">) =>
+    request<DigestState>(`/api/dashboards/${id}/digest`, json("PUT", body)),
+  send: (id: string) =>
+    request<{ to: string[]; emailed: string[]; failed: string[]; email: boolean }>(`/api/dashboards/${id}/digest/send`, { method: "POST" }),
 };
 
 export const semanticApi = {
@@ -751,6 +786,7 @@ export const dashboardsApi = {
   remove: (id: string) => request<unknown>(rp(id), { method: "DELETE" }),
   publish: (id: string) => request<ReportState>(`${rp(id)}/publish`, { method: "POST" }),
   share: (id: string, sharing: Sharing) => request<DashboardSummary>(`${rp(id)}/sharing`, json("PUT", sharing)),
+  downloadPowerBI: (id: string, name: string) => downloadFile(`${rp(id)}/powerbi`, `${name}.zip`),
 };
 
 /** What the Report AI aims for: a template, the user's own words, or its pick of template. */

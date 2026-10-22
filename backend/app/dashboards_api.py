@@ -5,15 +5,35 @@ A dashboard's pages always read its dataset's published copy, opened read-only.
 
 import copy
 import json
+import os
 import threading
 from collections import OrderedDict
 from collections.abc import Callable
 from contextlib import contextmanager
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel
 
-from . import activity, ai_report, ask, dashboards, export, guidance, llm, model, publishing, report, security, templates, workspaces
+from . import (
+    activity,
+    ai_report,
+    ask,
+    dashboards,
+    digests,
+    export,
+    guidance,
+    llm,
+    mail,
+    model,
+    notices,
+    pbi_dax,
+    pbi_export,
+    publishing,
+    report,
+    security,
+    templates,
+    workspaces,
+)
 from .dashboards import DashboardStore
 from .projects import NotFound, ProjectStore
 from .settings import ProviderSettings, SettingsStore
@@ -22,6 +42,14 @@ from .settings import ProviderSettings, SettingsStore
 class NewDashboardBody(BaseModel):
     name: str
     dataset_id: str
+
+
+class DigestBody(BaseModel):
+    frequency: str  # off, weekly, monthly
+    day: int = 0  # weekly: 0 Monday to 6 Sunday
+    at: str = "08:00"  # Malaysia time
+    people: list[str] = []
+    groups: list[str] = []
 
 
 class SharingBody(BaseModel):
@@ -140,6 +168,8 @@ def build_router(
     boards: DashboardStore,
     settings_store: SettingsStore,
     client_factory: Callable[[ProviderSettings], object],
+    member_emails: Callable[[], list[str] | None] = lambda: None,
+    mailer_factory: Callable[[], "mail.Mailer | None"] = lambda: mail.Mailer.from_env(),
 ) -> APIRouter:
     router = APIRouter(prefix="/api/dashboards")
     results = ResultCache()
@@ -311,8 +341,87 @@ def build_router(
             raise HTTPException(404, str(exc)) from exc
         who = "the whole workspace" if sharing["mode"] == "workspace" else \
             ", ".join(sharing["people"] + [g["name"] for g in groups() if g["id"] in sharing["groups"]]) or "nobody yet"
-        security.audit(getattr(datasets, "preferences", None), "sharing", f"{dash['name']}: shared with {who}")
+        preferences = getattr(datasets, "preferences", None)
+        security.audit(preferences, "sharing", f"{dash['name']}: shared with {who}")
+        if sharing["mode"] == "people":
+            people = list(sharing["people"])
+            for group in groups():
+                if group["id"] in sharing["groups"]:
+                    people += [m for m in group["members"] if m not in people]
+            notices.notify(preferences, "shared", f"{dash['name']} was shared with you",
+                           link=f"/dashboards/{dashboard_id}", to=people)
         return summary(dash, datasets)
+
+    @router.get("/{dashboard_id}/powerbi")
+    def export_powerbi(dashboard_id: str):
+        """The dashboard as a Power BI project: its dataset's published model and data, and its pages as report pages."""
+        if viewer():
+            raise HTTPException(403, "Only creators can download a dashboard for Power BI.")
+        dash = visible(dashboard_id)
+        with opened(dash) as (dataset, frozen, con):
+            if frozen is None:
+                raise HTTPException(400, "Publish the dataset first.")
+            pages = (dash.get("published") or dash["draft"])["pages"]
+            try:
+                name, files = pbi_export.build(con, frozen, pages, title=dash["name"])
+            except (model.ModelError, pbi_dax.Untranslatable) as exc:
+                raise HTTPException(400, str(exc)) from exc
+        return Response(pbi_export.zip_project(name, files), media_type="application/zip",
+                        headers={"Content-Disposition": f'attachment; filename="{name}.zip"'})
+
+    # Digests
+
+    @router.get("/{dashboard_id}/digest")
+    def get_digest(dashboard_id: str):
+        dash = visible(dashboard_id)
+        return {**digests.settings(dash), "email": mailer_factory() is not None,
+                "recipients": digests.recipients(dash, groups(), member_emails())}
+
+    @router.put("/{dashboard_id}/digest")
+    def set_digest(dashboard_id: str, body: DigestBody):
+        """Email (and notify) chosen people with the dashboard's headline numbers, weekly or monthly."""
+        try:
+            with boards.edit(dashboard_id) as dash:
+                digests.configure(dash, body.model_dump(), groups())
+        except digests.DigestError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        except NotFound as exc:
+            raise HTTPException(404, str(exc)) from exc
+        return get_digest(dashboard_id)
+
+    @router.post("/{dashboard_id}/digest/send")
+    def send_digest_now(dashboard_id: str, request: Request):
+        """Send the digest now (to check it), without moving the schedule."""
+        return send_digest(dashboard_id, str(request.base_url).rstrip("/"), reschedule=False)
+
+    def send_digest(dashboard_id: str, site: str | None = None, reschedule: bool = True) -> dict:
+        dash = visible(dashboard_id)
+        if not dash.get("published"):
+            raise HTTPException(400, "Publish the dashboard first.")
+        to = digests.recipients(dash, groups(), member_emails())
+        if not to:
+            raise HTTPException(400, "Nobody to send it to: choose people the dashboard is shared with.")
+        site = (os.getenv("PUBLIC_URL", "").rstrip("/") or site or "http://localhost:8000")
+        link = f"{site}/dashboards/{dashboard_id}"
+        with opened(dash) as (dataset, frozen, con):
+            if frozen is None:
+                raise HTTPException(400, "This dashboard's data isn't published yet.")
+            content = digests.compose(con, publishing.bind(frozen, dash["published"]), dash, dataset, link)
+        mailer, sent, failed = mailer_factory(), [], []
+        for person in to:
+            if mailer is None:
+                continue
+            try:
+                mailer.send(person, content["subject"], content["text"], content["html"])
+                sent.append(person)
+            except mail.MailError as exc:
+                failed.append(str(exc))
+        notices.notify(getattr(datasets, "preferences", None), "digest", content["subject"],
+                       text=content["text"].split("\n\nOpen it:")[0].split("\n\n", 1)[-1], link=f"/dashboards/{dashboard_id}", to=to)
+        if reschedule:
+            with boards.edit(dashboard_id) as fresh:
+                digests.scheduled(fresh)
+        return {"to": to, "emailed": sent, "failed": failed, "email": mailer is not None, **content}
 
     @router.get("/{dashboard_id}")
     def get_dashboard(dashboard_id: str, side: str = "draft", page: str | None = None, filters: str | None = None,
@@ -419,8 +528,12 @@ def build_router(
                 if not dash["draft"]["pages"]:
                     raise report.ReportError("Add at least one page before publishing.")
                 check_and_publish(publishing.bind(frozen, dash["draft"]), con)
+                again = bool(dash.get("published"))
                 dashboards.publish(dash, dataset)
                 activity.log(dash, "publish", "Published the dashboard")
+            notices.notify(getattr(datasets, "preferences", None), "published",
+                           f"{dash['name']} was {'updated' if again else 'published'}",
+                           link=f"/dashboards/{dashboard_id}", to=notices.EVERYONE, dashboard_id=dashboard_id)
         except NotFound as exc:
             raise HTTPException(404, str(exc)) from exc
         except (report.ReportError, model.ModelError) as exc:
@@ -640,6 +753,7 @@ def build_router(
 
     router.calls = {  # for Autopilot
         "create_dashboard": lambda name, dataset_id: create(NewDashboardBody(name=name, dataset_id=dataset_id)),
-        "ai_report": ai_report_pass, "approve_report": approve,
+        "ai_report": ai_report_pass, "approve_report": approve, "send_digest": send_digest,
+        "can_see": lambda dashboard_id: security.can_see(boards.get(dashboard_id), groups()),
     }
     return router

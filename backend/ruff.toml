@@ -12,6 +12,6 @@ ignore = [
 ]
 
 [lint.per-file-ignores]
-"tests/*" = ["B011"]
+"tests/*" = ["B011", "F811"]  # pytest fixtures are imported and then named as arguments
 "app/ai_model.py" = ["E501"]  # the agent's instructions are long prose strings
 "app/chat.py" = ["E501"]

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Check, Sparkles, X } from "lucide-react";
 import { api, type AutopilotRun, type AutopilotStepKey } from "../api";
 import { useDataset } from "./Dataset";
+import { t } from "../i18n";
 
 const POLL_MS = 1500;
 
@@ -74,20 +75,20 @@ export function Autopilot() {
       <header className="autopilot-head">
         <h1>
           {fresh
-            ? "Let datawazi build it for you"
+            ? t("Let datawazi build it for you")
             : running
-              ? "Building your dashboard"
+              ? t("Building your dashboard")
               : run.status === "done"
-                ? "Your dashboard is ready"
-                : "Autopilot stopped"}
+                ? t("Your dashboard is ready")
+                : t("Autopilot stopped")}
         </h1>
         <p className="muted">
           {fresh
-            ? "Autopilot cleans your tables, builds the model, publishes the dataset and designs a dashboard. It accepts the AI's checked changes for you; the dashboard stays a draft until you publish it."
+            ? t("Autopilot cleans your tables, builds the model, publishes the dataset and designs a dashboard. It accepts the AI's checked changes for you; the dashboard stays a draft until you publish it.")
             : running
-              ? "You can leave this page; it keeps going. Open any step to see what it did, or ask the AI to change something."
+              ? t("You can leave this page; it keeps going. Open any step to see what it did, or ask the AI to change something.")
               : run.status === "done"
-                ? "Everything Autopilot added is marked, so you can review it, change it in each step, or ask the AI."
+                ? t("Everything Autopilot added is marked, so you can review it, change it in each step, or ask the AI.")
                 : run.error}
         </p>
       </header>
@@ -95,15 +96,15 @@ export function Autopilot() {
       {fresh ? (
         <div className="autopilot-start">
           <label>
-            Dashboard name
+            {t("Dashboard name")}
             <input value={name} onChange={(e) => setName(e.target.value)} />
           </label>
           <button onClick={start} disabled={starting || project.sources.length === 0}>
-            <Sparkles size={16} aria-hidden="true" /> {starting ? "Starting…" : "Start Autopilot"}
+            <Sparkles size={16} aria-hidden="true" /> {starting ? t("Starting…") : t("Start Autopilot")}
           </button>
           {project.sources.length === 0 && (
             <p className="muted small">
-              Add some data first in <Link to="../get-data">Get Data</Link>.
+              {t("Add some data first in")} <Link to="../get-data">{t("Get Data")}</Link>.
             </p>
           )}
         </div>
@@ -115,14 +116,14 @@ export function Autopilot() {
               <li key={step.key} className={`autopilot-step is-${step.status}`}>
                 <StepMarker n={i + 1} status={step.status} />
                 <div className="autopilot-step-body">
-                  <span className="autopilot-step-label">{step.label}</span>
+                  <span className="autopilot-step-label">{t(step.label)}</span>
                   <span className="autopilot-step-detail">
-                    {step.status === "running" ? "Working on it…" : step.status === "pending" ? "Waiting" : step.detail}
+                    {step.status === "running" ? t("Working on it…") : step.status === "pending" ? t("Waiting") : step.detail}
                   </span>
                 </div>
                 {at && step.status !== "pending" && step.status !== "running" && (
                   <Link className="autopilot-step-open" to={at.startsWith("/") ? at : `../${at}`}>
-                    {step.status === "failed" ? "Fix it" : "See what it did"}
+                    {step.status === "failed" ? t("Fix it") : t("See what it did")}
                   </Link>
                 )}
               </li>
@@ -135,16 +136,16 @@ export function Autopilot() {
         <div className="autopilot-end">
           {run.status === "done" && run.dashboard_id && (
             <Link className="button" to={`/dashboards/${run.dashboard_id}`}>
-              View dashboard
+              {t("View dashboard")}
             </Link>
           )}
           {run.status !== "done" && run.fix_at && (
             <Link className="button" to={`../${run.fix_at}`}>
-              Open {STAGE_NAME[run.fix_at]}
+              {t("Open {stage}", { stage: STAGE_NAME[run.fix_at] })}
             </Link>
           )}
           <button className="secondary" onClick={start} disabled={starting}>
-            {run.status === "done" ? "Run again" : "Try again"}
+            {run.status === "done" ? t("Run again") : t("Try again")}
           </button>
         </div>
       )}
@@ -155,7 +156,7 @@ export function Autopilot() {
 
 function StepMarker({ n, status }: { n: number; status: AutopilotRun["steps"][number]["status"] }) {
   return (
-    <span className="autopilot-marker" aria-label={`Step ${n}: ${status}`}>
+    <span className="autopilot-marker" aria-label={t("Step {n}: {status}", { n, status })}>
       {status === "running" && (
         <svg className="autopilot-ring" viewBox="0 0 36 36" aria-hidden="true">
           <circle cx="18" cy="18" r="16" />

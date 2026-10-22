@@ -3,7 +3,8 @@
   <Name>/<Name>.pbip
   <Name>/<Name>.SemanticModel/  definition.pbism, definition/ (database, model, expressions,
                                  relationships, tables/*.tmdl)
-  <Name>/<Name>.Report/         definition.pbir and one empty page (dashboards come later)
+  <Name>/<Name>.Report/         definition.pbir and the report: a dashboard's pages (pbi_report.py), or one
+                                 empty page when exporting the dataset on its own
   <Name>/data/*.parquet          one file per table, read through the DataFolder parameter
   <Name>/README.txt
 
@@ -21,7 +22,7 @@ from pathlib import Path
 
 import duckdb
 
-from . import model, pbi_dax, transform
+from . import model, pbi_dax, pbi_report, transform
 
 THEME_FILE = "datawazi.json"
 # House style: Okabe-Ito colours (colour-blind safe), dark text on white, the app's blue for tables.
@@ -91,12 +92,13 @@ def table_tmdl(table, measures: list[dict], names: dict, hidden: set, is_date: b
     return "".join(out)
 
 
-def build(con, project: dict) -> tuple[str, dict[str, bytes]]:
-    """The project's folder name and its files (path inside the folder → bytes)."""
+def build(con, project: dict, pages: list[dict] | None = None, title: str | None = None) -> tuple[str, dict[str, bytes]]:
+    """The project's folder name and its files (path inside the folder → bytes). With `pages` (a dashboard's),
+    the report holds them as Power BI pages; `title` names the project after the dashboard."""
     transform.apply_all(con, project) if transform.needs_apply(project) else None
     found = model.tables(con, project)
     state = model.state(project)
-    name = safe_name(project["name"])
+    name = safe_name(title or project["name"])
     names = {table_id: t.name for table_id, t in found.items()}
     hidden = {(h["table"], h["column"]) for h in state.get("hidden", [])}
     files: dict[str, bytes] = {}
@@ -175,11 +177,14 @@ def build(con, project: dict) -> tuple[str, dict[str, bytes]]:
         "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definitionProperties/2.0.0/schema.json",
         "version": "4.0", "datasetReference": {"byPath": {"path": f"../{name}.SemanticModel"}}})
     files[f"{report}/.platform"] = json_bytes(platform("Report", project["name"]))
-    files.update(report_files(report))
+    measure_table = {m["name"]: names[home] for home, ms in homes.items() if home in names for m in ms}
+    report_part, notes = report_files(report, pages or [], measure_table, names)
+    files.update(report_part)
     files[f"{name}.pbip"] = json_bytes({
         "$schema": "https://developer.microsoft.com/json-schemas/fabric/pbip/pbipProperties/1.0.0/schema.json",
         "version": "1.0", "artifacts": [{"report": {"path": report}}], "settings": {"enableAutoRecovery": True}})
-    files["README.txt"] = readme(name, project, len(measures)).encode()
+    files["README.txt"] = (readme(name, project, len(measures)) + (
+        "\nThe report has the dashboard's pages. Left out:\n" + "".join(f"- {n}\n" for n in notes) if notes else "")).encode()
     return name, files
 
 
@@ -196,10 +201,17 @@ def platform(kind: str, display: str) -> dict:
             "metadata": {"type": kind, "displayName": display}, "config": {"version": "2.0", "logicalId": tag()}}
 
 
-def report_files(report: str) -> dict[str, bytes]:
-    """One empty page, so Power BI Desktop opens the project. Dashboards as report pages come later."""
-    page = uuid.uuid4().hex[:20]
+def report_files(report: str, pages: list[dict], measure_table: dict[str, str],
+                 table_names: dict[str, str]) -> tuple[dict[str, bytes], list[str]]:
+    """The report: a dashboard's pages as Power BI pages, or one empty page (Power BI Desktop needs one)."""
     base = f"{report}/definition"
+    page_part, order, notes = pbi_report.page_files(base, pages, measure_table, table_names)
+    if not order:
+        page = uuid.uuid4().hex[:20]
+        order = [page]
+        page_part = {f"{base}/pages/{page}/page.json": json_bytes({
+            "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/page/2.1.0/schema.json",
+            "name": page, "displayName": "Page 1", "displayOption": "FitToPage", "height": 720, "width": 1280})}
     return {
         f"{base}/version.json": json_bytes({
             "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/versionMetadata/1.0.0/schema.json",
@@ -217,11 +229,9 @@ def report_files(report: str) -> dict[str, bytes]:
         f"{report}/StaticResources/RegisteredResources/{THEME_FILE}": json_bytes(THEME),
         f"{base}/pages/pages.json": json_bytes({
             "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/pagesMetadata/1.0.0/schema.json",
-            "pageOrder": [page], "activePageName": page}),
-        f"{base}/pages/{page}/page.json": json_bytes({
-            "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/page/2.1.0/schema.json",
-            "name": page, "displayName": "Page 1", "displayOption": "FitToPage", "height": 720, "width": 1280}),
-    }
+            "pageOrder": order, "activePageName": order[0]}),
+        **page_part,
+    }, notes
 
 
 def readme(name: str, project: dict, measures: int) -> str:

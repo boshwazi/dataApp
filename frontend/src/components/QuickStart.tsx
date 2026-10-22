@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Upload } from "lucide-react";
 import { api } from "../api";
 import { useToast } from "./ui";
+import { t } from "../i18n";
 
 const ACCEPT = ".csv,.tsv,.txt,.xlsx,.xlsm";
 
@@ -18,9 +19,9 @@ export function QuickStart() {
     if (!files.length || busy) return;
     const name = files[0].name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim() || "My data";
     try {
-      setBusy("Creating the dataset…");
+      setBusy(t("Creating the dataset…"));
       const dataset = await api.createDataset(name);
-      setBusy("Uploading…");
+      setBusy(t("Uploading…"));
       const added = await api.uploadFiles(dataset.id, files);
       if (!added.added.length) {
         toast(added.errors[0] ?? "None of those files could be read.", "error");
@@ -54,13 +55,13 @@ export function QuickStart() {
     >
       <Upload size={20} aria-hidden="true" />
       <div>
-        <h2>Drop a spreadsheet and get a dashboard</h2>
+        <h2>{t("Drop a spreadsheet and get a dashboard")}</h2>
         <p className="muted small">
-          CSV or Excel. Autopilot cleans it, models it and designs a draft dashboard; you can change any step later.
+          {t("CSV or Excel. Autopilot cleans it, models it and designs a draft dashboard; you can change any step later.")}
         </p>
       </div>
       <button className="secondary" onClick={() => input.current?.click()} disabled={!!busy}>
-        {busy ?? "Choose files"}
+        {busy ?? t("Choose files")}
       </button>
       <input
         ref={input}

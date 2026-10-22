@@ -5,7 +5,7 @@ from collections.abc import Callable
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from . import activity, ai_model, guidance, llm, model, transform
+from . import activity, ai_model, extend, guidance, llm, model, transform
 from .projects import NotFound, ProjectStore
 from .settings import ProviderSettings, SettingsStore
 
@@ -195,7 +195,10 @@ def build_router(
 
     @router.delete("/relationships/{rel_id}")
     def remove_relationship(project_id: str, rel_id: str):
-        return respond(project_id, undoable(lambda p, con: model.state(p)["relationships"].remove(item(p, "relationships", rel_id)),
+        def change(p, con):
+            extend.refuse_inherited(p, "relationships", rel_id)
+            model.state(p)["relationships"].remove(item(p, "relationships", rel_id))
+        return respond(project_id, undoable(change,
                                             lambda p: f"Removed relationship {rel_label(p, rel_id)}"))
 
     @router.post("/measures")
@@ -217,8 +220,10 @@ def build_router(
 
     @router.put("/measures/{measure_id}")
     def update_measure(project_id: str, measure_id: str, body: MeasureBody):
-        return respond(project_id, undoable(lambda p, con: model.update_measure(con, p, measure_id, body.model_dump()),
-                                            f"Changed measure {body.name}"))
+        def change(p, con):
+            extend.refuse_inherited(p, "measures", measure_id)
+            model.update_measure(con, p, measure_id, body.model_dump())
+        return respond(project_id, undoable(change, f"Changed measure {body.name}"))
 
     @router.put("/layout")
     def set_layout(project_id: str, body: LayoutBody):
@@ -226,7 +231,10 @@ def build_router(
 
     @router.delete("/measures/{measure_id}")
     def remove_measure(project_id: str, measure_id: str):
-        return respond(project_id, undoable(lambda p, con: model.state(p)["measures"].remove(item(p, "measures", measure_id)),
+        def change(p, con):
+            extend.refuse_inherited(p, "measures", measure_id)
+            model.state(p)["measures"].remove(item(p, "measures", measure_id))
+        return respond(project_id, undoable(change,
                                             lambda p: "Removed measure " + item(p, "measures", measure_id)["name"]))
 
     @router.put("/date-table")
