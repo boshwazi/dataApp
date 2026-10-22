@@ -425,7 +425,8 @@ export type MeasureFormat = { type: "number" | "integer" | "currency" | "percent
 
 export type Aggregation = "sum" | "average" | "count" | "count_distinct" | "min" | "max";
 
-export type MeasureFilter = { column: string; operator: string; value?: unknown; values?: unknown[] };
+/** Only rows where…: on the measure's own table, or on a related `table`. */
+export type MeasureFilter = { table?: string; column: string; operator: string; value?: unknown; values?: unknown[] };
 
 /** Time intelligence: a measure worked out year to date, last year, over rolling months... */
 export type TimeCalc = "ytd" | "qtd" | "mtd" | "prior_year" | "prior_year_ytd" | "rolling";

@@ -43,7 +43,7 @@ def translate(dax, measures=None, name="M"):
      {"filters": [{"column": "Status", "operator": "equals", "value": "Paid"},
                   {"column": "Qty", "operator": "at_least", "value": 2}]}),
     ('CALCULATE(COUNTROWS(Sales), KEEPFILTERS(Sales[Region] IN {"North", "South"}), ISBLANK(Sales[Status]))',
-     {"filters": [{"column": "Region", "operator": "in", "value": ["North", "South"]},
+     {"filters": [{"column": "Region", "operator": "in", "values": ["North", "South"]},
                   {"column": "Status", "operator": "is_blank"}]}),
 ])
 def test_common_dax_patterns_become_catalogue_measures(dax, expected):
@@ -65,7 +65,6 @@ def test_formulas_and_measure_references():
 @pytest.mark.parametrize("dax, why", [
     ('IF([Total] > 1, "a", "b")', "a condition (IF)"),
     ("CALCULATE([Total], PARALLELPERIOD('Date'[Date], -1, YEAR))", "time intelligence"),
-    ('CALCULATE(SUM(Sales[Amount]), Customers[Segment] = "Retail")', "filters on Customers"),
     ("VAR x = 1 RETURN x", "variables"),
 ])
 def test_what_cannot_be_converted_says_why(dax, why):
@@ -76,7 +75,7 @@ def test_what_cannot_be_converted_says_why(dax, why):
 
 def test_catalogue_measures_become_dax():
     measure = {"kind": "aggregate", "aggregation": "sum", "expression": "[Qty] * [Price]",
-               "filters": [{"column": "Status", "operator": "in", "value": ["Paid", "Open"]}]}
+               "filters": [{"column": "Status", "operator": "in", "values": ["Paid", "Open"]}]}
     assert pbi_dax.from_measure(measure, "Sales") == \
         "CALCULATE(SUMX('Sales', ('Sales'[Qty] * 'Sales'[Price])), KEEPFILTERS('Sales'[Status] IN {\"Paid\", \"Open\"}))"
     assert pbi_dax.from_measure({"kind": "formula", "expression": "[A] / [B]"}, None) == "DIVIDE([A], [B])"

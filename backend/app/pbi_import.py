@@ -233,6 +233,12 @@ def _add_measure(con, project, found, proposal: dict, names: dict[str, str], for
         if not ours:
             raise model.ModelError(f"Its table {proposal['table']} isn't loaded yet.")
         proposal["table"] = ours
+        for item in proposal.get("filters") or []:
+            if item.get("table"):
+                related = names.get(item["table"])
+                if not related:
+                    raise model.ModelError(f"It filters on {item['table']}, which isn't loaded yet.")
+                item["table"] = related
     proposal["format"] = pbi_dax.format_from(format_string)
     proposal["reason"] = "Imported from Power BI."
     model.add_measure(con, project, proposal, "Approved")

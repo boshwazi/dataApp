@@ -9,6 +9,7 @@ import {
   type Measure,
   type MeasureBody,
   type MeasureCheck,
+  type MeasureFilter,
   type MeasureFormat,
   type ModelRun,
   type ModelState,
@@ -800,6 +801,93 @@ function Diagram(props: {
   );
 }
 
+// Measure filters: only rows where a column, on this table or a related one, meets a condition.
+
+const OPERATORS: { value: string; label: string; needs: "value" | "values" | null }[] = [
+  { value: "equals", label: "is", needs: "value" },
+  { value: "not_equals", label: "is not", needs: "value" },
+  { value: "in", label: "is one of", needs: "values" },
+  { value: "not_in", label: "is none of", needs: "values" },
+  { value: "greater_than", label: "is more than", needs: "value" },
+  { value: "less_than", label: "is less than", needs: "value" },
+  { value: "at_least", label: "is at least", needs: "value" },
+  { value: "at_most", label: "is at most", needs: "value" },
+  { value: "is_blank", label: "is blank", needs: null },
+  { value: "is_not_blank", label: "is not blank", needs: null },
+];
+
+function FilterEditor(props: { tables: ModelTable[]; home: string | null; filters: MeasureFilter[]; onChange: (f: MeasureFilter[]) => void }) {
+  const { tables, home, filters, onChange } = props;
+  const [column, setColumn] = useState("");
+  const [operator, setOperator] = useState("equals");
+  const [value, setValue] = useState("");
+  const name = (id?: string) => tables.find((t) => t.id === (id ?? home))?.name ?? id ?? "";
+  const options = tables.flatMap((t) => t.columns.map((c) => ({ key: `${t.id}\u0000${c.name}`, label: `${t.name}[${c.name}]`, table: t.id, column: c.name, type: c.type })));
+  const picked = options.find((o) => o.key === column);
+  const needs = OPERATORS.find((o) => o.value === operator)?.needs ?? null;
+  const typed = (v: string) => (picked && (picked.type === "integer" || picked.type === "decimal") && v.trim() !== "" && !Number.isNaN(Number(v)) ? Number(v) : v.trim());
+
+  function add() {
+    if (!picked) return;
+    const filter: MeasureFilter = { column: picked.column, operator, ...(picked.table !== home ? { table: picked.table } : {}) };
+    if (needs === "value") filter.value = typed(value);
+    if (needs === "values") filter.values = value.split(",").map(typed).filter((v) => v !== "");
+    onChange([...filters, filter]);
+    setValue("");
+  }
+
+  return (
+    <div className="prop filter-editor">
+      <span>Only rows where</span>
+      {filters.length === 0 && <p className="muted small">Every row counts.</p>}
+      <ul>
+        {filters.map((f, i) => (
+          <li key={i} className="pill">
+            {name(f.table)}[{f.column}] {OPERATORS.find((o) => o.value === f.operator)?.label ?? f.operator}{" "}
+            {f.values ? f.values.join(", ") : f.value === undefined ? "" : String(f.value)}
+            <button className="pill-x" aria-label="Remove filter" onClick={() => onChange(filters.filter((_, j) => j !== i))}>
+              <X size={11} />
+            </button>
+          </li>
+        ))}
+      </ul>
+      <div className="filter-add">
+        <select value={column} onChange={(e) => setColumn(e.target.value)} aria-label="Filter column">
+          <option value="">Add a condition…</option>
+          {options.map((o) => (
+            <option key={o.key} value={o.key}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        {picked && (
+          <>
+            <select value={operator} onChange={(e) => setOperator(e.target.value)} aria-label="Condition">
+              {OPERATORS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            {needs && (
+              <input
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && add()}
+                placeholder={needs === "values" ? "Values, comma separated" : "Value"}
+                aria-label="Value"
+              />
+            )}
+            <button className="secondary small-button" onClick={add} disabled={!!needs && !value.trim()}>
+              Add
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Properties
 
 const FORMAT_LABEL: Record<MeasureFormat["type"], string> = { number: "Number", integer: "Whole number", currency: "Currency", percent: "Percent" };
@@ -904,15 +992,8 @@ function Properties(props: {
             <span>Description</span>
             <textarea rows={3} value={draft.description} onChange={(e) => onDraft({ ...draft, description: e.target.value })} placeholder="What it means, in plain words" />
           </label>
-          {parsed.kind === "aggregate" && draft.filters.length > 0 && (
-            <div className="prop">
-              <span>Only rows where</span>
-              <p className="small">
-                {draft.filters
-                  .map((f) => `${f.column} ${f.operator.replace(/_/g, " ")} ${f.values ? f.values.join(", ") : f.value ?? ""}`.trim())
-                  .join(", and ")}
-              </p>
-            </div>
+          {parsed.kind === "aggregate" && (
+            <FilterEditor tables={state.tables} home={draft.table} filters={draft.filters} onChange={(filters) => onDraft({ ...draft, filters })} />
           )}
           <p className="muted small">
             Write <code>SUM([Column])</code>, <code>AVERAGE( )</code>, <code>COUNTROWS()</code>, <code>DISTINCTCOUNT( )</code>, <code>MIN( )</code> or <code>MAX( )</code> over the home table's columns, or a formula over other measures such as <code>[Revenue] / [Orders]</code>. Over time: <code>YTD([Revenue])</code>, <code>QTD( )</code>, <code>MTD( )</code>, <code>LASTYEAR([Revenue])</code>, <code>LASTYEARYTD( )</code> or <code>ROLLING([Revenue], 3)</code>; these need the date table.

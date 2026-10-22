@@ -62,7 +62,7 @@ def table_tmdl(table, measures: list[dict], names: dict, hidden: set, is_date: b
     out.append("\n")
     for m in measures:
         out.append(doc(m.get("description", ""), "\t"))
-        dax = pbi_dax.from_measure(m, names.get(m.get("table")))
+        dax = pbi_dax.from_measure(m, names.get(m.get("table")), names)
         out.append(f"\tmeasure {quote(m['name'])} = {dax}\n")
         out.append(f"\t\tformatString: {pbi_dax.format_string(m.get('format') or {})}\n")
         out.append(f"\t\tlineageTag: {tag()}\n\n")

@@ -361,7 +361,13 @@ def check_measure(found: dict[str, Table], measures: list[dict], measure: dict) 
             if (not single or measure["aggregation"] in ("sum", "average")) and any(c.type not in NUMERIC for c in columns):
                 raise ModelError(f"Measure '{measure['name']}': arithmetic needs number columns.")
         for item in measure.setdefault("filters", []):
-            filter_sql(table, "a0", item)
+            # A filter may name a related table: Revenue where customers[Segment] = Retail.
+            other = find_table(found, item["table"]) if item.get("table") else table
+            if other.id == table.id:
+                item.pop("table", None)
+            else:
+                item["table"] = other.id
+            filter_sql(other, "a0", item)
     elif kind == "formula":
         tree = measure_tree(measure)
         names = {m["name"].lower(): m for m in measures if m["id"] != measure["id"]}
@@ -518,7 +524,8 @@ def describe_measure(measure: dict, names: dict[str, str]) -> str:
         parts = []
         for f in measure["filters"]:
             value = f.get("values") if f.get("operator") in ("in", "not_in") else f.get("value")
-            parts.append(f"{f.get('column')} {f.get('operator', '').replace('_', ' ')} {value}")
+            column = f"{names.get(f['table'], f['table'])}[{f.get('column')}]" if f.get("table") else f.get("column")
+            parts.append(f"{column} {f.get('operator', '').replace('_', ' ')} {value}")
         text += " where " + " and ".join(parts)
     return text
 
@@ -596,6 +603,14 @@ def window_range(calc: str, months: int | None) -> tuple[str, str]:
     return f"CAST({start} AS DATE)", f"CAST({end} AS DATE)"
 
 
+def measure_filter_sql(found, base: Table, item: dict, alias_for) -> str:
+    """A measure's own filter, on its table or a table its relationships reach."""
+    if item.get("table") and item["table"] != base.id:
+        table = find_table(found, item["table"])
+        return filter_sql(table, alias_for(table), item)
+    return filter_sql(base, "a0", item)
+
+
 def aggregate_sql(found, relationships, measure: dict, group_by: list[dict], filters: list[dict],
                   window: tuple[str, int | None] | None = None) -> str:
     """One aggregation, split by `group_by` and filtered. With a `window` (time intelligence), each date
@@ -626,7 +641,7 @@ def aggregate_sql(found, relationships, measure: dict, group_by: list[dict], fil
         table = find_table(found, item.get("table"))
         column = table.column(item.get("column"))
         groups.append(f"{alias_for(table)}.{quote(column.name)} AS g{i}")
-    conditions = [filter_sql(base, "a0", f) for f in measure.get("filters") or []]
+    conditions = [measure_filter_sql(found, base, f, alias_for) for f in measure.get("filters") or []]
     for item in filters:
         table = find_table(found, item.get("table"))
         conditions.append(filter_sql(table, alias_for(table), item))
@@ -687,7 +702,9 @@ def windowed_sql(found, relationships, measure: dict, group_by: list[dict], filt
             groups.append(f"ctx.dg{i} AS g{i}")
         else:
             groups.append(f"{alias_for(table)}.{quote(column.name)} AS g{i}")
-    date_conditions, conditions = [], [filter_sql(base, "a0", f) for f in measure.get("filters") or []]
+    if any(f.get("table") == DATE_ID for f in measure.get("filters") or []):
+        raise ModelError(f"'{measure['name']}' is filtered by the date table, so it can't be worked out {label} yet.")
+    date_conditions, conditions = [], [measure_filter_sql(found, base, f, alias_for) for f in measure.get("filters") or []]
     for item in filters:
         table = find_table(found, item.get("table"))
         if table.id == DATE_ID:

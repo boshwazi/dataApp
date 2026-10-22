@@ -510,3 +510,30 @@ def test_power_bi_time_over_an_aggregation_and_inside_arithmetic():
         "Growth", "DIVIDE([Revenue] - CALCULATE([Revenue], SAMEPERIODLASTYEAR('Date'[Date])), "
                   "CALCULATE([Revenue], SAMEPERIODLASTYEAR('Date'[Date])))", ctx)
     assert growth["kind"] == "formula" and [p["calc"] for p in parts] == ["prior_year", "prior_year"]
+
+
+# Measure filters on related tables (M12)
+
+
+def test_measures_filter_on_related_tables(p):
+    retail = {"name": "Retail revenue", "kind": "aggregate", "table": "sales", "aggregation": "sum", "expression": "[qty] * [price]",
+              "filters": [{"table": "customers", "column": "segment", "operator": "equals", "value": "Retail"}]}
+    shown = ok(p.api.post(f"{p.dataset}/model/measures", json=retail))
+    measure = next(m for m in shown["measures"] if m["name"] == "Retail revenue")
+    assert measure["value"] == 50 and "customers[segment] equals Retail" in measure["label"]
+    assert by(p, "Retail revenue", ("Date", "Year")) == {2024: 30, 2025: 20}
+    ok(time_measure(p, "Retail revenue LY", "Retail revenue", "prior_year"))
+    assert by(p, "Retail revenue LY", ("Date", "Year"))[2025] == 30
+    bad = p.api.post(f"{p.dataset}/model/measures", json={**retail, "name": "X", "filters": [
+        {"table": "customers", "column": "nope", "operator": "equals", "value": "Retail"}]})
+    assert bad.status_code == 400
+
+
+def test_power_bi_filters_on_related_tables_import_and_export():
+    from app import pbi_dax
+    ctx = pbi_dax.Context({"Sales": ["Amount"], "Customers": ["Segment"]}, {})
+    proposal, _ = pbi_dax.to_measure("Retail", "CALCULATE(SUM(Sales[Amount]), Customers[Segment] IN {\"Retail\", \"SME\"})", ctx)
+    assert proposal["filters"] == [{"column": "Segment", "operator": "in", "values": ["Retail", "SME"], "table": "Customers"}]
+    dax = pbi_dax.from_measure({**proposal, "table": "s1", "filters": [{**proposal["filters"][0], "table": "c1"}]},
+                               "Sales", {"s1": "Sales", "c1": "Customers"})
+    assert dax == "CALCULATE(SUM('Sales'[Amount]), KEEPFILTERS('Customers'[Segment] IN {\"Retail\", \"SME\"}))"

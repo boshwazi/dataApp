@@ -276,7 +276,7 @@ def _filter(ctx: Context, node, table: str) -> dict:
         if kind == "in":
             if right[0] != "set" or not all(i[0] in ("str", "num", "bool") for i in right[1]):
                 raise Untranslatable("Its IN filter isn't a fixed list of values.")
-            return _same_table({"column": c, "operator": "in", "value": [_constant(i) for i in right[1]]}, t, table)
+            return _same_table({"column": c, "operator": "in", "values": [_constant(i) for i in right[1]]}, t, table)
         if right[0] not in ("str", "num", "bool"):
             raise Untranslatable("Its filter compares with something other than a fixed value.")
         return _same_table({"column": c, "operator": COMPARE[kind], "value": _constant(right)}, t, table)
@@ -291,9 +291,8 @@ def _constant(node):
 
 
 def _same_table(item: dict, filter_table: str, table: str) -> dict:
-    if filter_table != table:
-        raise Untranslatable(f"It filters on {filter_table}, but measures can only filter their own table ({table}) so far.")
-    return item
+    """A filter on the measure's own table, or on a related one (named, for the importer to map)."""
+    return item if filter_table == table else {**item, "table": filter_table}
 
 
 def _aggregate(ctx: Context, node) -> dict | None:
@@ -535,8 +534,9 @@ TIME_DAX = {
 }
 
 
-def from_measure(measure: dict, table_name: str | None) -> str:
-    """DAX for a catalogue measure. `table_name` is the aggregate's table as Power BI will call it."""
+def from_measure(measure: dict, table_name: str | None, names: dict[str, str] | None = None) -> str:
+    """DAX for a catalogue measure. `table_name` is the aggregate's table as Power BI will call it;
+    `names` maps table ids to Power BI names, for filters on related tables."""
     if measure["kind"] == "formula":
         return _formula_dax(model_expr.parse(measure["expression"]))
     if measure["kind"] == "time":
@@ -560,8 +560,9 @@ def from_measure(measure: dict, table_name: str | None) -> str:
             inner = f"{fn}({quote_table(table_name)}, {row})"
     filters = []
     for item in measure.get("filters") or []:
-        col = column(table_name, item["column"])
-        op, value = item["operator"], item.get("value")
+        col = column((names or {}).get(item["table"], item["table"]) if item.get("table") else table_name, item["column"])
+        op = item["operator"]
+        value = item.get("values", item.get("value")) if op in ("in", "not_in") else item.get("value")
         if op == "is_blank":
             filters.append(f"KEEPFILTERS(ISBLANK({col}))")
         elif op == "is_not_blank":
