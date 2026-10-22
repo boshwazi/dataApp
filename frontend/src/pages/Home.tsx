@@ -4,6 +4,7 @@ import { BadgeCheck, Database, LayoutDashboard, Plus, Search, Trash2 } from "luc
 import { api, dashboardsApi, type DashboardSummary, type Dataset, type ProviderSettings } from "../api";
 import { EmptyState, Skeleton, useCrumbs, useDialogs, useToast } from "../components/ui";
 import { useAccount } from "../components/account";
+import { QuickStart } from "./Autopilot";
 
 type Choice = "existing" | "new";
 type Show = "all" | "datasets" | "dashboards";
@@ -130,6 +131,8 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
           )}
         </div>
       )}
+
+      {creator && connected && show === "all" && <QuickStart />}
 
       {creating && (
         <NewDashboard

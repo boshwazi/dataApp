@@ -342,6 +342,7 @@ function MeasureLeaf({ measure, on, onSelect }: { measure: Measure; on: boolean;
         <span className="type-tag type-tag-measure">fx</span>
         <span className="tree-name">{measure.name}</span>
         {measure.status === "AI" && <span className="badge ai">AI</span>}
+        {measure.status !== "AI" && measure.by === "autopilot" && <span className="badge autopilot-badge" title="Added by Autopilot">Autopilot</span>}
       </button>
     </li>
   );

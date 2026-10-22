@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { Sparkles } from "lucide-react";
 import { api, powerbiApi, type AddResult, type ColumnProfile, type LinkCatalogue, type Preview, type Source, type SourceSummary } from "../api";
 import { useDialogs } from "../components/ui";
 import { PowerBIPanel } from "../components/PowerBIPanel";
@@ -96,6 +97,16 @@ export function GetData() {
             {m}
           </p>
         ))}
+        {hasKey && project.sources.length > 0 && (
+          <div className="autopilot-offer">
+            <p className="small">
+              <strong>Rather not do each step?</strong> Autopilot cleans, models and publishes this data, then designs a draft dashboard.
+            </p>
+            <Link className="button secondary" to="../autopilot">
+              <Sparkles size={15} aria-hidden="true" /> Do it for me
+            </Link>
+          </div>
+        )}
         {!hasKey && (
           <p className="muted small">Add an API key in Settings and the AI will describe each table as it loads.</p>
         )}

@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-
 import { Layout } from "./Layout";
 import { Dataset } from "./pages/Dataset";
 import { GetData } from "./pages/GetData";
+import { Autopilot } from "./pages/Autopilot";
 import { Home } from "./pages/Home";
 import { Invite } from "./pages/Invite";
 import { Members } from "./pages/Members";
@@ -78,6 +79,7 @@ createRoot(document.getElementById("root")!).render(
             <Route path="model" element={<Model />} />
             <Route path="refresh" element={<Refresh />} />
             <Route path="lineage" element={<Lineage />} />
+            <Route path="autopilot" element={<Autopilot />} />
           </Route>
           <Route
             path="dashboards/:dashboardId"

@@ -287,8 +287,8 @@ choose from, the data-platform look, a sign-in redesign and onboarding.
 
 Phase 1 (M0 to M10b) is done, with M11, M11b and most of M12 and M13. The order to Gate 1 (approved
 22 October 2026) is in [PHASE2_PLAN.md](PHASE2_PLAN.md):
-- M12b AI engines and custom instructions
-- M21 Autopilot (data straight to dashboard)
+- M12b AI engines and custom instructions (done)
+- M21 Autopilot (data straight to dashboard) (done)
 - M24 Refresh you can rely on
 - M22 Semantic models
 - M23 Dashboard templates

@@ -888,6 +888,11 @@ function VisualPane(props: { dashboardId: string; visual: Visual; fields: Report
         </button>
       </div>
       <div className="props">
+        {visual.status !== "AI" && visual.by === "autopilot" && (
+          <p className="muted small">
+            <span className="ai-tag autopilot-tag">Added by Autopilot</span> {visual.reason}
+          </p>
+        )}
         {visual.status === "AI" && (
           <div className="suggest-card">
             <span className="ai-tag">Suggested by AI</span>

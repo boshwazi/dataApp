@@ -280,4 +280,5 @@ def build_router(
             **view(project),
         }
 
+    router.calls = {"ai_clean": ai_clean, "approve_steps": approve_all}  # for Autopilot
     return router

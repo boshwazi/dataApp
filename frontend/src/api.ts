@@ -302,6 +302,25 @@ export const api = {
   deleteSource: (pid: string, sid: string) => request<unknown>(source(pid, sid), { method: "DELETE" }),
   reprofile: (pid: string, sid: string) => request<Source>(`${source(pid, sid)}/profile`, { method: "POST" }),
   describe: (pid: string, sid: string) => request<Source>(`${source(pid, sid)}/describe`, { method: "POST" }),
+  startAutopilot: (pid: string, dashboardName?: string) =>
+    request<AutopilotRun>(`${project(pid)}/autopilot`, json("POST", { dashboard_name: dashboardName ?? null })),
+  autopilot: (pid: string) => request<{ run: AutopilotRun | null }>(`${project(pid)}/autopilot`),
+};
+
+// Autopilot: the whole pipeline in one go
+
+export type AutopilotStepKey = "read" | "clean" | "model" | "publish" | "dashboard";
+
+export type AutopilotRun = {
+  id: string;
+  status: "running" | "done" | "failed" | "stopped";
+  started_at: string;
+  finished_at: string | null;
+  error: string | null;
+  fix_at: "get-data" | "transform" | "model" | null;
+  dashboard_id: string | null;
+  dashboard_name: string;
+  steps: { key: AutopilotStepKey; label: string; status: "pending" | "running" | "done" | "failed"; detail: string }[];
 };
 
 // Transform
@@ -314,6 +333,7 @@ export type Step = {
   params: Record<string, unknown>;
   reason: string;
   status: "AI" | "Approved";
+  by?: "autopilot";
   added_at: string;
   label: string;
 };
@@ -413,6 +433,7 @@ export type Relationship = {
   to_name: string;
   active: boolean;
   status: "AI" | "Approved";
+  by?: "autopilot";
   reason: string;
   error: string | null;
   checks: {
@@ -453,6 +474,7 @@ export type Measure = {
   description: string;
   reason: string;
   status: "AI" | "Approved";
+  by?: "autopilot";
   format: MeasureFormat;
   value: number | null;
   error: string | null;
@@ -580,6 +602,7 @@ export type Visual = {
   drill_next?: string | null;
   insight: { text: string; check: { verified: boolean; unmatched: number[] } } | null;
   status: "AI" | "Approved";
+  by?: "autopilot";
   reason: string;
   data: KpiData | ChartData | null;
   error: string | null;

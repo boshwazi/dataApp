@@ -29,6 +29,8 @@ from .model_api import build_router as build_model_router
 from .dashboards import DashboardStore, migrate
 from .dashboards_api import build_router as build_dashboards_router
 from .chat_api import build_router as build_chat_router
+from .autopilot import Autopilot, build_router as build_autopilot_router
+from .jobs import Jobs
 from .workspaces_api import build_router as build_workspaces_router
 from .settings import ProviderSettings, SettingsStore, public_view
 
@@ -118,10 +120,18 @@ def create_app(
     app.state.refresh_job = (projects, boards, fetch_url, members)
     app.add_middleware(AuthGuard, config=auth, store=members)
     app.include_router(build_workspaces_router(members, auth, admin))
-    app.include_router(build_router(projects, boards, store, client_factory, fetch_url, SAMPLES_DIR))
-    app.include_router(build_transform_router(projects, store, client_factory))
-    app.include_router(build_model_router(projects, store, client_factory))
-    app.include_router(build_dashboards_router(projects, boards, store, client_factory))
+    routers = [
+        build_router(projects, boards, store, client_factory, fetch_url, SAMPLES_DIR),
+        build_transform_router(projects, store, client_factory),
+        build_model_router(projects, store, client_factory),
+        build_dashboards_router(projects, boards, store, client_factory),
+    ]
+    for router in routers:
+        app.include_router(router)
+    # Autopilot runs the same endpoints in order, in the background.
+    calls = {name: fn for router in routers for name, fn in router.calls.items()}
+    app.state.jobs = Jobs()
+    app.include_router(build_autopilot_router(Autopilot(projects, boards, store, app.state.jobs, calls)))
     app.include_router(build_chat_router(projects, boards, store, client_factory, fetch_url))
 
     @app.get("/api/health")

@@ -17,6 +17,7 @@ import json
 import re
 import shutil
 import threading
+import time
 import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -74,6 +75,17 @@ def load_sql(types: dict[str, str] | None) -> str:
     return "SELECT " + ", ".join(f"CAST({quote(c)} AS {t}) AS {quote(c)}" for c, t in types.items()) + " FROM incoming"
 
 
+def retrying(action, attempts: int = 20):
+    """Windows refuses to replace a file another thread is reading (and to read it mid-replace): wait and retry."""
+    for attempt in range(attempts):
+        try:
+            return action()
+        except PermissionError:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(0.01 * (attempt + 1))
+
+
 class FolderStore:
     """JSON records kept one per folder, with a lock so concurrent requests don't overwrite each other."""
 
@@ -111,7 +123,7 @@ class FolderStore:
         path = self._folder(record_id) / self.filename
         if not path.exists():
             raise NotFound(f"{self.label} not found.")
-        return json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(retrying(lambda: path.read_text(encoding="utf-8")))
 
     def save(self, record: dict) -> None:
         record["updated_at"] = now()
@@ -125,7 +137,7 @@ class FolderStore:
         tmp = folder / f"{self.filename}.tmp"
         with self._lock:
             tmp.write_text(json.dumps(record, indent=2), encoding="utf-8")
-            tmp.replace(folder / self.filename)
+            retrying(lambda: tmp.replace(folder / self.filename))
 
     @contextmanager
     def edit(self, record_id: str):

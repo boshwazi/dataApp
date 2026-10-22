@@ -545,4 +545,8 @@ def build_router(
                     "as_of": report.as_of(con, frozen),
                     "scope": report.describe_filters(con, frozen, project[model.PAGE_FILTERS])}
 
+    router.calls = {  # for Autopilot
+        "create_dashboard": lambda name, dataset_id: create(NewDashboardBody(name=name, dataset_id=dataset_id)),
+        "ai_report": ai_report_pass, "approve_report": approve,
+    }
     return router

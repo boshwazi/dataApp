@@ -303,4 +303,5 @@ def build_router(
         body = respond(project_id, apply)
         return {**result, **body}
 
+    router.calls = {"ai_model": ai_model_pass, "approve_model": approve}  # for Autopilot
     return router

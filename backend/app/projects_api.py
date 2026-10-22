@@ -509,4 +509,5 @@ def build_router(
         ai["model"] = settings.model
         return store.set_ai(project_id, source_id, ai)
 
+    router.calls = {"describe": describe, "publish": publish}  # for Autopilot
     return router

@@ -469,6 +469,7 @@ function QueryWorkspace({ projectId, query, others, canUndo, hasKey, cleaning, r
                   <span className="step-n">{n}</span>
                   <span className="step-body">
                     {s.status === "AI" && <span className="ai-tag">Suggested by AI</span>}
+                    {s.status !== "AI" && s.by === "autopilot" && <span className="ai-tag autopilot-tag">Added by Autopilot</span>}
                     <span className="step-title">{s.label}</span>
                     {s.reason && <span className="step-detail">{s.reason}</span>}
                     {warnings.map((w) => (
