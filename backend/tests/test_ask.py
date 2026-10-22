@@ -101,3 +101,26 @@ def test_ask_answers_for_the_slicer_selection(tmp_path):
 
 
 SLICED = [{"table": "customers", "column": "segment", "operator": "in", "values": ["Retail"]}]
+
+
+# Custom instructions (M12b)
+
+
+def test_instructions_reach_every_ai_prompt(tmp_path):
+    p, ai = published_project(
+        tmp_path,
+        {"queries": [{"measures": ["Revenue"]}]},
+        {"answer": "Revenue is RM 64."},
+    )
+    ok(p.api.put("/api/workspaces/current/instructions", json={"instructions": "Our financial year starts in April."}))
+    ok(p.api.put(f"{p.dataset}/instructions", json={"instructions": "Revenue excludes tax."}))
+    ok(p.api.put(f"{p.base}/instructions", json={"instructions": "Call customers clients."}))
+    assert ok(p.api.get("/api/workspaces/current/instructions"))["instructions"] == "Our financial year starts in April."
+    assert ok(p.api.get(p.base))["instructions"] == "Call customers clients."
+    ok(ask(p, "What's revenue?"))
+    for call in ai.calls:
+        system = call["messages"][0]["content"]
+        assert "financial year starts in April" in system and "excludes tax" in system and "clients" in system
+        assert system.index("Instructions from the people") > 100  # after the agent's own rules
+    too_long = p.api.put(f"{p.dataset}/instructions", json={"instructions": "x" * 2001})
+    assert too_long.status_code == 400 and "2,000" in too_long.json()["detail"]

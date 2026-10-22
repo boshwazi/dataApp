@@ -27,7 +27,7 @@ log = logging.getLogger(__name__)
 PUBLIC = {"/api/health", "/api/auth/config"}
 # Signed in, but no workspace needed: who am I, create a workspace, accept an invite, AI provider settings.
 ACCOUNT = re.compile(r"^/api/(me|workspaces|invites/[^/]+(/accept)?|settings(/test)?)$")
-VIEWER_GET = re.compile(r"^/api/(dashboards|dashboards/[0-9a-f]{12}|workspaces/current)$")
+VIEWER_GET = re.compile(r"^/api/(dashboards|dashboards/[0-9a-f]{12}|dashboards/[0-9a-f]{12}/values|workspaces/current)$")
 VIEWER_POST = re.compile(r"^/api/dashboards/[0-9a-f]{12}/(ask|export/summary)$")
 ADMIN_ONLY = re.compile(r"^/api/workspaces/current/(members|invites)(/.*)?$|^/api/workspaces/current$")
 

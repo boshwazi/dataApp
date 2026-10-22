@@ -10,7 +10,7 @@ from typing import Callable
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from . import activity, ai_report, ask, dashboards, export, llm, model, publishing, report, workspaces
+from . import guidance, activity, ai_report, ask, dashboards, export, llm, model, publishing, report, workspaces
 from .dashboards import DashboardStore
 from .projects import NotFound, ProjectStore
 from .settings import ProviderSettings, SettingsStore
@@ -36,6 +36,10 @@ class VisualPatch(BaseModel):
     measures: list[str] | None = None
     group_by: list[dict] | None = None
     kpi: dict | None = None
+
+
+class InstructionsBody(BaseModel):
+    instructions: str = ""
 
 
 class LayoutBody(BaseModel):
@@ -181,6 +185,7 @@ def build_router(
             "fields": fields,
             "as_of": report.as_of(con, frozen) if frozen else None,
             "can_undo": bool(dash["draft"]["history"]),
+            "instructions": dash.get("instructions", ""),
         }
 
     def undoable(action):
@@ -270,6 +275,19 @@ def build_router(
                 return report.slicer_values(con, frozen, table, column)
             except (report.ReportError, model.ModelError) as exc:
                 raise HTTPException(400, str(exc)) from exc
+
+    @router.put("/{dashboard_id}/instructions")
+    def set_instructions(dashboard_id: str, body: InstructionsBody):
+        """What every AI working on this dashboard should know or follow (added to its system prompt)."""
+        try:
+            text = guidance.clean(body.instructions)
+            with boards.edit(dashboard_id) as dash:
+                dash["instructions"] = text
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        except NotFound as exc:
+            raise HTTPException(404, str(exc)) from exc
+        return respond(dashboard_id)
 
     @router.patch("/{dashboard_id}")
     def rename(dashboard_id: str, body: NameBody):
@@ -408,7 +426,7 @@ def build_router(
             dash = boards.get(dashboard_id)
         except NotFound as exc:
             raise HTTPException(404, str(exc)) from exc
-        client = client_factory(settings)
+        client = guidance.guided(client_factory(settings), guidance.for_dashboard(datasets, dash, None))
         # The AI calls run without holding the dashboard lock; their results are applied in locked edits.
         with opened(dash) as (dataset, frozen, con):
             if frozen is None:
@@ -481,7 +499,8 @@ def build_router(
                     except (report.ReportError, model.ModelError):
                         continue
             try:
-                bullets = export.summarise(client_factory(settings), settings.model, settings.capabilities, pages, data)
+                bullets = export.summarise(guidance.guided(client_factory(settings), guidance.for_dashboard(datasets, dash, dataset)),
+                                           settings.model, settings.capabilities, pages, data)
             except llm.AIError as exc:
                 raise HTTPException(502, f"The AI did not answer: {exc}") from exc
         return {"bullets": bullets}
@@ -516,7 +535,8 @@ def build_router(
                 raise HTTPException(400, str(exc)) from exc
             project[model.PAGE_FILTERS] = list((page or {}).get("filters") or []) + chosen
             try:
-                result = ask.ask(client_factory(settings), settings.model, settings.capabilities, con,
+                result = ask.ask(guidance.guided(client_factory(settings), guidance.for_dashboard(datasets, dash, dataset)),
+                                 settings.model, settings.capabilities, con,
                                  project, pages, question, body.history)
             except llm.AIError as exc:
                 raise HTTPException(502, f"The AI did not answer: {exc}") from exc

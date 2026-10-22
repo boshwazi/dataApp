@@ -139,6 +139,8 @@ def ask_json(
 
     Tool calling first, then JSON mode, then plain text with the JSON pulled out of the reply.
     """
+    # The user's own instructions (guidance.guided) follow the agent's rules.
+    system += getattr(client, "datawazi_instructions", "") or ""
     messages = [{"role": "system", "content": system}, {"role": "user", "content": prompt}]
     try:
         if capabilities.get("tools"):

@@ -66,6 +66,7 @@ export type Dataset = {
   id: string;
   workspace_id: string;
   name: string;
+  instructions?: string;
   created_at: string;
   updated_at: string;
   sources: SourceSummary[];
@@ -211,6 +212,9 @@ export const accountApi = {
   me: () => request<Me>("/api/me"),
   createWorkspace: (name: string) => request<WorkspaceRef>("/api/workspaces", json("POST", { name })),
   renameWorkspace: (name: string) => request<WorkspaceRef>("/api/workspaces/current", json("PATCH", { name })),
+  instructions: () => request<{ instructions: string }>("/api/workspaces/current/instructions"),
+  setInstructions: (instructions: string) =>
+    request<{ instructions: string }>("/api/workspaces/current/instructions", json("PUT", { instructions })),
   people: () => request<People>("/api/workspaces/current/members"),
   setRole: (userId: string, role: Role) => request<People>(`/api/workspaces/current/members/${userId}`, json("PUT", { role })),
   removeMember: (userId: string) => request<People>(`/api/workspaces/current/members/${userId}`, { method: "DELETE" }),
@@ -287,6 +291,7 @@ export const api = {
   linkTable: (pid: string, datasetId: string, table: string) =>
     request<AddResult>(`${project(pid)}/sources/link`, json("POST", { dataset_id: datasetId, table })),
   certify: (pid: string, certified: boolean) => request<Dataset>(`${project(pid)}/certify`, json("POST", { certified })),
+  setInstructions: (pid: string, instructions: string) => request<Dataset>(`${project(pid)}/instructions`, json("PUT", { instructions })),
   lineage: (pid: string) => request<Lineage>(`${project(pid)}/lineage`),
   addSample: (pid: string) => request<AddResult>(`${project(pid)}/sources/sample`, { method: "POST" }),
 
@@ -637,6 +642,7 @@ export type ReportState = Omit<DashboardSummary, "pages"> & {
   fields: ReportField[];
   as_of: string | null;
   can_undo: boolean;
+  instructions?: string;
 };
 
 export type ReportRun = ReportState & {
@@ -668,6 +674,7 @@ export const reportApi = {
     request<SlicerValues>(`${rp(id)}/values?table=${encodeURIComponent(table)}&column=${encodeURIComponent(column)}`),
   setSlicers: (id: string, pageId: string, slicers: { table: string; column: string }[]) =>
     request<ReportState>(`${rp(id)}/pages/${pageId}/slicers`, json("PUT", { slicers })),
+  setInstructions: (id: string, instructions: string) => request<ReportState>(`${rp(id)}/instructions`, json("PUT", { instructions })),
   setFilters: (id: string, pageId: string, filters: PageFilter[]) =>
     request<ReportState>(`${rp(id)}/pages/${pageId}/filters`, json("PUT", { filters })),
   ai: (pid: string) => request<ReportRun>(`${rp(pid)}/ai`, { method: "POST" }),

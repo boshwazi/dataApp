@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Response, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
-from . import activity, ai_profile, ingest, lineage, links, llm, model, pbi_dax, pbi_export, pbi_import, pbi_model, publishing, refresh, transform
+from . import guidance, activity, ai_profile, ingest, lineage, links, llm, model, pbi_dax, pbi_export, pbi_import, pbi_model, publishing, refresh, transform
 from .dashboards import DashboardStore
 from .projects import NotFound, ProjectStore
 from .settings import ProviderSettings, SettingsStore
@@ -28,6 +28,10 @@ class RefreshSettingsBody(BaseModel):
 class LinkBody(BaseModel):
     dataset_id: str
     table: str
+
+
+class InstructionsBody(BaseModel):
+    instructions: str = ""
 
 
 class CertifyBody(BaseModel):
@@ -414,6 +418,19 @@ def build_router(
             activity.changed(project, "get_data", f"Linked {origin['label']} (v{origin['version']})")
         return {"added": [source_summary(source)], "errors": []}
 
+    @router.put("/{project_id}/instructions")
+    def set_instructions(project_id: str, body: InstructionsBody):
+        """What every AI working on this dataset should know or follow (added to its system prompt)."""
+        load(project_id)
+        try:
+            text = guidance.clean(body.instructions)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        with store.edit(project_id) as project:
+            project["instructions"] = text
+            activity.log(project, "publish", "Changed the AI instructions")
+        return full_view(load(project_id))
+
     @router.post("/{project_id}/certify")
     def certify(project_id: str, body: CertifyBody):
         """Mark a dataset as a trusted, shared source (admins only, once roles exist)."""
@@ -485,7 +502,7 @@ def build_router(
         samples = store.sample_rows(project, source_id, ai_profile.SAMPLE_ROWS)
         try:
             ai = ai_profile.describe(
-                client_factory(settings), settings.model, settings.capabilities, source["table"], source["profile"], samples
+                guidance.guided(client_factory(settings), guidance.for_project(store, project)), settings.model, settings.capabilities, source["table"], source["profile"], samples
             )
         except llm.AIError as exc:
             raise HTTPException(502, f"AI profiling failed: {exc}") from exc

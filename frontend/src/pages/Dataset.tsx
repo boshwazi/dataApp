@@ -10,8 +10,9 @@ import {
   type Dataset as DatasetData,
   type DatasetStage,
 } from "../api";
-import { BadgeCheck, FileDown, GitBranch, History, MoreHorizontal, Pencil, RefreshCw, Sparkles } from "lucide-react";
+import { BadgeCheck, FileDown, ScrollText, GitBranch, History, MoreHorizontal, Pencil, RefreshCw, Sparkles } from "lucide-react";
 import { ActivityDrawer } from "../components/ActivityDrawer";
+import { InstructionsDialog } from "../components/InstructionsDialog";
 import { ChatPanel, type ChatHandle } from "../components/ChatPanel";
 import { Menu, TopbarActions, useCrumbs, useDialogs, useShortcut, useToast } from "../components/ui";
 
@@ -64,6 +65,7 @@ export function Dataset() {
     }
   });
   const [showActivity, setShowActivity] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(false);
   const [version, setVersion] = useState(0);
   const chat = useRef<ChatHandle | null>(null);
   const dialogs = useDialogs();
@@ -211,6 +213,7 @@ export function Dataset() {
           icon={<MoreHorizontal size={18} />}
           items={[
             { label: "Rename", icon: <Pencil size={16} aria-hidden="true" />, onSelect: rename },
+            { label: "AI instructions", icon: <ScrollText size={16} aria-hidden="true" />, onSelect: () => setShowInstructions(true) },
             { label: "Refresh data", icon: <RefreshCw size={16} aria-hidden="true" />, onSelect: () => navigate("refresh") },
             { label: "Lineage", icon: <GitBranch size={16} aria-hidden="true" />, onSelect: () => navigate("lineage") },
             { label: "Activity", icon: <History size={16} aria-hidden="true" />, onSelect: () => setShowActivity(true) },
@@ -307,6 +310,15 @@ export function Dataset() {
           />
           </div>
         )}
+      {showInstructions && (
+        <InstructionsDialog
+          title="AI instructions for this dataset"
+          scope="this dataset (cleaning, modelling and its chats)"
+          load={async () => dataset.instructions ?? ""}
+          save={async (text) => setDataset(await api.setInstructions(dataset.id, text))}
+          onClose={() => setShowInstructions(false)}
+        />
+      )}
       {showActivity && <ActivityDrawer load={() => activityApi.dataset(datasetId)} onClose={() => setShowActivity(false)} />}
     </div>
   );

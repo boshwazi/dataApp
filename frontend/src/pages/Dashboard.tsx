@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import type { EChartsCoreOption } from "echarts/core";
-import { ArrowUp, Calendar, ChevronDown, FileDown, Filter, GripVertical, History, LayoutDashboard, Maximize2, Minimize2, MoreHorizontal, Pencil, Plus, Sparkles, Table2, Trash2, Undo2, X } from "lucide-react";
+import { ArrowUp, Calendar, ChevronDown, FileDown, Filter, GripVertical, History, LayoutDashboard, Maximize2, Minimize2, MoreHorizontal, Pencil, Plus, ScrollText, Sparkles, Table2, Trash2, Undo2, X } from "lucide-react";
 import {
   activityApi,
   api,
@@ -25,6 +25,7 @@ import {
   type VisualType,
 } from "../api";
 import { ActivityDrawer } from "../components/ActivityDrawer";
+import { InstructionsDialog } from "../components/InstructionsDialog";
 import { AskPanel } from "../components/AskPanel";
 import { Chart, SERIES, TOKENS } from "../components/Chart";
 import { ChatPanel, type ChatHandle } from "../components/ChatPanel";
@@ -52,6 +53,7 @@ export function Dashboard() {
   const [run, setRun] = useState<ReportRun | { error: string } | null>(null);
   const [aiOpen, setAiOpen] = useState(false);
   const [showActivity, setShowActivity] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(false);
   const [presenting, setPresenting] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   // Slicer choices per page. They are this viewer's own: never saved, sent with each look, Ask and chat.
@@ -197,6 +199,7 @@ export function Dashboard() {
 
   const moreItems: MenuItem[] = [
     ...(editing ? [{ label: "Rename", icon: <Pencil size={16} aria-hidden="true" />, onSelect: rename }] : []),
+    ...(editing ? [{ label: "AI instructions", icon: <ScrollText size={16} aria-hidden="true" />, onSelect: () => setShowInstructions(true) }] : []),
     ...(editing && dataset?.published
       ? [{ label: building ? "AI is designing…" : state.pages.length ? "Add pages with AI" : "Build report with AI", icon: <Sparkles size={16} aria-hidden="true" />, onSelect: () => hasKey && !building && void build() }]
       : []),
@@ -408,6 +411,15 @@ export function Dashboard() {
         <div className="ai-dock" role="dialog" aria-label="Ask">
           <AskPanel dashboardId={dashboardId} side="published" onClose={() => setAiOpen(false)} scope={() => scope.current} />
         </div>
+      )}
+      {showInstructions && (
+        <InstructionsDialog
+          title="AI instructions for this dashboard"
+          scope="this dashboard (the Report AI, Ask and summaries)"
+          load={async () => state.instructions ?? ""}
+          save={(text) => change(() => reportApi.setInstructions(dashboardId, text))}
+          onClose={() => setShowInstructions(false)}
+        />
       )}
       {showActivity && <ActivityDrawer load={() => activityApi.dashboard(dashboardId)} onClose={() => setShowActivity(false)} />}
     </div>

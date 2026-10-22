@@ -5919,3 +5919,33 @@ button.chip-button:hover:not(:disabled) {
   background: var(--hover) !important;
   color: var(--text) !important;
 }
+
+/* AI instructions dialog */
+
+.instructions-dialog {
+  width: min(620px, calc(100vw - 32px));
+}
+
+.instructions-dialog h2 {
+  margin: 0 0 6px;
+  font-size: 17px;
+}
+
+.instructions-text {
+  width: 100%;
+  margin: 10px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.instructions-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Check, Database, Monitor, Moon, Sun, House, LayoutDashboard, LogOut, Plus, Search, Settings as SettingsIcon, Users } from "lucide-react";
+import { Check, Database, Monitor, Moon, ScrollText, Sun, House, LayoutDashboard, LogOut, Plus, Search, Settings as SettingsIcon, Users } from "lucide-react";
 import { accountApi, api, dashboardsApi, type DashboardSummary, type Dataset, type Role } from "./api";
 import { useAccount } from "./components/account";
+import { InstructionsDialog } from "./components/InstructionsDialog";
 import { savedTheme, setTheme, type ThemeChoice } from "./components/theme";
 import { BrandMark, TopbarContext, useCurrentCrumbs, useDialogs, useShortcut, useToast } from "./components/ui";
 
@@ -94,6 +95,7 @@ function WorkspaceMenu() {
   const toast = useToast();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [instructions, setInstructions] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const hosted = account.me.mode !== "local";
 
@@ -131,6 +133,15 @@ function WorkspaceMenu() {
   const roleName = account.role[0].toUpperCase() + account.role.slice(1);
   return (
     <div className="workspace-menu" ref={root}>
+      {instructions && (
+        <InstructionsDialog
+          title="AI instructions for the workspace"
+          scope="anything in this workspace"
+          load={async () => (await accountApi.instructions()).instructions}
+          save={(text) => accountApi.setInstructions(text)}
+          onClose={() => setInstructions(false)}
+        />
+      )}
       <button
         className="workspace"
         onClick={() => setOpen(!open)}
@@ -165,6 +176,11 @@ function WorkspaceMenu() {
             </button>
           )}
           <div className="menu-separator" role="separator" />
+          {account.can("admin") && (
+            <button role="menuitem" onClick={() => (setOpen(false), setInstructions(true))}>
+              <ScrollText size={16} aria-hidden="true" /> AI instructions for the workspace
+            </button>
+          )}
           <ThemePicker />
           {hosted && <div className="menu-separator" role="separator" />}
           {hosted && <div className="menu-note">{account.me.user.email}</div>}

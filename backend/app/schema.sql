@@ -48,6 +48,9 @@ create table if not exists {schema}.records (
   primary key (kind, id)
 );
 create index if not exists records_by_workspace on {schema}.records (workspace_id, kind);
+-- Workspace preferences (custom AI instructions) are records too.
+alter table {schema}.records drop constraint if exists records_kind_check;
+alter table {schema}.records add constraint records_kind_check check (kind in ('dataset', 'dashboard', 'preferences'));
 
 -- The signed-in user's role in a workspace, or null. Security definer so policies can use it
 -- without the members policy calling itself.

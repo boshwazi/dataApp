@@ -19,6 +19,7 @@ import os
 
 from . import db, ingest, llm, refresh, workspaces
 from .db import Database, PgRecords, PgWorkspaceStore
+from .guidance import PreferenceStore
 from .supabase_admin import PublishedBackup, SupabaseAdmin, SupabaseError
 from .auth import AuthConfig, AuthGuard
 from .projects import LOCAL_WORKSPACE, ProjectStore
@@ -66,6 +67,10 @@ async def scheduler_lifespan(app: FastAPI):
     stop.set()
 
 
+class InstructionsBody(BaseModel):
+    instructions: str = ""
+
+
 def create_app(
     data_dir: Path = DEFAULT_DATA_DIR,
     run_scheduler: bool = False,
@@ -87,6 +92,7 @@ def create_app(
     current = lambda: workspaces.current().workspace_id  # noqa: E731
     boards = DashboardStore(workspaces.folder_for(root, "dashboards"), current)
     projects = ProjectStore(workspaces.folder_for(root, "datasets"), current)
+    preferences = PreferenceStore(workspaces.folder_for(root, "preferences"), current)
     for workspace_id in members.ids():
         with workspaces.use(workspace_id):
             migrate(root / workspace_id, projects, boards)
@@ -100,6 +106,8 @@ def create_app(
         members.ensure(LOCAL_WORKSPACE, "Local workspace")
         boards = DashboardStore(workspaces.folder_for(root, "dashboards"), current, records=PgRecords(database, "dashboard"))
         projects = ProjectStore(workspaces.folder_for(root, "datasets"), current, records=PgRecords(database, "dataset"))
+        preferences = PreferenceStore(workspaces.folder_for(root, "preferences"), current, records=PgRecords(database, "preferences"))
+    projects.preferences = preferences  # custom AI instructions, found by every AI call through the datasets store
     if admin is not None:
         try:
             admin.ensure_bucket()
@@ -119,6 +127,19 @@ def create_app(
     @app.get("/api/health")
     def health():
         return {"status": "ok"}
+
+    @app.get("/api/workspaces/current/instructions")
+    def get_instructions():
+        return {"instructions": preferences.load()["instructions"]}
+
+    @app.put("/api/workspaces/current/instructions")
+    def put_instructions(body: InstructionsBody):
+        if not workspaces.current().at_least("admin"):
+            raise HTTPException(403, "Only workspace admins can change the instructions for the whole workspace.")
+        try:
+            return {"instructions": preferences.set_instructions(body.instructions)["instructions"]}
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
 
     @app.get("/api/settings")
     def get_settings():

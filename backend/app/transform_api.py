@@ -6,7 +6,7 @@ from typing import Callable
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from . import activity, ai_transform, llm, transform
+from . import guidance, activity, ai_transform, llm, transform
 from .projects import NotFound, ProjectStore
 from .settings import ProviderSettings, SettingsStore
 from .transform_ops import StepError, catalogue, describe
@@ -236,7 +236,7 @@ def build_router(
         try:
             with store.connect(project_id) as con:
                 proposal = ai_transform.propose(
-                    client_factory(settings), settings.model, settings.capabilities, con, project, query
+                    guidance.guided(client_factory(settings), guidance.for_project(store, project)), settings.model, settings.capabilities, con, project, query
                 )
         except llm.AIError as exc:
             raise HTTPException(502, f"AI cleaning failed: {exc}") from exc

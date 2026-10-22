@@ -10,7 +10,7 @@ from typing import Callable, Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from . import activity, ask, chat, llm, model, publishing, report, transform
+from . import guidance, activity, ask, chat, llm, model, publishing, report, transform
 from .dashboards import DashboardStore
 from .projects import NotFound, ProjectStore
 from .settings import ProviderSettings, SettingsStore
@@ -114,7 +114,7 @@ def build_router(
         state, upstream = read_context(project_id, current)
         history = messages(project_id, stage)
         try:
-            answer = chat.ask(client_factory(config), config.model, config.capabilities, current, state, upstream, history, text,
+            answer = chat.ask(guidance.guided(client_factory(config), guidance.for_project(datasets, load(project_id))), config.model, config.capabilities, current, state, upstream, history, text,
                               body.mode)
         except llm.AIError as exc:
             raise HTTPException(502, f"The AI did not answer: {exc}") from exc
@@ -212,7 +212,7 @@ def build_router(
             state = chat.REPORT.context(ctx)
             if scope:
                 state["filtered_to"] = scope  # the numbers in the context are for this selection
-            client = client_factory(config)
+            client = guidance.guided(client_factory(config), guidance.for_dashboard(datasets, dash, dataset))
             try:
                 answer = chat.ask(client, config.model, config.capabilities, chat.REPORT, state, {},
                                   dash.get("chat", []), text, body.mode)
