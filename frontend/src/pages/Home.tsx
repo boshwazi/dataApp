@@ -15,6 +15,7 @@ import {
 import { EmptyState, Skeleton, useCrumbs, useDialogs, useToast } from "../components/ui";
 import { useAccount } from "../components/account";
 import { QuickStart } from "../components/QuickStart";
+import { NextSteps } from "../components/NextSteps";
 import { t } from "../i18n";
 
 type Choice = "existing" | "new";
@@ -157,6 +158,7 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
             ({new Date(a.at).toLocaleString()}). {a.text} <Link to={`/datasets/${a.dataset_id}/refresh`}>{t("Open Refresh")}</Link>
           </div>
         ))}
+      {creator && show === "all" && datasets && dashboards && <NextSteps datasets={datasets} dashboards={dashboards} />}
       {creator && connected && show === "all" && <QuickStart />}
 
       {creating && (

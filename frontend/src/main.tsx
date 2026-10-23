@@ -46,6 +46,7 @@ const Settings = page(() => import("./pages/Settings"), "Settings");
 const Members = page(() => import("./pages/Members"), "Members");
 const Invite = page(() => import("./pages/Invite"), "Invite");
 const Landing = page(() => import("./pages/Landing"), "Landing");
+const Onboarding = page(() => import("./pages/Onboarding"), "Onboarding");
 
 // Links from before datasets and dashboards were split.
 function OldProjectLink() {
@@ -82,6 +83,8 @@ function App() {
         <Route path="invite/:token" element={<Invite />} />
         {/* The landing page's Sign in links: once signed in, start at Home. */}
         <Route path="sign-in" element={<Navigate to="/" replace />} />
+        {/* A new workspace's first steps: invite the team, then start with data. */}
+        <Route path="start" element={<Need role="creator"><Onboarding /></Need>} />
         {/* The PDF export is a page of its own, without the app's sidebar. */}
         <Route
           path="dashboards/:dashboardId/export"

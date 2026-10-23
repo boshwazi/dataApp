@@ -214,4 +214,100 @@ const MS: Record<string, string> = {
   Send: "Hantar",
   Close: "Tutup",
   Explain: "Terangkan",
+
+  // A new workspace's first steps, and Home's next steps
+  "Step {n} of 3": "Langkah {n} daripada 3",
+  "Invite your team": "Jemput pasukan anda",
+  "They'll get an email to join this workspace. You can change what each person can do later in Members.":
+    "Mereka akan menerima e-mel untuk menyertai ruang kerja ini. Anda boleh menukar apa yang setiap orang boleh buat kemudian dalam Ahli.",
+  Email: "E-mel",
+  Can: "Boleh",
+  "Can view": "Boleh melihat",
+  "Can build": "Boleh membina",
+  Remove: "Buang",
+  "Add another": "Tambah lagi",
+  "was emailed an invite.": "telah dihantar jemputan melalui e-mel.",
+  "wasn't emailed. Send them this link:": "tidak dihantar e-mel. Hantarkan pautan ini kepada mereka:",
+  "Invite link": "Pautan jemputan",
+  Continue: "Teruskan",
+  "Sending…": "Sedang menghantar…",
+  "Send invites": "Hantar jemputan",
+  "Skip for now": "Langkau buat masa ini",
+  "Reading your data…": "Sedang membaca data anda…",
+  "Starting Autopilot…": "Sedang memulakan Autopilot…",
+  "Sample sales": "Contoh jualan",
+  "My data": "Data saya",
+  "None of those files could be read.": "Tiada satu pun fail itu boleh dibaca.",
+  "The AI isn't connected yet, so you'll clean and model the data yourself in Get Data.":
+    "AI belum disambungkan, jadi anda akan membersihkan dan memodelkan data sendiri dalam Dapatkan Data.",
+  "Autopilot cleans it, models it and designs a first dashboard while you watch. You can change every step.":
+    "Autopilot membersihkan, memodelkan dan mereka papan pemuka pertama sambil anda melihat. Anda boleh mengubah setiap langkah.",
+  "Try the sample data": "Cuba data contoh",
+  "A messy sales file with products and customers. The quickest way to see it work.":
+    "Fail jualan yang bersepah, bersama produk dan pelanggan. Cara paling cepat untuk melihatnya berfungsi.",
+  "Upload your own files": "Muat naik fail anda sendiri",
+  "CSV or Excel, one file or several that belong together.": "CSV atau Excel, satu fail atau beberapa fail yang berkaitan.",
+  "Import a Power BI file": "Import fail Power BI",
+  "A .pbix file, or a .pbip project as .zip. Its tables, relationships and measures come across.":
+    "Fail .pbix, atau projek .pbip sebagai .zip. Jadual, hubungan dan ukurannya turut dibawa masuk.",
+  "Other sources (shared links, Google Sheets) are in Get Data.":
+    "Sumber lain (pautan kongsi, Google Sheets) ada dalam Dapatkan Data.",
+  "Next steps": "Langkah seterusnya",
+  "{done} of {all} done": "{done} daripada {all} selesai",
+  "Hide next steps": "Sembunyikan langkah seterusnya",
+  "Bring in data": "Bawa masuk data",
+  "Get a first dashboard": "Dapatkan papan pemuka pertama",
+  "Publish a dashboard for your team": "Terbitkan papan pemuka untuk pasukan anda",
+  "Ask your data a question": "Tanya soalan tentang data anda",
+  Done: "Selesai",
+  "To do": "Belum selesai",
+  "Set up datawazi": "Sediakan datawazi",
+  "A few quick steps, and you can skip any of them.": "Beberapa langkah ringkas, dan anda boleh melangkau mana-mana langkah.",
+  "Then Autopilot builds your first dashboard while you watch.":
+    "Kemudian Autopilot membina papan pemuka pertama anda sambil anda melihat.",
+  "Current step": "Langkah semasa",
+  "Name your workspace": "Namakan ruang kerja anda",
+  "A workspace holds your company's data and dashboards. Joining a colleague's workspace instead? Open the invite link they sent you.":
+    "Ruang kerja menyimpan data dan papan pemuka syarikat anda. Mahu menyertai ruang kerja rakan sekerja? Buka pautan jemputan yang mereka hantar.",
+  "Company or team name": "Nama syarikat atau pasukan",
+  "For example: Ana Trading": "Contohnya: Ana Trading",
+  "Give the workspace a name, such as your company's.": "Berikan nama kepada ruang kerja, contohnya nama syarikat anda.",
+  "Signed in as {email}.": "Log masuk sebagai {email}.",
+  Back: "Kembali",
+  "Email {n}": "E-mel {n}",
+  "What person {n} can do": "Apa yang orang {n} boleh buat",
+  View: "Lihat",
+  Build: "Bina",
+  "Remove email {n}": "Buang e-mel {n}",
+  Recommended: "Disyorkan",
+
+  // Autopilot
+  Progress: "Kemajuan",
+  "Autopilot progress": "Kemajuan Autopilot",
+  "{done} of {all} steps done": "{done} daripada {all} langkah selesai",
+  "Time taken": "Masa diambil",
+  "Each step is done the way you would do it by hand, so you can open it and change anything later.":
+    "Setiap langkah dibuat seperti anda membuatnya sendiri, jadi anda boleh membukanya dan mengubah apa-apa kemudian.",
+  "Nothing is lost: what finished is kept, and you can fix the step that stopped and run it again.":
+    "Tiada yang hilang: yang sudah selesai disimpan, dan anda boleh membetulkan langkah yang berhenti lalu menjalankannya semula.",
+  "What's happening now": "Apa yang sedang berlaku",
+  "You can leave this page. It keeps going, and you'll get a notification when it's done.":
+    "Anda boleh meninggalkan halaman ini. Ia terus berjalan, dan anda akan menerima pemberitahuan apabila selesai.",
+  "Built in {time}.": "Dibina dalam {time}.",
+  "Review the cleaning": "Semak pembersihan",
+  "Review the model": "Semak model",
+  "Reading your tables": "Membaca jadual anda",
+  "The AI looks at each table's columns and a few sample rows to understand what's in it.":
+    "AI melihat lajur setiap jadual dan beberapa baris contoh untuk memahami kandungannya.",
+  "Cleaning the data": "Membersihkan data",
+  "Dates, prices, blanks and repeated rows are fixed. Each change is a step with its reason, so you can undo it.":
+    "Tarikh, harga, ruang kosong dan baris berulang dibetulkan. Setiap perubahan ialah satu langkah dengan sebabnya, jadi anda boleh membatalkannya.",
+  "Building the model": "Membina model",
+  "Tables are related, a date table is added, and measures such as revenue and orders are written and checked.":
+    "Jadual dihubungkan, jadual tarikh ditambah, dan ukuran seperti hasil dan pesanan ditulis serta disemak.",
+  "Publishing the dataset": "Menerbitkan set data",
+  "The checked version goes live, so dashboards read from it.": "Versi yang telah disemak diterbitkan, jadi papan pemuka membaca daripadanya.",
+  "Designing a dashboard": "Mereka papan pemuka",
+  "Pages and charts are chosen to answer the main questions in your data. It stays a draft until you publish it.":
+    "Halaman dan carta dipilih untuk menjawab soalan utama dalam data anda. Ia kekal sebagai draf sehingga anda menerbitkannya.",
 };

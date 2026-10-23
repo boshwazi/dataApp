@@ -248,7 +248,7 @@ function Tour() {
 const FAQ = [
   {
     q: "How long does it take?",
-    a: "In our test with a messy sales file, Autopilot went from upload to a checked dashboard in 99 seconds. You can also go step by step and approve each change.",
+    a: "In our tests with a messy sales file, Autopilot went from upload to a checked dashboard in under four minutes. You can also go step by step and approve each change.",
   },
   {
     q: "What if the AI gets something wrong?",

@@ -1,12 +1,14 @@
 import {
   Suspense, createContext, lazy, useCallback, useContext, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode,
 } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Mail } from "lucide-react";
 import { accountApi, ApiError, configureSession, type Me, type Role, type WorkspaceRef } from "../api";
 import { BrandMark } from "./ui";
 import { SignInChart } from "./SignInChart";
+import { OnboardingShell } from "./OnboardingSteps";
+import { t } from "../i18n";
 
 const WORKSPACE_KEY = "workspace";
 const Landing = lazy(() => import("../pages/Landing").then((m) => ({ default: m.Landing })));
@@ -412,18 +414,21 @@ function SignIn({ client, problem }: { client: SupabaseClient; problem?: string 
 
 function CreateWorkspace() {
   const account = useAccount();
+  const navigate = useNavigate();
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function create(event: FormEvent) {
     event.preventDefault();
+    if (!name.trim()) return setError(t("Give the workspace a name, such as your company's."));
     setBusy(true);
     setError(null);
     try {
       const workspace = await accountApi.createWorkspace(name);
       await account.refresh();
       account.switchTo(workspace.id);
+      navigate("/start"); // then invite the team and start with data
     } catch (e) {
       setError(e instanceof ApiError ? e.message : (e as Error).message);
       setBusy(false);
@@ -431,33 +436,29 @@ function CreateWorkspace() {
   }
 
   return (
-    <div className="auth-page">
-      <main className="auth-card">
-        <div className="auth-brand">
-          <BrandMark size={28} /> datawazi
-        </div>
-        <h1>Set up your workspace</h1>
-        <p className="muted">
-          A workspace holds your company's data and dashboards. You can invite your team next. Joining a colleague's
-          workspace instead? Open the invite link they sent you.
-        </p>
-        <form onSubmit={create} className="auth-form">
-          <label className="field">
-            <span>Company or team name</span>
-            <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="For example: Ana Trading" />
-          </label>
-          <button type="submit" disabled={busy || !name.trim()}>
-            {busy ? "Creating…" : "Create workspace"}
-          </button>
-        </form>
-        {error && <p className="bad small">{error}</p>}
-        <p className="muted small">Signed in as {account.me.user.email}.</p>
+    <OnboardingShell step={1}>
+      <h1>{t("Name your workspace")}</h1>
+      <p className="muted">
+        {t("A workspace holds your company's data and dashboards. Joining a colleague's workspace instead? Open the invite link they sent you.")}
+      </p>
+      <form onSubmit={create} className="auth-form">
+        <label className="field">
+          <span>{t("Company or team name")}</span>
+          <input autoFocus autoComplete="organization" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("For example: Ana Trading")} />
+        </label>
+        <button type="submit" disabled={busy}>
+          {busy ? t("Creating…") : t("Continue")}
+        </button>
+      </form>
+      {error && <p className="signin-error" role="alert">{error}</p>}
+      <p className="muted small onboard-signed-in">
+        {t("Signed in as {email}.", { email: account.me.user.email })}{" "}
         {account.signOut && (
           <button className="link small" onClick={() => void account.signOut!()}>
-            Sign out
+            {t("Sign out")}
           </button>
         )}
-      </main>
-    </div>
+      </p>
+    </OnboardingShell>
   );
 }

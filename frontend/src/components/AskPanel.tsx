@@ -6,6 +6,8 @@ import { Chart, TOKENS } from "./Chart";
 import { useTheme } from "./theme";
 import { Markdown } from "./Markdown";
 import { t } from "../i18n";
+import { useAccount } from "./account";
+import { setOnboardingFlag } from "./onboarding";
 
 type Turn = { question: string; response?: AskResponse; error?: string };
 
@@ -28,6 +30,7 @@ export function AskPanel(props: {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const list = useRef<HTMLDivElement>(null);
+  const workspaceId = useAccount().workspace?.id;
   const controller = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -54,6 +57,7 @@ export function AskPanel(props: {
     try {
       const response = await askApi.ask(dashboardId, clean, history, side, abort.signal, props.scope?.());
       setTurns((current) => current.map((t, i) => (i === current.length - 1 ? { ...t, response } : t)));
+      setOnboardingFlag(workspaceId, "asked"); // ticks "Ask a question" on Home's next steps
     } catch (e) {
       const error = abort.signal.aborted ? "Stopped." : (e as Error).message;
       setTurns((current) => current.map((t, i) => (i === current.length - 1 ? { ...t, error } : t)));

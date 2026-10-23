@@ -141,9 +141,10 @@ class Autopilot:
     def _read(self, project_id: str) -> str:
         project = self.store.get(project_id)
         described, missed = 0, []
-        for source in project["sources"]:
+        for i, source in enumerate(project["sources"], 1):
             if source.get("ai"):
                 continue
+            self._step(project_id, "read", "running", f"Reading {source['table']} ({i} of {len(project['sources'])})")
             try:
                 self.calls["describe"](project_id, source["id"])
                 described += 1
@@ -169,7 +170,8 @@ class Autopilot:
         if not queries:
             raise Stop("None of the tables could be read. Check the files in Get Data.")
         notes, refused = [], []
-        for query in queries:
+        for i, query in enumerate(queries, 1):
+            self._step(project_id, "clean", "running", f"Cleaning {query['name']} ({i} of {len(queries)})")
             try:
                 refused += self.calls["ai_clean"](project_id, query["id"]).get("rejected") or []
             except HTTPException as exc:
