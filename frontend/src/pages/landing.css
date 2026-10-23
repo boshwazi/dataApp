@@ -238,13 +238,13 @@
 .lp-table-layer {
   padding: 14px 16px;
   gap: 14px;
-  animation: lp-layer-out 0.5s ease 7.4s both;
+  animation: lp-layer-out 0.5s ease 3.6s both;
 }
 
 .lp-dash-layer {
   padding: 20px 22px;
   gap: 16px;
-  animation: lp-layer-in 0.6s ease 7.9s both;
+  animation: lp-layer-in 0.6s ease 3.9s both;
 }
 
 .lp-table-scroll {
@@ -347,11 +347,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.lp-chart-title {
-  font-size: 15px;
-  font-weight: 600;
-}
-
 .lp-bars {
   display: grid;
   gap: 10px;
@@ -382,18 +377,6 @@
   background: #9ca3af;
 }
 
-.lp-checked {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  color: #374151;
-}
-
-.lp-checked svg {
-  color: var(--lp-good);
-}
-
 @keyframes lp-ai-wash {
   0% { background: transparent; }
   15%, 70% { background: var(--lp-ai-bg); }
@@ -420,10 +403,53 @@
   from { transform: scaleX(0); }
 }
 
+@keyframes lp-pick {
+  to { background: #eab308; }
+}
+
+/* The question and its answer, after the dashboard appears; the answer's bar turns AI yellow. */
+.lp-ask {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: auto;
+  font-size: 14px;
+}
+
+.lp-question {
+  align-self: flex-end;
+  background: var(--lp-accent-soft);
+  color: var(--lp-accent-hover);
+  padding: 8px 12px;
+  border-radius: 10px;
+  animation: lp-in 0.4s ease 5.0s both;
+}
+
+.lp-answer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: lp-in 0.4s ease 6.0s both;
+}
+
+.lp-bar.top {
+  animation: lp-grow 0.9s cubic-bezier(0.16, 1, 0.3, 1) var(--d) both, lp-pick 0.4s ease 6.0s forwards;
+}
+
 /* Without motion the demo shows its result: the checked dashboard. */
 @media (prefers-reduced-motion: reduce) {
-  .lp-fix, .lp-old, .lp-new, .lp-step, .lp-table-layer, .lp-dash-layer, .lp-bar { animation: none; }
+  .lp-fix, .lp-old, .lp-new, .lp-step, .lp-table-layer, .lp-dash-layer, .lp-bar, .lp-bar.top, .lp-question, .lp-answer { animation: none; }
   .lp-table-layer, .lp-replay { display: none; }
+  .lp-bar.top { background: #eab308; }
+}
+
+.lp-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 /* Sections */
@@ -434,6 +460,7 @@
 }
 
 .lp-section > h2,
+.lp-pricing-head h2,
 .lp-band h2,
 .lp-final h2 {
   font-size: clamp(28px, 3.4vw, 40px);
@@ -617,58 +644,166 @@
   max-width: 34em;
 }
 
+/* Product tour */
+.lp-tabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 10px;
+  background: var(--lp-tint);
+  margin-bottom: 20px;
+}
+
+.lp-tabs button,
+.lp-currency button {
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--lp-muted);
+  background: none;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  min-height: 40px;
+  cursor: pointer;
+}
+
+.landing .lp-tabs button[aria-selected="true"],
+.landing .lp-currency button[aria-pressed="true"] {
+  background: var(--lp-surface) !important; /* over the app's pressed-button style */
+  color: var(--lp-text) !important;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
+}
+
+.lp-tour {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.lp-tour p {
+  font-size: 17px;
+  color: var(--lp-muted);
+  max-width: 44em;
+  min-height: 3em;
+}
+
+.lp-tour img {
+  width: 100%;
+  height: auto;
+  border-radius: var(--lp-radius);
+  border: 1px solid var(--lp-line);
+  box-shadow: 0 18px 50px rgba(27, 52, 96, 0.1);
+}
+
+/* Today and with datawazi */
+.lp-compare {
+  display: flex;
+  flex-direction: column;
+  max-width: 1000px;
+}
+
+.lp-compare-head,
+.lp-compare-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 40px minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+}
+
+.lp-compare-head {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 72px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--lp-subtle);
+  padding-bottom: 8px;
+}
+
+.lp-compare-row {
+  padding: 18px 0;
+  border-top: 1px solid var(--lp-line);
+  font-size: 17px;
+}
+
+.lp-before {
+  color: var(--lp-muted);
+}
+
+.lp-after {
+  font-weight: 600;
+}
+
+.lp-compare-arrow {
+  color: var(--lp-accent);
+  justify-self: center;
+}
+
 /* Pricing */
-.lp-pricing-scroll {
-  overflow-x: auto;
+.lp-pricing-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lp-currency {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 10px;
+  background: var(--lp-tint);
+}
+
+.lp-plans {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.lp-plan-card {
   background: var(--lp-surface);
   border: 1px solid var(--lp-line);
   border-radius: var(--lp-radius);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.lp-pricing {
-  width: 100%;
-  min-width: 560px;
-  border-collapse: collapse;
-  table-layout: fixed;
-}
-
-.lp-pricing th {
-  text-align: left;
-  padding: 22px 24px 18px;
-  border-bottom: 1px solid var(--lp-line);
-  vertical-align: top;
-}
-
-.lp-plan {
-  display: block;
-  font-size: 20px;
-  font-weight: 700;
+.lp-plan-card h3 {
+  font-size: 20px !important;
 }
 
 .lp-price {
-  display: block;
-  margin-top: 4px;
   font-size: 15px;
   font-weight: 500;
   color: var(--lp-subtle);
+  font-variant-numeric: tabular-nums;
 }
 
-.lp-pricing td {
-  padding: 12px 24px;
+.lp-plan-card ul {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 14px 0 0;
+  border-top: 1px solid var(--lp-line);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   color: #374151;
 }
 
-.lp-pricing tbody tr:first-child td {
-  padding-top: 18px;
+.lp-plan-card li {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
 }
 
-.lp-pricing tbody tr:last-child td {
-  padding-bottom: 22px;
-}
-
-.lp-pricing th + th,
-.lp-pricing td + td {
-  border-left: 1px solid var(--lp-line);
+.lp-plan-card li svg {
+  flex-shrink: 0;
+  margin-top: 4px;
+  color: var(--lp-accent);
 }
 
 /* FAQ */
@@ -760,6 +895,10 @@
     grid-template-columns: minmax(0, 1fr);
     gap: 8px;
   }
+
+  .lp-plans {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 @media (max-width: 640px) {
@@ -812,7 +951,7 @@
   }
 
   .lp-stage-body {
-    height: 470px;
+    height: 500px;
   }
 
   .lp-steps {
@@ -827,6 +966,20 @@
   .lp-trust,
   .lp-band-rows {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lp-compare-head {
+    display: none;
+  }
+
+  .lp-compare-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .lp-compare-arrow {
+    justify-self: start;
+    transform: rotate(90deg);
   }
 
   .lp-trust-big {

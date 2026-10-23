@@ -508,7 +508,8 @@ def kpi_data(con, project: dict, visual: dict) -> dict:
 
 # Checking the numbers in AI insights
 
-NUMBER = re.compile(r"(?<![\w.])[-+]?(?:RM\s?)?\d[\d,]*(?:\.\d+)?\s?(?:%|[KkMm]\b|bn\b|x\b)?(?![\w])")
+# Not inside a code like "P-107" or "SO-10001": a number after a letter or digit and a hyphen is part of a name.
+NUMBER = re.compile(r"(?<![\w.])(?<![A-Za-z0-9]-)[-+]?(?:RM\s?)?\d[\d,]*(?:\.\d+)?\s?(?:%|[KkMm]\b|bn\b|x\b)?(?![\w])")
 MONTH = r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?"
 # Dates are written with numbers that aren't data: "30 Sep 2025", "January 1", "2025-09-30", "1/7/2025".
 DATES = re.compile(

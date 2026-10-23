@@ -234,6 +234,14 @@ def test_kpi_insight_numbers(tmp_path):
     assert not report.check_insight("Revenue is up 35% on last year.", data)["verified"]
 
 
+def test_codes_with_numbers_are_names_not_figures():
+    """'P-107' and 'SO-10001' are product and order codes; their digits aren't numbers to check."""
+    data = {"value": 24.7, "previous": 55.8, "delta": -31.1, "delta_pct": -0.558, "sparkline": [], "driver": None}
+    check = report.check_insight("Big-line revenue fell 56% to 24.7, with product P-107 down most; see order SO-10001.", data)
+    assert check["verified"], check
+    assert not report.check_insight("Revenue fell 56% to 107.", data)["verified"]
+
+
 def test_rounded_numbers_match_at_the_precision_written():
     data = {"value": 97, "previous": 103, "delta": -6, "delta_pct": -0.0583, "sparkline": [], "driver": None}
     assert report.check_insight("Orders are down 6 (6%) on last year.", data)["verified"]  # 5.83% written as 6%
