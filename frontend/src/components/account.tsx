@@ -3,9 +3,10 @@ import {
 } from "react";
 import { useLocation } from "react-router-dom";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Check, Mail } from "lucide-react";
+import { Mail } from "lucide-react";
 import { accountApi, ApiError, configureSession, type Me, type Role, type WorkspaceRef } from "../api";
 import { BrandMark } from "./ui";
+import { SignInChart } from "./SignInChart";
 
 const WORKSPACE_KEY = "workspace";
 const Landing = lazy(() => import("../pages/Landing").then((m) => ({ default: m.Landing })));
@@ -237,40 +238,15 @@ function MicrosoftIcon() {
   );
 }
 
-/** The right half of the sign-in screen: what the company gets, as a still from the landing page's demo. */
+/** The right half of the sign-in screen: a short line over a chart that answers the pointer. */
 function SignInAside() {
-  const regions: [string, number][] = [["Central", 46.4], ["Southern", 36.2], ["East Coast", 25.8], ["Unknown", 16.0]];
   return (
-    <aside className="signin-aside" aria-labelledby="signin-aside-title">
-      <h2 id="signin-aside-title">What your company gets</h2>
-      <figure className="signin-preview" aria-label="A dashboard datawazi built from a sample sales file">
-        <div className="signin-preview-kpis">
-          <div>
-            <span>Revenue</span>
-            <strong>RM 153,948.70</strong>
-          </div>
-          <div>
-            <span>Orders</span>
-            <strong>241</strong>
-          </div>
-        </div>
-        <div className="signin-preview-bars" aria-hidden="true">
-          {regions.map(([name, value]) => (
-            <div key={name}>
-              <span>{name}</span>
-              <i className={name === "Unknown" ? "other" : ""} style={{ width: `${(value / regions[0][1]) * 100}%` }} />
-            </div>
-          ))}
-        </div>
-        <figcaption>
-          <Check size={14} aria-hidden="true" /> Built from a messy sales file and checked against it
-        </figcaption>
-      </figure>
-      <ul>
-        <li><Check size={16} aria-hidden="true" /> Dashboards from your own spreadsheets, in minutes</li>
-        <li><Check size={16} aria-hidden="true" /> Every AI change shown for you to approve or undo</li>
-        <li><Check size={16} aria-hidden="true" /> Each person sees only the rows they're allowed to</li>
-      </ul>
+    <aside className="signin-aside">
+      <div className="signin-aside-text">
+        <h2>Clean data. Checked numbers.</h2>
+        <p>Your spreadsheets become dashboards your team can trust.</p>
+      </div>
+      <SignInChart />
     </aside>
   );
 }

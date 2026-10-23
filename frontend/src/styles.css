@@ -2724,109 +2724,44 @@ a.button.secondary:hover,
 }
 
 .signin-aside {
+  position: relative;
+  overflow: hidden;
   background: var(--sidebar);
   color: #ffffff;
-  padding: 56px clamp(32px, 6vw, 88px);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 28px;
+}
+
+.signin-aside-text {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: clamp(40px, 8vh, 88px) 40px 0;
+  pointer-events: none; /* the chart underneath answers the pointer */
+  z-index: 1;
 }
 
 .signin-aside h2 {
   margin: 0;
-  font-size: 26px;
-  letter-spacing: -0.02em;
+  font-size: clamp(28px, 2.6vw, 38px);
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  text-wrap: balance;
 }
 
-.signin-aside ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.signin-aside p {
+  margin: 12px 0 0;
+  max-width: 28em;
   color: #c3cdd9;
-  font-size: 15px;
+  font-size: 16px;
+  text-wrap: balance;
 }
 
-.signin-aside li {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-}
-
-.signin-aside li svg {
-  flex-shrink: 0;
-  margin-top: 3px;
-  color: #8db2f2;
-}
-
-/* A still of the landing page's demo result, in the light look whatever the theme. */
-.signin-preview {
-  margin: 0;
-  max-width: 460px;
-  padding: 20px 22px;
-  border-radius: 12px;
-  background: #ffffff;
-  color: #16202e;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.signin-preview-kpis {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 32px;
-}
-
-.signin-preview-kpis span {
+.signin-chart {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   display: block;
-  font-size: 13px;
-  color: #5b6574;
-}
-
-.signin-preview-kpis strong {
-  font-size: 24px;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-}
-
-.signin-preview-bars {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.signin-preview-bars div {
-  display: grid;
-  grid-template-columns: 84px minmax(0, 1fr);
-  align-items: center;
-  gap: 10px;
-  font-size: 13px;
-}
-
-.signin-preview-bars i {
-  height: 10px;
-  border-radius: 3px;
-  background: #1b5fd1;
-}
-
-.signin-preview-bars i.other {
-  background: #9ca3af;
-}
-
-.signin-preview figcaption {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: #374151;
-}
-
-.signin-preview figcaption svg {
-  color: #007a5e;
 }
 
 @media (max-width: 900px) {
