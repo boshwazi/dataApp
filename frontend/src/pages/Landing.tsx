@@ -130,7 +130,7 @@ function CleaningDemo() {
 }
 
 const HOW = [
-  { title: "Get data", text: "Upload CSV or Excel, link a shared OneDrive, SharePoint or Google Drive file, or bring a Power BI file." },
+  { title: "Get data", text: "Upload CSV or Excel, link OneDrive, SharePoint or Google Drive, or bring a Power BI model. More sources are on the way." },
   { title: "Clean", text: "The AI fixes dates, prices, blanks and repeats. You see each step and approve it." },
   { title: "Model", text: "Tables are related, a date table is added and measures are written, with every formula shown." },
   { title: "Report", text: "A dashboard you can edit, ask questions of in plain language, share and get by email each week." },
@@ -148,7 +148,7 @@ const PLANS = [
 const FAQ = [
   {
     q: "What does the AI see of my data?",
-    a: "Column summaries, up to 5 sample rows per table and the results of the queries it runs. Your full file stays in your workspace, and the AI never sees rows a viewer isn't allowed to.",
+    a: "Column summaries, up to 5 sample rows per table and the results of the queries it runs. Your full data stays in your workspace, and the AI never sees rows a viewer isn't allowed to.",
   },
   {
     q: "Can I check the numbers?",
@@ -188,17 +188,17 @@ export function Landing() {
         </nav>
         <div className="lp-header-actions">
           <Link to="/sign-in" className="lp-link">Sign in</Link>
-          <Link to="/sign-in" className="lp-btn lp-btn-primary">Try it with your file</Link>
+          <Link to="/sign-in" className="lp-btn lp-btn-primary">Try it with your data</Link>
         </div>
       </header>
 
       <main id="lp-main">
         <section className="lp-hero">
           <div className="lp-hero-copy">
-            <h1>From messy spreadsheets to checked dashboards.</h1>
-            <p>Drop in a file. The AI cleans it, models it and builds the dashboard, and shows you every change to approve.</p>
+            <h1>From messy data to checked dashboards.</h1>
+            <p>Bring in your data. The AI cleans it, models it and builds the dashboard, and shows you every change to approve.</p>
             <div className="lp-ctas">
-              <Link to="/sign-in" className="lp-btn lp-btn-primary lp-btn-lg">Try it with your file</Link>
+              <Link to="/sign-in" className="lp-btn lp-btn-primary lp-btn-lg">Try it with your data</Link>
               <a href="#how" className="lp-btn lp-btn-ghost lp-btn-lg">See how it works</a>
             </div>
           </div>
@@ -239,7 +239,7 @@ export function Landing() {
             <div className="lp-trust-cell">
               <Eye size={22} aria-hidden="true" />
               <h3>You know what the AI sees</h3>
-              <p>Column summaries and a few sample rows, never your whole file.</p>
+              <p>Column summaries and a few sample rows, never your whole dataset.</p>
             </div>
             <div className="lp-trust-cell">
               <ShieldCheck size={22} aria-hidden="true" />
@@ -310,8 +310,8 @@ export function Landing() {
         </section>
 
         <section className="lp-final">
-          <h2>See your own file as a dashboard.</h2>
-          <Link to="/sign-in" className="lp-btn lp-btn-primary lp-btn-lg">Try it with your file</Link>
+          <h2>See your own data as a dashboard.</h2>
+          <Link to="/sign-in" className="lp-btn lp-btn-primary lp-btn-lg">Try it with your data</Link>
         </section>
       </main>
 

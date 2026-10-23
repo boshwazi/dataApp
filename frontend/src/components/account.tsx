@@ -244,7 +244,7 @@ function SignInAside() {
     <aside className="signin-aside">
       <div className="signin-aside-text">
         <h2>Clean data. Checked numbers.</h2>
-        <p>Your spreadsheets become dashboards your team can trust.</p>
+        <p>Your data becomes dashboards your team can trust.</p>
       </div>
       <SignInChart />
     </aside>

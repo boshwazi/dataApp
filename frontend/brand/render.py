@@ -28,7 +28,7 @@ SOCIAL = f"""{FONTS}
   </div>
   <div>
     <div style="font-size:64px;font-weight:700;letter-spacing:-0.03em;line-height:1.08;max-width:900px">
-      From messy spreadsheets to checked dashboards.</div>
+      From messy data to checked dashboards.</div>
     <div style="margin-top:22px;font-size:28px;color:#4b5563;max-width:1008px">
       Get data, clean it, model it and report on it, with an AI that shows its work.</div>
   </div>
