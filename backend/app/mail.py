@@ -15,10 +15,28 @@ import os
 import smtplib
 import ssl
 from email.message import EmailMessage
+from pathlib import Path
+
+# The logo travels inside each email (an inline image), so it shows without loading anything from the site.
+MARK = Path(__file__).parent / "brand" / "email-mark.png"  # written by frontend/brand/render.py
+MARK_CID = "datawazi-mark"
 
 
 class MailError(Exception):
     pass
+
+
+def branded(content: str) -> str:
+    """An email's HTML body under the datawazi header: the mark and the wordmark."""
+    return (
+        "<div style='font-family:Segoe UI,Arial,sans-serif;max-width:600px;color:#16202e'>"
+        "<table role='presentation' cellpadding='0' cellspacing='0' style='border-collapse:collapse;margin:0 0 18px'><tr>"
+        f"<td style='padding:0 8px 0 0;vertical-align:middle'><img src='cid:{MARK_CID}' width='28' height='28' alt='' "
+        "style='display:block;border:0'></td>"
+        "<td style='vertical-align:middle;font-size:20px;font-weight:700;letter-spacing:-0.04em'>datawazi</td>"
+        "</tr></table>"
+        f"<div style='border-top:1px solid #e3e7ee;padding-top:18px'>{content}</div></div>"
+    )
 
 
 class Mailer:
@@ -38,6 +56,8 @@ class Mailer:
         message.set_content(text)
         if html:
             message.add_alternative(html, subtype="html")
+            if f"cid:{MARK_CID}" in html and MARK.exists():
+                message.get_payload()[-1].add_related(MARK.read_bytes(), "image", "png", cid=f"<{MARK_CID}>")
         try:
             with smtplib.SMTP(self.host, self.port, timeout=30) as smtp:
                 smtp.starttls(context=ssl.create_default_context())

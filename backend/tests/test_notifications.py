@@ -94,3 +94,35 @@ def test_scheduled_refresh_problems_reach_creators(tmp_path):
         refresh.RETRY_MINUTES = saved
     notes = ok(api_.get("/api/notifications"))["notifications"]
     assert notes[0]["title"] == "Targets: the scheduled refresh failed" and notes[0]["link"] == f"/datasets/{pid}/refresh"
+
+
+def test_emails_carry_the_logo_inside_them(monkeypatch):
+    """The mark is attached to the email, so it shows without loading anything from the site."""
+    sent = []
+
+    class FakeSMTP:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def starttls(self, context=None):
+            pass
+
+        def login(self, user, password):
+            pass
+
+        def send_message(self, message):
+            sent.append(message)
+
+    monkeypatch.setattr(mail.smtplib, "SMTP", FakeSMTP)
+    mail.Mailer("smtp.test", 587, "u", "p", "datawazi <u@test>").send(
+        "vic@example.com", "Hello", "Hello", mail.branded("<p>Hello</p>"))
+    html_part = next(p for p in sent[0].walk() if p.get_content_type() == "text/html")
+    logo = next(p for p in sent[0].walk() if p.get_content_type() == "image/png")
+    assert f"cid:{mail.MARK_CID}" in html_part.get_content() and logo["Content-ID"] == f"<{mail.MARK_CID}>"
+    assert logo.get_payload(decode=True) == mail.MARK.read_bytes()

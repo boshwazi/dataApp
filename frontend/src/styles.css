@@ -1114,10 +1114,6 @@ tr.inactive td {
   }
 }
 
-.brand-mark {
-  color: var(--highlight);
-}
-
 /* Ask */
 .ask-turn {
   display: flex;
@@ -1376,7 +1372,11 @@ a.button.secondary {
 }
 
 .brand-line {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   font-weight: 700;
+  letter-spacing: -0.045em;
   color: var(--text);
 }
 
@@ -2593,9 +2593,9 @@ a.button.secondary:hover,
   display: flex;
   align-items: center;
   gap: 9px;
-  font-size: 19px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.045em; /* the wordmark: Inter Bold, set tight */
 }
 
 .auth-providers,

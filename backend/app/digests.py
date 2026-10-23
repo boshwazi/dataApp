@@ -12,7 +12,7 @@ import html
 import re
 from datetime import UTC, datetime, timedelta, timezone
 
-from . import model, report, security
+from . import mail, model, report, security
 
 MYT = timezone(timedelta(hours=8))
 FREQUENCIES = ("off", "weekly", "monthly")
@@ -147,8 +147,8 @@ def compose(con, project: dict, dashboard: dict, dataset: dict, link: str) -> di
         + ("<ul>" + "".join(f"<li>{html.escape(k)}</li>" for k in s["kpis"]) + "</ul>" if s["kpis"] else "")
         for s in sections)
     note = "<p>Open the dashboard to see your numbers.</p>" if restricted else ""
-    page = (f"<div style='font-family:Segoe UI,Arial,sans-serif;max-width:600px;color:#16202e'>"
-            f"<h2 style='margin:0'>{html.escape(dashboard['name'])}</h2>{body}{note}"
-            f"<p style='margin-top:20px'><a href='{html.escape(link)}' style='background:#1b5fd1;color:#fff;padding:8px 14px;"
-            f"border-radius:6px;text-decoration:none'>Open the dashboard</a></p></div>")
+    page = mail.branded(
+        f"<h2 style='margin:0'>{html.escape(dashboard['name'])}</h2>{body}{note}"
+        f"<p style='margin-top:20px'><a href='{html.escape(link)}' style='background:#1b5fd1;color:#fff;padding:8px 14px;"
+        f"border-radius:6px;text-decoration:none'>Open the dashboard</a></p>")
     return {"subject": subject, "text": "\n".join(lines), "html": page, "restricted": restricted}

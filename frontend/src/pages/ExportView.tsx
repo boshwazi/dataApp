@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { exportApi, reportApi, type ReportState } from "../api";
 import { ChartVisual, KpiCard } from "./Dashboard";
 import { applyTheme } from "../components/theme";
+import { BrandMark } from "../components/ui";
 
 type Bullet = { text: string; unmatched: number[] };
 
@@ -74,7 +75,7 @@ export function ExportView() {
 
       <section className="export-sheet export-cover">
         <div className="brand-line">
-          <span className="brand-mark">●</span> datawazi
+          <BrandMark size={20} /> datawazi
         </div>
         <h1>{state.name}</h1>
         <dl>
