@@ -1,6 +1,6 @@
 import { StrictMode, Suspense, lazy, type ComponentType, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
 import { Layout } from "./Layout";
 import { Home } from "./pages/Home";
 import "@fontsource/inter/400.css";
@@ -45,6 +45,7 @@ const SemanticModels = page(() => import("./pages/SemanticModels"), "SemanticMod
 const Settings = page(() => import("./pages/Settings"), "Settings");
 const Members = page(() => import("./pages/Members"), "Members");
 const Invite = page(() => import("./pages/Invite"), "Invite");
+const Landing = page(() => import("./pages/Landing"), "Landing");
 
 // Links from before datasets and dashboards were split.
 function OldProjectLink() {
@@ -65,9 +66,13 @@ function PlatformAdmin({ children }: { children: ReactNode }) {
 applyTheme(); // before the first paint, so a dark screen never flashes white
 applyDensity();
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <BrowserRouter>
+/** The landing page at /welcome needs no account, so it shows at once, signed in or not. */
+function Root() {
+  return useLocation().pathname === "/welcome" ? <Landing /> : <App />;
+}
+
+function App() {
+  return (
       <ToastProvider>
       <DialogProvider>
       <CrumbProvider>
@@ -75,6 +80,8 @@ createRoot(document.getElementById("root")!).render(
       <WorkspaceGate>
       <Routes>
         <Route path="invite/:token" element={<Invite />} />
+        {/* The landing page's Sign in links: once signed in, start at Home. */}
+        <Route path="sign-in" element={<Navigate to="/" replace />} />
         {/* The PDF export is a page of its own, without the app's sidebar. */}
         <Route
           path="dashboards/:dashboardId/export"
@@ -110,6 +117,13 @@ createRoot(document.getElementById("root")!).render(
       </CrumbProvider>
       </DialogProvider>
       </ToastProvider>
+  );
+}
+
+createRoot(document.getElementById("root")!).render(
+  <StrictMode>
+    <BrowserRouter>
+      <Root />
     </BrowserRouter>
   </StrictMode>,
 );

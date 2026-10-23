@@ -1,4 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import {
+  Suspense, createContext, lazy, useCallback, useContext, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode,
+} from "react";
 import { useLocation } from "react-router-dom";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Mail } from "lucide-react";
@@ -6,6 +8,7 @@ import { accountApi, ApiError, configureSession, type Me, type Role, type Worksp
 import { BrandMark } from "./ui";
 
 const WORKSPACE_KEY = "workspace";
+const Landing = lazy(() => import("../pages/Landing").then((m) => ({ default: m.Landing })));
 
 type Account = {
   me: Me;
@@ -44,6 +47,7 @@ type State =
 
 export function AccountProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<State>({ status: "loading" });
+  const location = useLocation();
   const client = useRef<SupabaseClient | null>(null);
 
   const load = useCallback(async () => {
@@ -137,7 +141,17 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
   if (state.status === "loading") return <Splash />;
   if (state.status === "error") return <Splash message={`Can't reach datawazi: ${state.message}`} />;
-  if (state.status === "signed-out") return <SignIn client={state.client} problem={state.problem} />;
+  if (state.status === "signed-out") {
+    // Visitors see the landing page at /; every other address (and its Sign in links) asks them to sign in.
+    if (location.pathname === "/" && !state.problem) {
+      return (
+        <Suspense fallback={<Splash />}>
+          <Landing />
+        </Suspense>
+      );
+    }
+    return <SignIn client={state.client} problem={state.problem} />;
+  }
   return <AccountContext.Provider value={account}>{children}</AccountContext.Provider>;
 }
 
