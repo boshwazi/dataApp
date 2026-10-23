@@ -174,7 +174,7 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
 
       {show !== "datasets" && (
         <section className="home-section">
-          <h2 className="section-title">{t("Dashboards")}</h2>
+          {show === "all" && <h2 className="section-title">{t("Dashboards")}</h2>}
           {dashboards === null ? (
             <Skeleton lines={3} height={52} />
           ) : dashboards.length === 0 ? (
@@ -204,7 +204,7 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
                         {d.name}
                       </Link>
                     </td>
-                    <td className="muted">{d.dataset ? <span className="ident">{d.dataset.name}</span> : <span className="bad">{t("Removed")}</span>}</td>
+                    <td className="muted">{d.dataset ? <span>{d.dataset.name}</span> : <span className="bad">{t("Removed")}</span>}</td>
                     <td className="num">{d.pages}</td>
                     {creator && (
                       <td>
@@ -240,7 +240,7 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
 
       {show !== "dashboards" && (
         <section className="home-section">
-          <h2 className="section-title">{t("Datasets")}</h2>
+          {show === "all" && <h2 className="section-title">{t("Datasets")}</h2>}
           <p className="muted small section-hint">{t("Load, clean and model data once, then reuse it in any number of dashboards.")}</p>
           {datasets === null ? (
             <Skeleton lines={3} height={52} />

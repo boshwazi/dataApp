@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { Plus, Trash2, X } from "lucide-react";
+import { Plus, ShieldCheck, Trash2, X } from "lucide-react";
 import { securityApi, type RoleDef, type SecurityState } from "../api";
-import { useToast } from "../components/ui";
+import { EmptyState, useToast } from "../components/ui";
 import { useDataset } from "./Dataset";
 
 type Draft = RoleDef & { valuesText: string[] };
@@ -16,12 +16,14 @@ export function Security() {
   const toast = useToast();
   const [state, setState] = useState<SecurityState | null>(null);
   const [roles, setRoles] = useState<Draft[]>([]);
+  const [savedRoles, setSavedRoles] = useState("[]"); // what was last loaded or saved, to tell when there's something to save
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function loaded(next: SecurityState) {
     setState(next);
     setRoles(next.roles.map(draftOf));
+    setSavedRoles(JSON.stringify(next.roles.map(draftOf)));
   }
 
   useEffect(() => {
@@ -61,6 +63,9 @@ export function Security() {
 
   const first = tables[0];
   const newFilter = () => ({ table: first?.id ?? "", column: textColumns(first?.id ?? "")[0]?.name ?? "", operator: "in" as const, values: [] });
+  const addRole = () =>
+    setRoles((rs) => [...rs, { name: "", filters: [newFilter()], valuesText: [""], per_person: null, members: { people: [], groups: [] } }]);
+  const dirty = JSON.stringify(roles) !== savedRoles;
 
   return (
     <div className="security">
@@ -177,17 +182,35 @@ export function Security() {
         </section>
       ))}
 
-      <div className="security-actions">
-        <button
-          className="secondary"
-          onClick={() => setRoles((rs) => [...rs, { name: "", filters: [newFilter()], valuesText: [""], per_person: null, members: { people: [], groups: [] } }])}
+      {roles.length === 0 && (
+        <EmptyState
+          icon={<ShieldCheck size={28} />}
+          title="Everyone with access sees every row"
+          action={
+            <button onClick={addRole}>
+              <Plus size={15} aria-hidden="true" /> Add a role
+            </button>
+          }
         >
-          <Plus size={15} aria-hidden="true" /> Add a role
-        </button>
-        <button onClick={save} disabled={saving}>
-          {saving ? "Saving…" : "Save roles"}
-        </button>
-      </div>
+          Add a role to limit what viewers see: the North team sees only rows where Region is North, or each salesperson sees
+          only their own customers.
+        </EmptyState>
+      )}
+
+      {(roles.length > 0 || dirty) && (
+        <div className="security-actions">
+          {roles.length > 0 && (
+            <button className="secondary" onClick={addRole}>
+              <Plus size={15} aria-hidden="true" /> Add a role
+            </button>
+          )}
+          {dirty && (
+            <button onClick={save} disabled={saving}>
+              {saving ? "Saving…" : "Save roles"}
+            </button>
+          )}
+        </div>
+      )}
       {error && <p className="bad">{error}</p>}
     </div>
   );

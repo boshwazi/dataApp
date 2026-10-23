@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Boxes, Sparkles } from "lucide-react";
+import { Boxes, Plus, Sparkles } from "lucide-react";
 import { api, modelApi, semanticApi, type Dataset, type LinkCatalogue, type SemanticResult } from "../api";
-import { EmptyState, useCrumbs, useToast } from "../components/ui";
+import { useCrumbs, useToast } from "../components/ui";
 
 type Mode = "merge" | "tables";
 type Built = SemanticResult & { ai: "running" | "done" | "skipped" | string; added: number };
@@ -20,6 +20,7 @@ export function SemanticModels() {
   const [tables, setTables] = useState<Set<string>>(new Set()); // "datasetId:queryId"
   const [busy, setBusy] = useState(false);
   const [built, setBuilt] = useState<Built | null>(null);
+  const [opened, setOpened] = useState(false); // the builder, once there are models to list first
 
   function load() {
     semanticApi.catalogue().then(setCatalogue).catch((e) => toast(e.message, "error"));
@@ -83,13 +84,57 @@ export function SemanticModels() {
     <div className="page wide semantic">
       <div className="home-head">
         <h1>Semantic models</h1>
+        <span className="spacer" />
+        {!!models?.length && !opened && (
+          <button onClick={() => setOpened(true)}>
+            <Plus size={16} aria-hidden="true" /> New semantic model
+          </button>
+        )}
       </div>
       <p className="muted semantic-lead">
         One model over tables from several published datasets. Nothing is uploaded again: each table is linked, and follows its dataset
         when that dataset publishes. Relationships, the date table and measures come along; dashboards use it like any dataset.
       </p>
 
+      {built && <BuiltCard built={built} />}
+
+      {!!models?.length && (
+      <section>
+        <h2 className="section-title">Your semantic models</h2>
+        {models === null ? null : (
+          <div className="table-wrap">
+            <table className="grid">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Built from</th>
+                  <th className="num">Tables</th>
+                  <th className="num">Measures</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {models.map((m) => (
+                  <tr key={m.id}>
+                    <td>
+                      <Link to={`/datasets/${m.id}/model`}>{m.name}</Link>
+                    </td>
+                    <td className="small">{m.semantic?.from.map((f) => f.name).join(", ")}</td>
+                    <td className="num">{m.progress.sources}</td>
+                    <td className="num">{m.progress.measures}</td>
+                    <td className="small">{m.status.published ? `Published v${m.status.version}` : "Not published"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+      )}
+
+      {(opened || models?.length === 0) && (
       <section className="card semantic-new">
+        <h2 className="section-title">{models?.length ? "New semantic model" : "Make your first semantic model"}</h2>
         <div className="segmented" role="tablist" aria-label="How to build it">
           <button role="tab" aria-selected={mode === "merge"} className={mode === "merge" ? "on" : ""} onClick={() => setMode("merge")}>
             Merge datasets
@@ -162,42 +207,8 @@ export function SemanticModels() {
           </button>
         </div>
       </section>
+      )}
 
-      {built && <BuiltCard built={built} />}
-
-      <section>
-        <h2 className="section-title">Your semantic models</h2>
-        {models === null ? null : models.length === 0 ? (
-          <EmptyState title="No semantic models yet">Merge two datasets or pick tables above to make one.</EmptyState>
-        ) : (
-          <div className="table-wrap">
-            <table className="grid">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Built from</th>
-                  <th className="num">Tables</th>
-                  <th className="num">Measures</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {models.map((m) => (
-                  <tr key={m.id}>
-                    <td>
-                      <Link to={`/datasets/${m.id}/model`}>{m.name}</Link>
-                    </td>
-                    <td className="small">{m.semantic?.from.map((f) => f.name).join(", ")}</td>
-                    <td className="num">{m.progress.sources}</td>
-                    <td className="num">{m.progress.measures}</td>
-                    <td className="small">{m.status.published ? `Published v${m.status.version}` : "Not published"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
     </div>
   );
 }

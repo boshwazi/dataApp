@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { ApiError, refreshApi, type LoadMode, type RefreshEntry, type RefreshState } from "../api";
 import { useDialogs } from "../components/ui";
 import { useDataset } from "./Dataset";
@@ -110,7 +111,13 @@ export function Refresh() {
           New data replaces old rows (or is appended, if you choose); the Applied Steps, model and dashboards stay as they are.
           Every refresh is checked, and dashboards only change when a version is published.
         </p>
-        <div className="refresh-controls">
+        {!pullable.length && (
+          <p className="notice">
+            This dataset has only uploaded files, so there's nothing to pull on a schedule. Refresh them with "Replace file" below,
+            or add the file from a shared OneDrive, SharePoint or Google Drive link in <Link to="../get-data">Get Data</Link>.
+          </p>
+        )}
+        {pullable.length > 0 && <div className="refresh-controls">
           <label>
             Pull sheets, shared links and linked tables
             <select value={settings.schedule} onChange={(e) => configure({ schedule: e.target.value })} disabled={!pullable.length || busy !== null}>
@@ -148,7 +155,7 @@ export function Refresh() {
           <button onClick={() => act("all", () => refreshApi.pullAll(project.id))} disabled={!pullable.length || busy !== null}>
             {busy === "all" ? "Pulling…" : "Pull all now"}
           </button>
-        </div>
+        </div>}
         <div className="refresh-options">
           <label className="check">
             <input type="checkbox" checked={settings.auto_publish} onChange={(e) => configure({ auto_publish: e.target.checked })} disabled={busy !== null} />
@@ -161,12 +168,7 @@ export function Refresh() {
             </label>
           )}
         </div>
-        {!pullable.length && (
-          <p className="muted small">
-            This dataset has only uploaded files. Refresh them with "Replace file" below, or add the file from a shared OneDrive,
-            SharePoint or Google Drive link in Get Data so it can be pulled on a schedule.
-          </p>
-        )}
+
         {settings.next_run && (
           <p className="muted small">
             {settings.retry ? `Couldn't download; trying again (attempt ${settings.retry + 1}) on ` : "Next scheduled pull: "}

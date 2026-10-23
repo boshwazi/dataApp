@@ -7,12 +7,18 @@ import { useToast } from "./ui";
 export function GroupsSection() {
   const toast = useToast();
   const [groups, setGroups] = useState<(Group & { text: string })[] | null>(null);
+  const [savedGroups, setSavedGroups] = useState("[]"); // what was last loaded or saved
   const [saving, setSaving] = useState(false);
+  const load = (list: Group[]) => {
+    const next = list.map((g) => ({ ...g, text: g.members.join(", ") }));
+    setGroups(next);
+    setSavedGroups(JSON.stringify(next));
+  };
 
   useEffect(() => {
     securityApi
       .groups()
-      .then((r) => setGroups(r.groups.map((g) => ({ ...g, text: g.members.join(", ") }))))
+      .then((r) => load(r.groups))
       .catch((e) => toast(e.message, "error"));
   }, [toast]);
 
@@ -23,7 +29,7 @@ export function GroupsSection() {
       const saved = await securityApi.saveGroups(
         groups.map((g) => ({ id: g.id, name: g.name, members: g.text.split(",").map((m) => m.trim()).filter(Boolean) })),
       );
-      setGroups(saved.groups.map((g) => ({ ...g, text: g.members.join(", ") })));
+      load(saved.groups);
       toast("Groups saved");
     } catch (e) {
       toast((e as Error).message, "error");
@@ -52,9 +58,11 @@ export function GroupsSection() {
         <button className="secondary" onClick={() => setGroups((gs) => [...(gs ?? []), { id: "", name: "", members: [], text: "" }])}>
           <Plus size={15} aria-hidden="true" /> Add a group
         </button>
-        <button onClick={save} disabled={saving || groups === null}>
-          {saving ? "Saving…" : "Save groups"}
-        </button>
+        {groups !== null && JSON.stringify(groups) !== savedGroups && (
+          <button onClick={save} disabled={saving}>
+            {saving ? "Saving…" : "Save groups"}
+          </button>
+        )}
       </div>
     </section>
   );

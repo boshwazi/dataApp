@@ -19,16 +19,18 @@ type NavItem = {
   role?: Role;
   platform?: boolean;
   hosted?: boolean;
+  /** On phones it moves from the bottom bar into the workspace menu, keeping the bar to a few labelled items. */
+  more?: boolean;
 };
 
 const NAV: NavItem[] = [
   { to: "/", label: "Home", icon: House, end: true, section: "Workspace" },
   { to: "/datasets", label: "Datasets", icon: Database, end: false, section: "Workspace", role: "creator" },
-  { to: "/semantic-models", label: "Semantic models", icon: Boxes, end: false, section: "Workspace", role: "creator" },
+  { to: "/semantic-models", label: "Semantic models", icon: Boxes, end: false, section: "Workspace", role: "creator", more: true },
   { to: "/dashboards", label: "Dashboards", icon: LayoutDashboard, end: false, section: "Workspace" },
   { to: "/help", label: "Help", icon: CircleHelp, end: false, section: "Workspace" },
-  { to: "/members", label: "Members", icon: Users, end: false, section: "Admin", role: "admin", hosted: true },
-  { to: "/settings", label: "Settings", icon: SettingsIcon, end: false, section: "Admin", platform: true },
+  { to: "/members", label: "Members", icon: Users, end: false, section: "Admin", role: "admin", hosted: true, more: true },
+  { to: "/settings", label: "Settings", icon: SettingsIcon, end: false, section: "Admin", platform: true, more: true },
 ];
 
 export function Layout() {
@@ -56,9 +58,10 @@ export function Layout() {
             if (!items.length) return null;
             return (
               <div key={section} className="rail-section" role="group" aria-label={section}>
-                {items.map(({ to, label, icon: Icon, end }) => (
-                  <NavLink key={to} to={to} end={end} aria-label={t(label)} data-tip={t(label)}>
+                {items.map(({ to, label, icon: Icon, end, more }) => (
+                  <NavLink key={to} to={to} end={end} aria-label={t(label)} data-tip={t(label)} className={more ? "rail-more" : undefined}>
                     <Icon size={18} aria-hidden="true" />
+                    <span className="rail-label" aria-hidden="true">{t(label)}</span>
                   </NavLink>
                 ))}
               </div>
@@ -66,7 +69,7 @@ export function Layout() {
           })}
         </nav>
         <Notifications />
-        <WorkspaceMenu />
+        <WorkspaceMenu more={nav.filter((n) => n.more)} />
       </aside>
       <div className="main-column">
         <header className="topbar">
@@ -95,7 +98,7 @@ export function Layout() {
   );
 }
 
-function WorkspaceMenu() {
+function WorkspaceMenu({ more }: { more: NavItem[] }) {
   const account = useAccount();
   const dialogs = useDialogs();
   const toast = useToast();
@@ -182,6 +185,12 @@ function WorkspaceMenu() {
             </button>
           )}
           <div className="menu-separator" role="separator" />
+          {more.map(({ to, label, icon: Icon }) => (
+            <Link key={to} to={to} role="menuitem" className="menu-phone-only" onClick={() => setOpen(false)}>
+              <Icon size={16} aria-hidden="true" /> {t(label)}
+            </Link>
+          ))}
+          {more.length > 0 && <div className="menu-separator menu-phone-only" role="separator" />}
           {account.can("admin") && (
             <button role="menuitem" onClick={() => (setOpen(false), setInstructions(true))}>
               <ScrollText size={16} aria-hidden="true" /> {t("AI instructions for the workspace")}

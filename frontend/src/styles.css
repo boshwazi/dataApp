@@ -137,9 +137,11 @@ button {
   color: #fff;
 }
 
+/* Secondary buttons are neutral, so the one primary (blue) button on a screen stands out. */
 button.secondary {
-  background: transparent;
-  color: var(--accent);
+  background: var(--panel);
+  color: var(--text);
+  border-color: var(--border-strong);
 }
 
 .report {
@@ -193,6 +195,9 @@ button.link:hover:not(:disabled) {
 button.danger,
 button.link.danger {
   color: var(--bad);
+}
+
+button.danger:not(.secondary):not(.link):not(.icon) {
   border-color: var(--bad);
 }
 
@@ -400,9 +405,9 @@ input {
   background: var(--selected);
 }
 
+/* Names read as names (the regular face); the mono face is kept for formulas, types and values. */
 .source-name,
 .detail-header h2 {
-  font-family: var(--mono);
   overflow-wrap: anywhere;
 }
 
@@ -1331,8 +1336,9 @@ a.button {
 }
 
 a.button.secondary {
-  background: transparent;
-  color: var(--accent);
+  background: var(--panel);
+  color: var(--text);
+  border-color: var(--border-strong);
 }
 
 /* PDF export: one A4 landscape sheet per page, laid out at its printed width so charts don't resize. */
@@ -1642,12 +1648,66 @@ a {
   cursor: pointer;
 }
 
+/* Links with no style of their own: the accent colour, with a light underline so prose links still read as links. */
+a {
+  color: var(--accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--accent-line);
+}
+
+a:hover {
+  text-decoration-color: currentColor;
+}
+
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-button:not(.link):not(.icon):not(.chip):not(.source-item):not(.step-main):not(.choice):not(.lineage-card):not(.tool):not(.tree-row):not(.col-head):not(.step-row):not(.page-thumb):not(.ai-button):not(.pill-x):not([role="menuitem"]):not([role="tab"]):not([role="radio"]):not(.workspace):not(.search-button):not(.rail-button):not(.notice-item):not(.help-link):hover:not(:disabled) {
+/* Form controls without a style of their own take the app's look instead of the browser's.
+   :where() keeps these weak, so any component's own select or checkbox style still wins. */
+:where(select) {
+  font: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background-color: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 6px 30px 6px 10px;
+  min-height: 34px;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a94a3' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  cursor: pointer;
+}
+
+/* Room for the chevron, whatever padding a component gives its select. */
+select {
+  padding-right: 30px !important;
+}
+
+:where(select):hover:not(:disabled) {
+  border-color: var(--border-hover);
+}
+
+:where(select):disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+:where(input[type="checkbox"], input[type="radio"]) {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+  margin: 0 8px 0 0;
+  vertical-align: -3px;
+  cursor: pointer;
+}
+
+/* :where() keeps this general hover weak, so a component's own hover style (tabs, toggles, cards) wins. */
+button:where(:not(.link):not(.icon):not(.chip):not(.source-item):not(.step-main):not(.choice):not(.lineage-card):not(.tool):not(.tree-row):not(.col-head):not(.step-row):not(.page-thumb):not(.ai-button):not(.pill-x):not([role="menuitem"]):not([role="tab"]):not([role="radio"]):not(.workspace):not(.search-button):not(.rail-button):not(.notice-item):not(.help-link)):hover:not(:disabled) {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
 }
@@ -2547,13 +2607,27 @@ button.danger-solid:hover:not(:disabled) {
   .kpi-strip[data-count] { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* Secondary buttons keep a light hover; the generic primary hover rule outranks them otherwise. */
+/* Secondary buttons: a light neutral hover. Destructive ones keep their red and sit a little apart. */
 button.secondary:hover:not(:disabled),
 a.button.secondary:hover,
 .menu > button[aria-expanded="true"] {
-  background: var(--selected) !important;
-  color: var(--accent) !important;
-  border-color: var(--accent) !important;
+  background: var(--hover);
+  color: var(--text);
+  border-color: var(--border-hover);
+}
+
+button.secondary.danger {
+  color: var(--bad);
+}
+
+button.secondary.danger:hover:not(:disabled) {
+  background: var(--bad-bg);
+  color: var(--bad);
+  border-color: var(--bad-line);
+}
+
+.actions > .danger:last-child:not(:first-child) {
+  margin-left: 12px;
 }
 
 /* ---------- Sign-in, workspace switcher, members ---------- */
@@ -3346,9 +3420,7 @@ button.icon {
 }
 
 /* Identifiers (tables, columns, measures, datasets) read as data, in monospace. */
-.ident,
-.source-item strong,
-.catalog .ident {
+.ident {
   font-family: var(--mono);
   font-size: 12.5px;
 }
@@ -3482,15 +3554,21 @@ button.workspace:hover {
   box-shadow: 0 0 0 3px var(--selected);
 }
 
+/* Section headings: a real step down from the page title, in the text colour (not small grey labels). */
 .section-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--muted);
-  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  margin: 0 0 10px;
+}
+
+.section-title + .section-hint {
+  margin: -6px 0 12px;
 }
 
 .home-section {
-  margin-top: 22px;
+  margin-top: 32px;
 }
 
 /* Catalog tables */
@@ -3540,11 +3618,18 @@ button.workspace:hover {
   font-variant-numeric: tabular-nums;
 }
 
+/* A table cell stays a table cell (display: flex here broke the row's border); the icon sits inline. */
 .catalog-name {
-  display: flex;
-  align-items: center;
-  gap: 9px;
   font-weight: 600;
+}
+
+.catalog-name > svg {
+  vertical-align: -3px;
+  margin-right: 9px;
+}
+
+.catalog-name > svg:not(:first-child) {
+  margin: 0 0 0 6px;
 }
 
 .catalog-name a {
@@ -3946,6 +4031,12 @@ button.workspace:hover {
   color: #fff;
 }
 
+/* Desktop: icons with tooltips; the labels and the menu's extra links are for phones. */
+.rail-label,
+.menu-phone-only {
+  display: none !important;
+}
+
 .rail-section a.active::before {
   content: "";
   position: absolute;
@@ -4067,6 +4158,27 @@ button.workspace:hover {
 .topbar-grow,
 .grow {
   flex: 1;
+}
+
+/* Phones: the page's toolbar scrolls sideways instead of running off the screen, and keyboard hints go. */
+@media (max-width: 700px) {
+  .topbar-slot {
+    overflow-x: auto;
+    scrollbar-width: none;
+    mask-image: linear-gradient(90deg, #000 85%, transparent);
+  }
+
+  .topbar-slot::-webkit-scrollbar {
+    display: none;
+  }
+
+  .topbar-slot > * {
+    flex-shrink: 0;
+  }
+
+  .topbar kbd {
+    display: none;
+  }
 }
 
 .search-button {
@@ -6018,7 +6130,7 @@ button.pill-x:hover {
     right: 0;
     bottom: 0;
     top: auto;
-    height: 52px;
+    height: 60px;
     flex-direction: row;
     justify-content: space-around;
     padding: 0 8px;
@@ -6029,12 +6141,54 @@ button.pill-x:hover {
     flex-direction: row;
   }
 
+  /* Phones: a few labelled items; the rest are in the workspace menu. */
+  .rail-section a.rail-more {
+    display: none;
+  }
+
+  .rail-section a {
+    flex-direction: column;
+    gap: 2px;
+    width: auto !important;
+    min-width: 56px;
+    height: 48px !important;
+  }
+
+  .rail-label {
+    display: block !important;
+    font-size: 10.5px;
+    font-weight: 500;
+    line-height: 1;
+  }
+
+  .menu-phone-only {
+    display: flex !important;
+  }
+
+  .rail a {
+    text-decoration: none;
+  }
+
+  /* Phones: the workspace menu opens upward from the bar, inside the screen (it opened off to the right). */
+  .rail .menu-list.up.rail-menu {
+    top: auto;
+    left: auto;
+    right: 0;
+    bottom: calc(100% + 10px);
+    max-height: calc(100vh - 90px);
+    overflow-y: auto;
+  }
+
+  .crumb-sep {
+    display: none;
+  }
+
   .rail-brand {
     display: none;
   }
 
   .main-column {
-    height: calc(100vh - 52px);
+    height: calc(100vh - 60px);
   }
 
   .rail [data-tip]:hover::after {
@@ -6045,8 +6199,14 @@ button.pill-x:hover {
     overflow-x: auto;
   }
 
-  .crumbs {
+  /* Only where you are: the last crumb. */
+  .crumb:not(:last-child) {
     display: none;
+  }
+
+  .crumbs {
+    font-weight: 600;
+    color: var(--text);
   }
 
   .transform-editor,
