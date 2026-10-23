@@ -2627,6 +2627,218 @@ a.button.secondary:hover,
   background: var(--border);
 }
 
+/* The sign-in screen: the form on the left, what the company gets on the right (hidden on phones). */
+.signin {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  background: var(--bg);
+}
+
+.signin-main {
+  display: grid;
+  place-items: center;
+  padding: 40px 24px;
+}
+
+.signin-panel {
+  width: min(400px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.signin-panel h1 {
+  margin: 12px 0 0;
+  font-size: 28px;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.signin-panel p {
+  margin: 0;
+}
+
+.signin-brand {
+  color: var(--text);
+  text-decoration: none;
+  align-self: flex-start;
+}
+
+.signin-provider {
+  gap: 10px;
+  min-height: 44px;
+  color: var(--text) !important; /* neutral, as Google's and Microsoft's button guidelines ask */
+  border-color: var(--border-strong) !important;
+  background: var(--panel) !important;
+}
+
+.signin-provider:hover {
+  background: var(--hover) !important;
+}
+
+.signin-panel .auth-form button[type="submit"] {
+  min-height: 44px;
+}
+
+.signin-hint {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.signin-error {
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--bad-bg);
+  border: 1px solid var(--bad-line);
+  color: var(--bad);
+  font-size: 14px;
+}
+
+.signin-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.signin-help {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  font-size: 14px;
+}
+
+.signin-help summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.signin-help ul {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.signin-aside {
+  background: var(--sidebar);
+  color: #ffffff;
+  padding: 56px clamp(32px, 6vw, 88px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 28px;
+}
+
+.signin-aside h2 {
+  margin: 0;
+  font-size: 26px;
+  letter-spacing: -0.02em;
+}
+
+.signin-aside ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: #c3cdd9;
+  font-size: 15px;
+}
+
+.signin-aside li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.signin-aside li svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+  color: #8db2f2;
+}
+
+/* A still of the landing page's demo result, in the light look whatever the theme. */
+.signin-preview {
+  margin: 0;
+  max-width: 460px;
+  padding: 20px 22px;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #16202e;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.signin-preview-kpis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 32px;
+}
+
+.signin-preview-kpis span {
+  display: block;
+  font-size: 13px;
+  color: #5b6574;
+}
+
+.signin-preview-kpis strong {
+  font-size: 24px;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.signin-preview-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.signin-preview-bars div {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.signin-preview-bars i {
+  height: 10px;
+  border-radius: 3px;
+  background: #1b5fd1;
+}
+
+.signin-preview-bars i.other {
+  background: #9ca3af;
+}
+
+.signin-preview figcaption {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #374151;
+}
+
+.signin-preview figcaption svg {
+  color: #007a5e;
+}
+
+@media (max-width: 900px) {
+  .signin {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .signin-aside {
+    display: none;
+  }
+}
+
 .workspace-menu {
   position: relative;
   margin-top: auto;
