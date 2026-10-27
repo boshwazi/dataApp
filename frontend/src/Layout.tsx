@@ -7,7 +7,7 @@ import { InstructionsDialog } from "./components/InstructionsDialog";
 import { Notifications } from "./components/Notifications";
 import { savedTheme, setTheme, type ThemeChoice } from "./components/theme";
 import { savedDensity, setDensity, type Density } from "./components/density";
-import { BrandMark, TopbarContext, useCurrentCrumbs, useDialogs, useShortcut, useToast } from "./components/ui";
+import { BrandMark, TopbarContext, WorkspaceBadge, useCurrentCrumbs, useDialogs, useShortcut, useToast } from "./components/ui";
 import { language, setLanguage, t, type Language } from "./i18n";
 
 type NavItem = {
@@ -160,9 +160,7 @@ function WorkspaceMenu({ more }: { more: NavItem[] }) {
         aria-label={`Workspace: ${account.workspace?.name ?? ""}`}
         data-tip={`${account.workspace?.name ?? ""}, ${hosted ? roleName : t("On this computer")}`}
       >
-        <span className="workspace-badge" aria-hidden="true">
-          {account.workspace?.name[0]?.toUpperCase()}
-        </span>
+        <WorkspaceBadge workspace={account.workspace} />
       </button>
       {open && (
         <div className="menu-list up rail-menu" role="menu">
@@ -173,9 +171,7 @@ function WorkspaceMenu({ more }: { more: NavItem[] }) {
           <div className="menu-separator" role="separator" />
           {account.me.workspaces.map((w) => (
             <button key={w.id} role="menuitem" onClick={() => go(w.id)}>
-              <span className="workspace-badge small" aria-hidden="true">
-                {w.name[0]?.toUpperCase()}
-              </span>
+              <WorkspaceBadge workspace={w} small />
               <span className="grow">{w.name}</span>
               {w.id === account.workspace?.id && <Check size={15} aria-label="Current" />}
             </button>

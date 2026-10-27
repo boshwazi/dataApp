@@ -11,6 +11,8 @@ so a missed check fails closed. In the hosted phase the records here move to Pos
 row-level security on workspace_id; the folders move to per-workspace storage.
 """
 
+import base64
+import binascii
 import hashlib
 import json
 import re
@@ -59,6 +61,28 @@ VERIFIED_PROVIDERS = {"email", "google"}
 
 def email_domain(email: str) -> str:
     return email.rsplit("@", 1)[-1].strip().lower()
+
+
+LOGO_MAX_BYTES = 64 * 1024  # the browser shrinks logos to 128 px first, so real ones are far smaller
+LOGO_TYPES = {"png": b"\x89PNG\r\n\x1a\n", "jpeg": b"\xff\xd8\xff", "webp": b"RIFF"}
+
+
+def checked_logo(image: str) -> str:
+    """A workspace logo as a data URI: PNG, JPEG or WebP only (never SVG, which can carry scripts), small, and
+    really the type it says it is."""
+    match = re.fullmatch(r"data:image/(png|jpeg|webp);base64,([A-Za-z0-9+/=]+)", image.strip())
+    if not match:
+        raise WorkspaceError("The logo must be a PNG, JPEG or WebP image.")
+    kind, encoded = match.groups()
+    try:
+        data = base64.b64decode(encoded, validate=True)
+    except binascii.Error as exc:
+        raise WorkspaceError("The logo image couldn't be read.") from exc
+    if len(data) > LOGO_MAX_BYTES:
+        raise WorkspaceError("The logo is too large; use an image under 64 KB.", 413)
+    if not data.startswith(LOGO_TYPES[kind]) or (kind == "webp" and data[8:12] != b"WEBP"):
+        raise WorkspaceError("The logo file isn't the image type it claims to be.")
+    return f"data:image/{kind};base64,{encoded}"
 
 
 @dataclass(frozen=True)

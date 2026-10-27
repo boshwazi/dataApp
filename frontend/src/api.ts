@@ -216,7 +216,7 @@ const source = (pid: string, sid: string) => `${project(pid)}/sources/${sid}`;
 // Sign-in, workspaces and members
 
 export type Role = "admin" | "creator" | "viewer";
-export type WorkspaceSettings = { require_mfa?: boolean; domains?: string[]; exported_at?: string; delete_after?: string };
+export type WorkspaceSettings = { logo?: string; require_mfa?: boolean; domains?: string[]; exported_at?: string; delete_after?: string };
 export type WorkspaceRef = { id: string; name: string; role: Role; settings?: WorkspaceSettings };
 export type AuthConfig = { mode: "local" | "supabase"; supabase_url: string | null; supabase_key: string | null };
 export type Me = { mode: "local" | "supabase"; user: { id: string; email: string }; platform_admin: boolean; workspaces: WorkspaceRef[] };
@@ -238,6 +238,8 @@ export const accountApi = {
     request<{ delete_after: string }>("/api/workspaces/current/delete", json("POST", { confirm })),
   restoreWorkspace: () => request<{ delete_after: null }>("/api/workspaces/current/restore", { method: "POST" }),
   createWorkspace: (name: string) => request<WorkspaceRef>("/api/workspaces", json("POST", { name })),
+  setLogo: (image: string) => request<{ logo: string }>("/api/workspaces/current/logo", json("PUT", { image })),
+  removeLogo: () => request<{ logo: null }>("/api/workspaces/current/logo", { method: "DELETE" }),
   renameWorkspace: (name: string) => request<WorkspaceRef>("/api/workspaces/current", json("PATCH", { name })),
   instructions: () => request<{ instructions: string }>("/api/workspaces/current/instructions"),
   setInstructions: (instructions: string) =>

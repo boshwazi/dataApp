@@ -11,7 +11,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
-import { handledErrors } from "../api";
+import { handledErrors, type WorkspaceRef } from "../api";
 
 // Logo
 
@@ -24,6 +24,17 @@ export function BrandMark({ size = 22 }: { size?: number }) {
       <path d="M13.5 28A9 9 0 0 1 22.5 19" fill="none" stroke="#FACC15" strokeWidth="5.5" />
       <rect x="31.5" y="9" width="5.5" height="30.75" rx="2.75" fill="#fff" />
     </svg>
+  );
+}
+
+/** A workspace's logo, or its initial when it has none. */
+export function WorkspaceBadge({ workspace, small, large }: { workspace?: Pick<WorkspaceRef, "name" | "settings"> | null; small?: boolean; large?: boolean }) {
+  const logo = workspace?.settings?.logo;
+  const size = small ? " small" : large ? " large" : "";
+  return (
+    <span className={`workspace-badge${size}${logo ? " has-logo" : ""}`} aria-hidden="true">
+      {logo ? <img src={logo} alt="" /> : workspace?.name[0]?.toUpperCase()}
+    </span>
   );
 }
 

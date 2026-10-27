@@ -24,6 +24,10 @@ class SignInRulesBody(BaseModel):
     require_mfa: bool = False
 
 
+class LogoBody(BaseModel):
+    image: str
+
+
 class NameBody(BaseModel):
     name: str
 
@@ -69,6 +73,11 @@ def build_router(store: WorkspaceStore, config: AuthConfig, mailer: SupabaseAdmi
     def auth_config():
         return config.public()
 
+    def local_workspace() -> dict:
+        workspace = store.get(LOCAL_WORKSPACE)
+        return {"id": LOCAL_WORKSPACE, "name": workspace["name"], "role": "admin",
+                "settings": workspace.get("settings") or {}}
+
     @router.get("/api/me")
     def me():
         user = workspaces.current_user()
@@ -77,9 +86,7 @@ def build_router(store: WorkspaceStore, config: AuthConfig, mailer: SupabaseAdmi
             "user": {"id": user.id, "email": user.email},
             "platform_admin": config.is_platform_admin(user),
             # Locally there is one person and one workspace, so no membership is recorded.
-            "workspaces": [{"id": LOCAL_WORKSPACE, "name": store.get(LOCAL_WORKSPACE)["name"], "role": "admin",
-                            "settings": {}}]
-            if config.mode == "local" else store.for_user(user),
+            "workspaces": [local_workspace()] if config.mode == "local" else store.for_user(user),
         }
 
     @router.delete("/api/me")
@@ -124,6 +131,27 @@ def build_router(store: WorkspaceStore, config: AuthConfig, mailer: SupabaseAdmi
         if not access.at_least("admin"):
             raise HTTPException(403, "Only workspace admins can rename the workspace.")
         return {**checked(lambda: store.rename(access.workspace_id, body.name)), "role": access.role}
+
+    @router.put("/api/workspaces/current/logo")
+    def set_logo(body: LogoBody):
+        """The workspace's logo, shown in place of its initial. Kept with the workspace's settings, so it travels
+        with /api/me and the export."""
+        access = workspaces.current()
+        if not access.at_least("admin"):
+            raise HTTPException(403, "Only workspace admins can change the logo.")
+        logo = checked(lambda: workspaces.checked_logo(body.image))
+        checked(lambda: store.update_settings(access.workspace_id, {"logo": logo}))
+        note("workspace", "Changed the workspace logo")
+        return {"logo": logo}
+
+    @router.delete("/api/workspaces/current/logo")
+    def remove_logo():
+        access = workspaces.current()
+        if not access.at_least("admin"):
+            raise HTTPException(403, "Only workspace admins can change the logo.")
+        checked(lambda: store.update_settings(access.workspace_id, {"logo": None}))
+        note("workspace", "Removed the workspace logo")
+        return {"logo": None}
 
     @router.put("/api/workspaces/current/sign-in")
     def set_sign_in(body: SignInRulesBody):

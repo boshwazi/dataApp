@@ -8004,3 +8004,36 @@ a.button:active {
 .join-button {
   min-height: 44px;
 }
+
+/* Workspace logos: shown on white in a rounded tile, whatever the surface */
+.workspace-badge.large {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  font-size: 18px;
+}
+
+.workspace-badge.has-logo,
+.rail .workspace-badge.has-logo {
+  background: #fff;
+  padding: 2px;
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px var(--border);
+  overflow: hidden;
+}
+
+.workspace-badge.has-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.workspace-badge.small.has-logo {
+  border-radius: 6px;
+  padding: 1px;
+}
+
+.logo-row {
+  flex-wrap: wrap;
+}

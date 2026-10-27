@@ -1,5 +1,6 @@
 """Sign-in, workspaces and roles: one company never sees another's data, and roles hold."""
 
+import base64
 import re
 import time
 import uuid
@@ -470,3 +471,37 @@ def test_people_at_an_allowed_domain_are_offered_the_workspace(api):
     erin = Person(api, "erin", provider="azure")
     assert ok(erin.get("/api/workspaces/joinable"))["workspaces"] == []
     assert erin.post(f"/api/workspaces/{a['workspace']}/join").status_code == 403
+
+
+# The workspace logo
+
+PNG = "data:image/png;base64," + base64.b64encode(b"\x89PNG\r\n\x1a\n" + b"\0" * 64).decode()
+
+
+def test_admins_set_a_workspace_logo_that_everyone_sees(api):
+    ana = Person(api, "ana")
+    ana.workspace = ok(ana.post("/api/workspaces", json={"name": "Ana Trading"}))["id"]
+    logo = "/api/workspaces/current/logo"
+    svg = "data:image/svg+xml;base64," + base64.b64encode(b"<svg onload='alert(1)'/>").decode()
+    assert ana.call("PUT", logo, json={"image": svg}).status_code == 400  # SVG can carry scripts
+    fake = "data:image/png;base64," + base64.b64encode(b"<html>not a png</html>").decode()
+    assert "isn't the image type" in ana.call("PUT", logo, json={"image": fake}).json()["detail"]
+    huge = "data:image/png;base64," + base64.b64encode(b"\x89PNG\r\n\x1a\n" + b"\0" * 70_000).decode()
+    assert ana.call("PUT", logo, json={"image": huge}).status_code == 413
+    assert ok(ana.call("PUT", logo, json={"image": PNG})) == {"logo": PNG}
+
+    bob = Person(api, "bob")
+    ok(bob.post(f"/api/invites/{invite(ana, 'bob@example.com', 'viewer')}/accept"))
+    bob.workspace = ana.workspace
+    assert ok(bob.get("/api/me"))["workspaces"][0]["settings"]["logo"] == PNG
+    assert bob.call("PUT", logo, json={"image": PNG}).status_code == 403
+    assert bob.call("DELETE", logo).status_code == 403
+
+    assert ok(ana.call("DELETE", logo)) == {"logo": None}
+    assert "logo" not in ok(ana.get("/api/me"))["workspaces"][0]["settings"]
+
+
+def test_the_workspace_on_this_computer_can_have_a_logo(tmp_path):
+    api = TestClient(create_app(data_dir=tmp_path, client_factory=lambda s: None))
+    assert ok(api.put("/api/workspaces/current/logo", json={"image": PNG})) == {"logo": PNG}
+    assert ok(api.get("/api/me"))["workspaces"][0]["settings"] == {"logo": PNG}

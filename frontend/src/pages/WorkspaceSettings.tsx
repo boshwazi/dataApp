@@ -1,11 +1,11 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { accountApi, downloadFile } from "../api";
 import { useAccount } from "../components/account";
 import { InstructionsDialog } from "../components/InstructionsDialog";
-import { useCrumbs, useToast } from "../components/ui";
+import { WorkspaceBadge, useCrumbs, useToast } from "../components/ui";
 
-/** Workspace settings for admins: the name, what the AI may see, and the AI instructions for everything here. */
+/** Workspace settings for admins: the name and logo, what the AI may see, and the AI instructions for everything here. */
 export function WorkspaceSettings() {
   useCrumbs([{ label: "Workspace" }]);
   const account = useAccount();
@@ -60,8 +60,9 @@ export function WorkspaceSettings() {
       <p className="muted">Settings for everyone in {current}. Only admins see this page.</p>
 
       <section className="card settings-section">
-        <h2 className="section-title">Name</h2>
+        <h2 className="section-title">Name and logo</h2>
         <form className="settings-row" onSubmit={rename}>
+          <WorkspaceBadge workspace={account.workspace} large />
           <label className="field grow">
             <span className="sr-only">Workspace name</span>
             <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="organization" />
@@ -72,6 +73,7 @@ export function WorkspaceSettings() {
             </button>
           )}
         </form>
+        <LogoPicker />
       </section>
 
       <section className="card settings-section">
@@ -141,6 +143,74 @@ function useSettingChange() {
       toast((e as Error).message, "error");
     }
   };
+}
+
+const LOGO_PX = 128;
+
+/** Shrink any image, SVG included, to a small PNG (or WebP when that's much smaller). The server only takes
+    these, never SVG, which can carry scripts. */
+async function shrinkLogo(file: File): Promise<string> {
+  const url = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    image.src = url;
+    await image.decode();
+    const width = image.naturalWidth || LOGO_PX;
+    const height = image.naturalHeight || LOGO_PX;
+    const vector = file.type === "image/svg+xml";
+    const scale = vector ? LOGO_PX / Math.max(width, height) : Math.min(1, LOGO_PX / Math.max(width, height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(width * scale));
+    canvas.height = Math.max(1, Math.round(height * scale));
+    canvas.getContext("2d")!.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const png = canvas.toDataURL("image/png");
+    return png.length > 60_000 ? canvas.toDataURL("image/webp", 0.9) : png;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+function LogoPicker() {
+  const account = useAccount();
+  const toast = useToast();
+  const change = useSettingChange();
+  const input = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const has = !!account.workspace?.settings?.logo;
+
+  async function pick(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = ""; // picking the same file again still counts
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) return toast("That image is over 5 MB; pick a smaller one.", "error");
+    setBusy(true);
+    let image: string;
+    try {
+      image = await shrinkLogo(file);
+    } catch {
+      setBusy(false);
+      return toast("That file couldn't be read as an image. Use a PNG, JPEG, WebP or SVG.", "error");
+    }
+    await change(() => accountApi.setLogo(image), "Logo updated");
+    setBusy(false);
+  }
+
+  return (
+    <div className="settings-row logo-row">
+      <input ref={input} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden onChange={(e) => void pick(e)} />
+      <button type="button" className="secondary" onClick={() => input.current?.click()} disabled={busy}>
+        {busy ? "Uploading…" : has ? "Change logo" : "Upload logo"}
+      </button>
+      {has && (
+        <button type="button" className="link" onClick={() => void change(() => accountApi.removeLogo(), "Logo removed")} disabled={busy}>
+          Remove
+        </button>
+      )}
+      <span className="muted small grow">
+        Shown beside the workspace name, small. A square mark works best; PNG, JPEG, WebP or SVG.
+      </span>
+    </div>
+  );
 }
 
 function SignInRules() {
