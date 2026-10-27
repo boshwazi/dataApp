@@ -589,6 +589,23 @@ function settle(boxes: Record<string, GridBox>, moved: string): Record<string, G
 
 const same = (a: GridBox, b: GridBox) => a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
 
+// A tiny drawing of each visual's kind, so a page's thumbnail reads as its layout, not as a loading placeholder.
+function MiniGlyph({ type }: { type: VisualType }) {
+  const shape =
+    type === "kpi" ? <path d="M3 9h10M3 5h6" /> :
+    type === "line" || type === "area" ? <polyline points="2,12 6,7 9,9 14,3" /> :
+    type === "pie" || type === "donut" ? <circle cx="8" cy="8" r="4.5" /> :
+    type === "table" ? <path d="M2 4h12M2 8h12M2 12h12" /> :
+    type === "scatter" ? <path d="M4 11h.01M7 6h.01M11 8h.01M12 3h.01" /> :
+    type === "bar" || type === "stacked_bar" ? <path d="M2 4h11M2 8h7M2 12h9" /> :
+    <path d="M4 14V8M8 14V3M12 14V6" />;
+  return (
+    <svg viewBox="0 0 16 16" preserveAspectRatio="xMidYMid meet">
+      {shape}
+    </svg>
+  );
+}
+
 function MiniPage({ page }: { page: ReportPage }) {
   const boxes = layoutOf(page.visuals);
   const rows = Math.max(12, ...Object.values(boxes).map((b) => b.y + b.h));
@@ -601,7 +618,9 @@ function MiniPage({ page }: { page: ReportPage }) {
             key={v.id}
             className={v.type === "kpi" ? "kpi" : ""}
             style={{ left: `${(b.x / COLUMNS) * 100}%`, top: `${(b.y / rows) * 100}%`, width: `${(b.w / COLUMNS) * 100}%`, height: `${(b.h / rows) * 100}%` }}
-          />
+          >
+            <MiniGlyph type={v.type} />
+          </i>
         );
       })}
     </span>

@@ -130,7 +130,7 @@ const MS: Record<string, string> = {
     "Contohnya: paparan bulanan untuk pengurus cawangan, fokus pada produk yang semakin perlahan",
 
   // Quick start
-  "Drop a spreadsheet and get a dashboard": "Letakkan hamparan dan dapatkan papan pemuka",
+  "Drop in your data and get a dashboard": "Masukkan data anda dan dapatkan papan pemuka",
   "CSV or Excel. Autopilot cleans it, models it and designs a draft dashboard; you can change any step later.":
     "CSV atau Excel. Autopilot membersihkan, memodelkan dan mereka bentuk draf papan pemuka; anda boleh ubah mana-mana langkah kemudian.",
   "Choose files": "Pilih fail",
@@ -261,6 +261,7 @@ const MS: Record<string, string> = {
   "Ask your data a question": "Tanya soalan tentang data anda",
   Done: "Selesai",
   "To do": "Belum selesai",
+  "{n} new": "{n} baharu",
   "Set up datawazi": "Sediakan datawazi",
   "A few quick steps, and you can skip any of them.": "Beberapa langkah ringkas, dan anda boleh melangkau mana-mana langkah.",
   "Then Autopilot builds your first dashboard while you watch.":

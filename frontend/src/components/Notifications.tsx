@@ -35,6 +35,8 @@ export function Notifications() {
   const key = seenKey(account.workspace?.id);
   const [items, setItems] = useState<Notice[]>([]);
   const [seen, setSeen] = useState(() => readSeen(key));
+  // What was seen before this opening: items newer than it stay marked new while the panel is open.
+  const [before, setBefore] = useState(seen);
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
 
@@ -56,10 +58,12 @@ export function Notifications() {
   }, [open]);
 
   const unread = items.filter((n) => n.at > seen).length;
+  const fresh = items.filter((n) => n.at > before).length;
 
   function toggle() {
     const next = !open;
     setOpen(next);
+    if (next) setBefore(seen);
     if (next && items.length) {
       const newest = items[0].at;
       try {
@@ -67,8 +71,7 @@ export function Notifications() {
       } catch {
         /* private windows may refuse; the count simply comes back next time */
       }
-      // Keep this opening's highlights; the badge clears from the next render on.
-      window.setTimeout(() => setSeen(newest), 0);
+      setSeen(newest); // the badge clears; the panel keeps its highlights from `before`
     }
   }
 
@@ -80,13 +83,16 @@ export function Notifications() {
       </button>
       {open && (
         <div className="notices-panel" role="dialog" aria-label={t("Notifications")}>
-          <h2>{t("Notifications")}</h2>
+          <div className="notices-head">
+            <h2>{t("Notifications")}</h2>
+            {fresh > 0 && <span className="notices-new">{t("{n} new", { n: fresh })}</span>}
+          </div>
           {items.length === 0 ? (
             <p className="muted small">{t("Nothing yet. Failed refreshes, finished Autopilot runs and dashboards shared with you show up here.")}</p>
           ) : (
             <ul>
               {items.map((n) => (
-                <li key={n.id} className={n.at > seen ? "new" : ""}>
+                <li key={n.id} className={n.at > before ? "new" : ""}>
                   <button
                     className="notice-item"
                     onClick={() => {

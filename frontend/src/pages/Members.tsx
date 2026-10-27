@@ -146,7 +146,7 @@ export function Members() {
                       {m.email}
                       {you && <span className="muted"> (you)</span>}
                     </strong>
-                    <span className="muted small">Joined {new Date(m.joined_at).toLocaleDateString()}</span>
+                    <span className="muted small">Joined {new Date(m.joined_at).toLocaleDateString(undefined, { dateStyle: "medium" })}</span>
                   </span>
                   <select
                     aria-label={`Role of ${m.email}`}
@@ -181,7 +181,7 @@ export function Members() {
                   <strong>{i.email}</strong>
                   <span className="muted small">
                     {i.role[0].toUpperCase() + i.role.slice(1)}, invited by {i.invited_by}, link works until{" "}
-                    {new Date(i.expires_at).toLocaleDateString()}
+                    {new Date(i.expires_at).toLocaleDateString(undefined, { dateStyle: "medium" })}
                   </span>
                 </span>
                 <button className="secondary" onClick={() => resend(i.id)} title="Sends a new link; the old one stops working">

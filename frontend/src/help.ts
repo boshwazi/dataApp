@@ -5,11 +5,11 @@ export type Article = { id: string; title: string; summary: string; for: "everyo
 export const ARTICLES: Article[] = [
   {
     id: "start",
-    title: "Start here: from a spreadsheet to a dashboard",
+    title: "Start here: from your data to a dashboard",
     summary: "Drop a file on Home and Autopilot does the rest.",
     for: "creators",
     body: `
-On **Home**, drop a CSV or Excel file on **Drop a spreadsheet and get a dashboard**, or click **Choose files**.
+On **Home**, drop a CSV or Excel file on **Drop in your data and get a dashboard**, or click **Choose files**.
 
 Autopilot then works through five steps, and you can watch each one finish:
 

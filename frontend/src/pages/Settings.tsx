@@ -60,6 +60,17 @@ export function Settings() {
 
   if (!settings) return <p className="muted">{message ?? "Loading…"}</p>;
 
+  // Where the connection stands: no key, a key that hasn't been tested, or tested (with what it supports).
+  const tested = settings.capabilities.tools !== undefined;
+  const status = !settings.has_api_key
+    ? { tone: "off", text: "Not connected. Paste an API key, save, then test the connection." }
+    : !tested
+      ? { tone: "warn", text: "Key saved but not tested yet. Run the connection test so the AI features switch on." }
+      : {
+          tone: "ok",
+          text: `Connected to ${settings.model}. Tool calling ${settings.capabilities.tools ? "works" : "isn't supported"}, JSON mode ${settings.capabilities.json_mode ? "works" : "isn't supported"}.`,
+        };
+
   const keyPlaceholder = settings.has_api_key
     ? `Saved (${settings.api_key_hint}). Leave blank to keep it.`
     : "Paste your API key";
@@ -70,6 +81,11 @@ export function Settings() {
       <p className="muted">
         The AI provider used by every stage. Any OpenAI-compatible API works. Your key stays on this machine and is
         never sent to the browser.
+      </p>
+
+      <p className={`settings-status ${status.tone}`} role="status">
+        <span className="settings-dot" aria-hidden="true" />
+        {status.text}
       </p>
 
       <form className="card form" onSubmit={save}>

@@ -55,7 +55,7 @@ export function QuickStart() {
     >
       <Upload size={20} aria-hidden="true" />
       <div>
-        <h2>{t("Drop a spreadsheet and get a dashboard")}</h2>
+        <h2>{t("Drop in your data and get a dashboard")}</h2>
         <p className="muted small">
           {t("CSV or Excel. Autopilot cleans it, models it and designs a draft dashboard; you can change any step later.")}
         </p>

@@ -70,10 +70,13 @@ export function GroupsSection() {
 
 const ACTIONS: Record<string, string> = { members: "Members", groups: "Groups", roles: "Security roles", sharing: "Sharing", publish: "Publishing" };
 
+const AUDIT_PAGE = 15;
+
 /** Who changed access, or published, and when. */
 export function AuditSection() {
   const [entries, setEntries] = useState<AuditEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [shown, setShown] = useState(AUDIT_PAGE);
 
   useEffect(() => {
     securityApi.audit().then((r) => setEntries(r.entries)).catch((e) => setError(e.message));
@@ -96,9 +99,9 @@ export function AuditSection() {
               </tr>
             </thead>
             <tbody>
-              {entries.map((e, i) => (
+              {entries.slice(0, shown).map((e, i) => (
                 <tr key={i}>
-                  <td className="small">{new Date(e.at).toLocaleString()}</td>
+                  <td className="small nowrap">{new Date(e.at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}</td>
                   <td className="small">{e.by}</td>
                   <td className="small">{ACTIONS[e.action] ?? e.action}</td>
                   <td className="small">{e.detail}</td>
@@ -107,6 +110,11 @@ export function AuditSection() {
             </tbody>
           </table>
         </div>
+      )}
+      {entries && entries.length > shown && (
+        <button className="secondary audit-more" onClick={() => setShown((n) => n + AUDIT_PAGE)}>
+          Show {Math.min(AUDIT_PAGE, entries.length - shown)} more of {entries.length - shown}
+        </button>
       )}
     </section>
   );

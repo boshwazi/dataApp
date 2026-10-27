@@ -294,6 +294,7 @@ function ThemePicker() {
 }
 
 type Item = { label: string; detail: string; to: string; group: string };
+const PALETTE_PER_GROUP = 5;
 
 function QuickSearch({ onClose }: { onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -321,7 +322,10 @@ function QuickSearch({ onClose }: { onClose: () => void }) {
       ...(account.me.platform_admin ? [{ label: "Settings", detail: "AI provider and connection test", to: "/settings", group: "Actions" }] : []),
     ];
     const q = query.trim().toLowerCase();
-    return q ? all.filter((i) => i.label.toLowerCase().includes(q) || i.detail.toLowerCase().includes(q)) : all;
+    if (q) return all.filter((i) => i.label.toLowerCase().includes(q) || i.detail.toLowerCase().includes(q));
+    // Nothing typed yet: the most recent few of each kind.
+    const count: Record<string, number> = {};
+    return all.filter((i) => (count[i.group] = (count[i.group] ?? 0) + 1) <= PALETTE_PER_GROUP);
   }, [query, datasets, dashboards, canCreate, account.me.platform_admin]);
 
   function go(item: Item | undefined) {
@@ -374,7 +378,12 @@ function QuickSearch({ onClose }: { onClose: () => void }) {
       </div>
       <ul id="search-results" role="listbox" className="search-results">
         {items.length === 0 && <li className="muted small search-empty">Nothing matches "{query}".</li>}
-        {items.map((item, i) => (
+        {items.map((item, i) => [
+          i === 0 || items[i - 1].group !== item.group ? (
+            <li key={`heading-${item.group}`} role="presentation" className="search-group">
+              {item.group}
+            </li>
+          ) : null,
           <li
             key={item.group + item.to}
             id={`search-item-${i}`}
@@ -386,9 +395,14 @@ function QuickSearch({ onClose }: { onClose: () => void }) {
           >
             <span className="search-label">{item.label}</span>
             <span className="muted small">{item.detail}</span>
-          </li>
-        ))}
+          </li>,
+        ])}
       </ul>
+      <p className="search-keys" aria-hidden="true">
+        <span><kbd>↑</kbd> <kbd>↓</kbd> to move</span>
+        <span><kbd>Enter</kbd> to open</span>
+        <span><kbd>Esc</kbd> to close</span>
+      </p>
     </dialog>
   );
 }

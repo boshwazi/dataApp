@@ -91,13 +91,6 @@ export function GetData() {
             />
           ))}
         </ul>
-        <AddData busy={busy} onAdd={add} projectId={project.id} />
-        {project.powerbi && <PowerBIPanel projectId={project.id} info={project.powerbi} onChanged={() => void refresh()} />}
-        {messages.map((m) => (
-          <p key={m} className="bad small">
-            {m}
-          </p>
-        ))}
         {hasKey && project.sources.length > 0 && (
           <div className="autopilot-offer">
             <p className="small">
@@ -108,6 +101,13 @@ export function GetData() {
             </Link>
           </div>
         )}
+        <AddData busy={busy} onAdd={add} projectId={project.id} />
+        {project.powerbi && <PowerBIPanel projectId={project.id} info={project.powerbi} onChanged={() => void refresh()} />}
+        {messages.map((m) => (
+          <p key={m} className="bad small">
+            {m}
+          </p>
+        ))}
         {!hasKey && (
           <p className="muted small">Add an API key in Settings and the AI will describe each table as it loads.</p>
         )}
@@ -240,10 +240,10 @@ function AddData(props: { projectId: string; busy: string | null; onAdd: (label:
           {busy === "gsheet" ? "Loading…" : "Add"}
         </button>
       </form>
-      <p className="muted small">A Google Sheet, or a file on OneDrive, SharePoint or Google Drive shared as "Anyone with the link can view". It can be pulled again on a schedule.</p>
+      <p className="muted small">A Google Sheet, or a OneDrive, SharePoint or Google Drive file anyone with the link can view. It can be pulled on a schedule.</p>
       <LinkPicker projectId={projectId} busy={busy} onAdd={onAdd} />
       <button className="link" disabled={busy !== null} onClick={() => pbiInput.current?.click()}>
-        {busy === "powerbi" ? "Reading the Power BI model…" : "Import from Power BI (.pbix, or a .pbip project as .zip)"}
+        {busy === "powerbi" ? "Reading the Power BI model…" : "Import a Power BI file (.pbix or .pbip as .zip)"}
       </button>
       <input
         ref={pbiInput}
@@ -256,7 +256,7 @@ function AddData(props: { projectId: string; busy: string | null; onAdd: (label:
         }}
       />
       <button className="link" disabled={busy !== null} onClick={() => onAdd("sample", () => api.addSample(projectId))}>
-        {busy === "sample" ? "Loading sample data…" : "Load sample data (sales, customers, products)"}
+        {busy === "sample" ? "Loading sample data…" : "Load the sample data"}
       </button>
     </div>
   );
@@ -422,15 +422,18 @@ function AISummary(props: {
     );
   }
   return (
-    <div className="ai-card">
-      {props.error && <p className="bad small">{props.error}</p>}
+    <div className="ai-offer-row">
       {props.hasKey ? (
-        <button className="secondary" onClick={props.onDescribe}>
-          {props.error ? "Try AI profiling again" : "Ask the AI to profile this table"}
-        </button>
+        <>
+          <button className="ai-button" onClick={props.onDescribe}>
+            <Sparkles size={15} aria-hidden="true" /> {props.error ? "Describe again" : "Describe with AI"}
+          </button>
+          <span className="muted small">What one row is, and what the table is for.</span>
+        </>
       ) : (
-        <span className="muted small">AI profiling needs an API key in Settings.</span>
+        <span className="muted small">Add an API key in Settings and the AI will describe this table.</span>
       )}
+      {props.error && <p className="bad small">{props.error}</p>}
     </div>
   );
 }

@@ -392,6 +392,7 @@ input {
   text-align: left;
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 4px;
   background: var(--panel);
   color: var(--text);
@@ -505,10 +506,23 @@ input {
   align-items: flex-start;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-left: 3px solid var(--ai-line);
   border-radius: 8px;
   padding: 12px 14px;
   margin: 14px 0;
+}
+
+/* No AI description yet: one quiet row, not a card. */
+.ai-offer-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 14px 0;
+}
+
+.ai-offer-row .bad {
+  flex-basis: 100%;
+  margin: 0;
 }
 
 .ai-card p {
@@ -1535,11 +1549,12 @@ a.button.secondary {
   overflow: visible;
 }
 
+/* At rest the lines recede; clicking a card lights its path. */
 .lineage-line {
   fill: none;
   stroke: var(--faint);
-  stroke-width: 1.4;
-  opacity: 0.7;
+  stroke-width: 1.2;
+  opacity: 0.35;
 }
 
 .lineage-line.kind-split,
@@ -1574,31 +1589,19 @@ a.button.secondary {
   position: relative;
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 2px;
   text-align: left;
   background: var(--panel);
   color: var(--text);
   border: 1px solid var(--border);
-  border-left: 4px solid var(--faint);
-  border-radius: 6px;
-  padding: 6px 8px;
+  border-radius: 8px;
+  padding: 8px 10px;
   font-size: 13px;
 }
 
-.lineage-card.kind-source {
-  border-left-color: var(--warn-dot);
-}
-
-.lineage-card.kind-table {
-  border-left-color: var(--ok);
-}
-
-.lineage-card.kind-measure {
-  border-left-color: var(--tag-num);
-}
-
-.lineage-card.kind-visual {
-  border-left-color: var(--accent);
+.lineage-card:hover {
+  border-color: var(--border-hover);
 }
 
 .lineage-card.focused {
@@ -1616,7 +1619,7 @@ a.button.secondary {
 
 .lineage-sub {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   overflow-wrap: anywhere;
 }
 
@@ -5710,20 +5713,36 @@ button.tree-row:hover {
   position: relative;
   display: block;
   height: 78px;
-  border-radius: 3px;
+  border-radius: 4px;
   background: var(--bg);
+  border: 1px solid var(--border);
 }
 
+/* Each visual: a small white tile with a glyph of its kind. */
 .mini-page i {
   position: absolute;
   box-sizing: border-box;
+  display: grid;
+  place-items: center;
   border: 2px solid var(--bg);
-  border-radius: 3px;
-  background: var(--neutral-mark);
+  border-radius: 4px;
+  background: var(--panel);
+  overflow: hidden;
 }
 
-.mini-page i.kpi {
-  background: var(--selected-strong);
+.mini-page i svg {
+  width: min(70%, 18px);
+  height: min(70%, 18px);
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.7;
+}
+
+.page-thumb.on .mini-page {
+  border-color: var(--accent-line);
 }
 
 .thumb-title {
@@ -7466,9 +7485,35 @@ button.chip-button:hover:not(:disabled) {
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.18);
 }
 
-.notices-panel h2 {
+.notices-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin: 0 0 8px;
+}
+
+.notices-panel h2 {
+  margin: 0;
   font-size: 14px;
+}
+
+.notices-new {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+/* New since you last looked: tinted; read ones are quieter. */
+.notices-panel li.new .notice-item {
+  background: var(--selected);
+}
+
+.notices-panel li:not(.new) .notice-title {
+  font-weight: 500;
+}
+
+.notices-panel li + li {
+  margin-top: 2px;
 }
 
 .notices-panel ul {
@@ -7662,4 +7707,67 @@ button.chip-button:hover:not(:disabled) {
 
 :root[data-density="compact"] .home-section {
   margin-top: 16px;
+}
+
+/* Members: the audit log shows a page at a time. */
+.audit-more {
+  margin-top: 10px;
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+/* Command palette: results under their kind, and the keys that move through them. */
+.search-results .search-group {
+  padding: 10px 14px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: default;
+}
+
+.search-keys {
+  display: flex;
+  gap: 16px;
+  margin: 0;
+  padding: 8px 14px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+@media (max-width: 700px) {
+  .search-keys {
+    display: none;
+  }
+}
+
+/* Settings: where the AI connection stands, above the form. */
+.settings-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 900px;
+  padding: 10px 14px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--panel);
+  font-size: 14px;
+}
+
+.settings-dot {
+  flex-shrink: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+
+.settings-status.ok .settings-dot {
+  background: var(--ok);
+}
+
+.settings-status.warn .settings-dot {
+  background: var(--warn-dot);
 }
