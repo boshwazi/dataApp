@@ -1,6 +1,7 @@
 """Sign-in, workspaces and roles: one company never sees another's data, and roles hold."""
 
 import base64
+import json
 import re
 import time
 import uuid
@@ -530,3 +531,75 @@ def test_ai_usage_is_recorded_per_workspace_and_only_admins_read_it(tmp_path, da
     other = Person(api, "ana")
     other.workspace = ok(other.post("/api/workspaces", json={"name": "Ana Trading"}))["id"]
     assert ok(other.get("/api/workspaces/current/usage"))["total"]["calls"] == 0  # one workspace's usage only
+
+
+# Plans and limits
+
+def billed_app(tmp_path, database, monkeypatch, ai=None, enforced=True):
+    if enforced:
+        monkeypatch.setenv("BILLING_ENFORCED", "1")
+    return TestClient(create_app(data_dir=tmp_path, client_factory=lambda s: ai, auth=CONFIG, database=database))
+
+
+def test_nothing_is_limited_until_billing_is_switched_on(tmp_path, database, monkeypatch):
+    api = billed_app(tmp_path, database, monkeypatch, enforced=False)
+    ana = Person(api, "ana")
+    ana.workspace = ok(ana.post("/api/workspaces", json={"name": "Ana Trading"}))["id"]
+    for n in range(3):  # Free has room for 2
+        ok(ana.post("/api/datasets", json={"name": f"D{n}"}))
+    view = ok(ana.get("/api/billing"))
+    assert view["enforced"] is False and view["plan"]["id"] == "free" and view["credits"]["allowance"] == 300
+
+
+def test_free_plan_limits_datasets_refresh_and_seats(tmp_path, database, monkeypatch):
+    api = billed_app(tmp_path, database, monkeypatch)
+    ana = Person(api, "ana")
+    ana.workspace = ok(ana.post("/api/workspaces", json={"name": "Ana Trading"}))["id"]
+    first = ok(ana.post("/api/datasets", json={"name": "D1"}))["id"]
+    ok(ana.post("/api/datasets", json={"name": "D2"}))
+    third = ana.post("/api/datasets", json={"name": "D3"})
+    assert third.status_code == 402 and third.json()["detail"]["code"] == "plan_limit"
+
+    refresh = f"/api/datasets/{first}/refresh"
+    assert ana.call("PUT", refresh, json={"schedule": "daily"}).status_code == 402  # Free refreshes by hand
+    assert ana.call("PUT", refresh, json={"schedule": "off"}).status_code == 200
+
+    invites = "/api/workspaces/current/invites"
+    assert ana.post(invites, json={"email": "raj@example.com", "role": "creator"}).status_code == 402  # Ana is the 1 seat
+    for n in range(3):
+        ok(ana.post(invites, json={"email": f"v{n}@example.com", "role": "viewer"}))
+    assert ana.post(invites, json={"email": "v4@example.com", "role": "viewer"}).status_code == 402
+
+
+def test_ai_pauses_when_credits_run_out_after_one_warning(tmp_path, database, monkeypatch):
+    from test_usage import FakeAI
+
+    ai = FakeAI(tokens=(100_000, 40_000, 0))  # 100 + 160 = 260 of Free's 300 credits per call
+    api = billed_app(tmp_path, database, monkeypatch, ai=ai)
+    ops = Person(api, "ops")
+    ops.workspace = ok(ops.post("/api/workspaces", json={"name": "Ops Co"}))["id"]
+    ok(ops.call("PUT", "/api/settings", json={"api_key": "sk-secret-value-1234"}))
+    pid = ok(ops.post("/api/datasets", json={"name": "Demo"}))["id"]
+    sid = ok(ops.post(f"/api/datasets/{pid}/sources/upload", files=[("files", ("o.csv", b"id,amount\n1,10\n"))]))["added"][0]["id"]
+    describe = f"/api/datasets/{pid}/sources/{sid}/describe"
+    ok(ops.post(describe))  # 260 used
+    ok(ops.post(describe))  # 87% before this call: warned, still allowed; 520 used
+    paused = ops.post(describe)
+    assert paused.status_code == 402 and paused.json()["detail"]["code"] == "credits_used_up"
+    assert len(ai.calls) == 2  # the paused step never reached the AI
+    warnings = [n for n in ok(ops.get("/api/notifications"))["notifications"] if n["kind"] == "credits"]
+    assert len(warnings) == 1
+    assert ok(ops.get("/api/billing"))["credits"]["percent"] >= 100
+
+
+def test_billing_is_for_admins_and_never_shows_the_card_token(tmp_path, database, monkeypatch):
+    api = billed_app(tmp_path, database, monkeypatch)
+    ana = Person(api, "ana")
+    ana.workspace = ok(ana.post("/api/workspaces", json={"name": "Ana Trading"}))["id"]
+    api.app.state.billing.accounts.save(ana.workspace, {"plan": "pro", "seats": 2, "recurring_token": "tok_secret"})
+    view = ok(ana.get("/api/billing"))
+    assert view["plan"]["id"] == "pro" and "tok_secret" not in json.dumps(view)
+    bob = Person(api, "bob")
+    ok(bob.post(f"/api/invites/{invite(ana, 'bob@example.com', 'viewer')}/accept"))
+    bob.workspace = ana.workspace
+    assert bob.get("/api/billing").status_code == 403

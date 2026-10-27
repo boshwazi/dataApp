@@ -49,6 +49,7 @@ const Landing = page(() => import("./pages/Landing"), "Landing");
 const Onboarding = page(() => import("./pages/Onboarding"), "Onboarding");
 const WorkspaceSettings = page(() => import("./pages/WorkspaceSettings"), "WorkspaceSettings");
 const Account = page(() => import("./pages/Account"), "Account");
+const Billing = page(() => import("./pages/Billing"), "Billing");
 
 // Links from before datasets and dashboards were split.
 function OldProjectLink() {
@@ -102,6 +103,7 @@ function App() {
           <Route path="settings" element={<PlatformAdmin><Settings /></PlatformAdmin>} />
           <Route path="members" element={<Need role="admin"><Members /></Need>} />
           <Route path="workspace" element={<Need role="admin"><WorkspaceSettings /></Need>} />
+          <Route path="billing" element={<Need role="admin"><Billing /></Need>} />
           <Route path="datasets/:datasetId" element={<Need role="creator"><Dataset /></Need>}>
             <Route index element={<Navigate to="get-data" replace />} />
             <Route path="get-data" element={<GetData />} />

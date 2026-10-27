@@ -167,6 +167,8 @@ def build_router(
 
     @router.post("")
     def create_project(body: NameBody):
+        if getattr(store, "billing", None) is not None:
+            store.billing.check_datasets(len(store.all()))
         return project_view(store.create(body.name))
 
     @router.get("/{project_id}")
@@ -214,6 +216,8 @@ def build_router(
     @router.put("/{project_id}/refresh")
     def refresh_settings(project_id: str, body: RefreshSettingsBody):
         load(project_id)
+        if getattr(store, "billing", None) is not None:
+            store.billing.check_schedule(body.schedule)
         try:
             with store.edit(project_id) as project:
                 refresh.configure(project, body.schedule, body.auto_publish, body.at, body.day, body.follow_links)

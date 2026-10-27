@@ -8237,3 +8237,154 @@ button,
   flex-shrink: 0;
   white-space: nowrap;
 }
+
+/* Billing: credits meter, usage tables and the plan comparison */
+.credit-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.credit-used {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.credit-percent {
+  margin-left: auto;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.credit-percent.warn {
+  color: var(--warn);
+}
+
+.credit-percent.bad {
+  color: var(--bad);
+}
+
+.credit-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--hover);
+  overflow: hidden;
+}
+
+.credit-bar i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transform-origin: left;
+  transition: transform 600ms var(--ease-out);
+}
+
+.credit-bar.warn i {
+  background: var(--warn);
+}
+
+.credit-bar.bad i {
+  background: var(--bad);
+}
+
+.usage-split {
+  display: grid;
+  align-items: start;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 16px 28px;
+  margin-top: 4px;
+}
+
+.usage-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  table-layout: fixed;
+}
+
+.usage-table caption {
+  text-align: left;
+  font-weight: 650;
+  font-size: 12.5px;
+  color: var(--muted);
+  padding-bottom: 6px;
+}
+
+.usage-table th {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: left;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.usage-table td {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.usage-table .num {
+  text-align: right;
+  width: 84px;
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plan-compare-wrap {
+  overflow-x: auto;
+}
+
+.plan-compare {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 520px;
+}
+
+.plan-compare th,
+.plan-compare td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.plan-compare thead th {
+  font-size: 13.5px;
+  font-weight: 650;
+}
+
+.plan-compare tbody th {
+  font-weight: 500;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.plan-compare td {
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-compare .current {
+  background: var(--selected);
+}
+
+.plan-current {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: 1px;
+}

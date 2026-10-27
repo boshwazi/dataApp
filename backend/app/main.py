@@ -20,7 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
 
-from . import ai_report, db, digests, guidance, ingest, links, llm, notices, refresh, security, usage, workspace_admin, workspaces
+from . import ai_report, billing, db, digests, guidance, ingest, links, llm, notices, refresh, security, usage, workspace_admin, workspaces
 from .auth import AuthConfig, AuthGuard
 from .autopilot import Autopilot
 from .autopilot import build_router as build_autopilot_router
@@ -145,7 +145,11 @@ def create_app(
     # Every AI call is recorded against its workspace (tokens, model, feature, person).
     ledger = usage.PgLedger(database) if database is not None else usage.FileLedger(root)
     app.state.usage = ledger
-    client_factory = usage.metered(client_factory, ledger)
+    # Plans and limits: only enforced on a hosted server with BILLING_ENFORCED on (billing switches on at launch).
+    accounts = billing.PgAccounts(database) if database is not None else billing.FileAccounts(root)
+    app.state.billing = plans = billing.Billing(accounts, ledger, billing.enforced_here(auth.mode), preferences)
+    projects.billing = plans
+    client_factory = usage.metered(client_factory, ledger, before=plans.check_credits)
     if admin is not None:
         try:
             admin.ensure_bucket()
@@ -189,7 +193,8 @@ def create_app(
     app.add_middleware(LanguageMiddleware)
     app.add_middleware(usage.PathMiddleware)
     app.include_router(build_workspaces_router(members, auth, admin,
-                                               audit=lambda action, detail: security.audit(preferences, action, detail)))
+                                               audit=lambda action, detail: security.audit(preferences, action, detail),
+                                               plans=plans))
     routers = [
         build_router(projects, boards, store, client_factory, fetch_url, SAMPLES_DIR),
         build_transform_router(projects, store, client_factory),
@@ -268,6 +273,14 @@ def create_app(
         if auth.mode == "local":
             raise HTTPException(400, "Deleting a workspace needs the hosted version, with sign-in.")
         return access.workspace_id
+
+    @app.get("/api/billing")
+    def get_billing():
+        """The workspace's plan, AI credits this month and payment details, for its admins."""
+        access = workspaces.current()
+        if not access.at_least("admin"):
+            raise HTTPException(403, "Only workspace admins can see billing.")
+        return plans.view(access.workspace_id)
 
     @app.get("/api/workspaces/current/usage")
     def get_usage(month: str | None = None):

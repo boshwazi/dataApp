@@ -225,6 +225,44 @@ export type Invite = { id: string; email: string; role: Role; invited_by: string
 export type Delivery = { invite: Invite; link: string; emailed: boolean; email_problem: string | null };
 export type People = { members: Member[]; invites: Invite[] };
 
+export type Plan = {
+  id: "free" | "pro" | "team";
+  name: string;
+  creators: number | "seats";
+  viewers: number | null;
+  datasets: number | null;
+  refresh: "manual" | "daily" | "hourly";
+  credits: number;
+  extras: string[];
+};
+export type UsageRow = { calls: number; prompt_tokens: number; completion_tokens: number; credits: number };
+export type Usage = {
+  month: string;
+  total: UsageRow;
+  by_person: (UsageRow & { person: string })[];
+  by_feature: (UsageRow & { feature: string })[];
+  by_day: (UsageRow & { day: string })[];
+};
+export type BillingView = {
+  enforced: boolean;
+  account: {
+    plan: Plan["id"];
+    status: string;
+    seats: number;
+    period_end: string | null;
+    cancel_at_period_end: boolean;
+    payment_method: { brand: string; last4: string } | null;
+  };
+  plan: Plan;
+  plans: Plan[];
+  credits: { month: string; used: number; allowance: number; percent: number };
+};
+
+export const billingApi = {
+  get: () => request<BillingView>("/api/billing"),
+  usage: (month?: string) => request<Usage>(`/api/workspaces/current/usage${month ? `?month=${month}` : ""}`),
+};
+
 export const accountApi = {
   config: () => request<AuthConfig>("/api/auth/config"),
   me: () => request<Me>("/api/me"),

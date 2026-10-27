@@ -42,7 +42,7 @@ class InviteBody(BaseModel):
 
 
 def build_router(store: WorkspaceStore, config: AuthConfig, mailer: SupabaseAdmin | None = None,
-                 audit: Callable[[str, str], None] | None = None) -> APIRouter:
+                 audit: Callable[[str, str], None] | None = None, plans=None) -> APIRouter:
     router = APIRouter()
 
     def checked(action):
@@ -226,6 +226,11 @@ def build_router(store: WorkspaceStore, config: AuthConfig, mailer: SupabaseAdmi
     @router.put("/api/workspaces/current/members/{user_id}")
     def set_role(user_id: str, body: RoleBody):
         wid = workspaces.current().workspace_id
+        if plans is not None:
+            current = next((m for m in store.members(wid) if m["user_id"] == user_id), None)
+            moving_up = current is not None and current["role"] == "viewer" and body.role != "viewer"
+            if moving_up:  # a viewer becoming a creator or admin takes a seat
+                plans.check_member(body.role, store.members(wid), store.invites(wid))
         checked(lambda: store.set_role(wid, user_id, body.role))
         note("members", f"{email_of(wid, user_id)} is now {body.role}")
         return members()
@@ -243,6 +248,8 @@ def build_router(store: WorkspaceStore, config: AuthConfig, mailer: SupabaseAdmi
         access = workspaces.current()
         if config.mode == "local":
             raise HTTPException(400, "Inviting people needs sign-in, which the hosted version adds.")
+        if plans is not None:
+            plans.check_member(body.role, store.members(access.workspace_id), store.invites(access.workspace_id))
         created = checked(lambda: store.invite(access.workspace_id, body.email, body.role, access.user))
         note("members", f"{body.email.strip().lower()} was invited as {body.role}")
         return {**deliver(request, created), **members()}

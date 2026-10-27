@@ -124,6 +124,18 @@ drop policy if exists usage_read on {schema}.usage_events;
 create policy usage_read on {schema}.usage_events for select to authenticated
   using ({schema}.my_role(workspace_id) = 'admin');
 
+-- Billing: one account per workspace (plan, seats, status, payment method, saved-card token). Written by the
+-- server as the service; admins read their own. The token is never sent to a browser.
+create table if not exists {schema}.billing_accounts (
+  workspace_id text primary key references {schema}.workspaces (id) on delete cascade,
+  state jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+alter table {schema}.billing_accounts enable row level security;
+drop policy if exists billing_read on {schema}.billing_accounts;
+create policy billing_read on {schema}.billing_accounts for select to authenticated
+  using ({schema}.my_role(workspace_id) = 'admin');
+
 revoke all on all tables in schema {schema} from public, anon;
 grant select, insert, update, delete on all tables in schema {schema} to authenticated;
 
