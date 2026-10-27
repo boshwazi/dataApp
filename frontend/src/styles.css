@@ -8388,3 +8388,61 @@ button,
   font-weight: 600;
   vertical-align: 1px;
 }
+
+.plan-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 12px;
+}
+
+.plan-actions > p {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.seats-field {
+  width: 13rem;
+}
+
+.receipts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--border);
+}
+
+.receipts > li {
+  border-bottom: 1px solid var(--border);
+}
+
+.receipts summary {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 10px 0;
+  cursor: pointer;
+  font-size: 13.5px;
+}
+
+.receipt-number,
+.receipt-total {
+  font-variant-numeric: tabular-nums;
+}
+
+.receipt-number {
+  font-weight: 600;
+}
+
+.receipt-lines {
+  margin-bottom: 8px;
+}
+
+.receipt-lines td:first-child,
+.receipt-lines th {
+  text-align: left;
+}
+
+.notice.warn {
+  border-color: var(--warn);
+}

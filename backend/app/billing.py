@@ -35,7 +35,7 @@ REFRESH = {
     "hourly": {"off", "daily", "weekdays", "weekly", "hourly", "every_6_hours"},
 }
 WARN_AT = 0.8
-SECRET_KEYS = {"recurring_token"}  # never leaves the server
+SECRET_KEYS = {"recurring_token", "payer", "next_try"}  # never leaves the server
 
 
 def default_account() -> dict:
@@ -63,6 +63,9 @@ class FileAccounts:
             saved = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
         return {**default_account(), **saved}
 
+    def ids(self) -> list[str]:
+        return sorted(p.parent.parent.name for p in self.root.glob("*/billing/account.json"))
+
     def save(self, workspace_id: str, account: dict) -> None:
         path = self._path(workspace_id)
         with self.lock:
@@ -82,6 +85,10 @@ class PgAccounts:
                               [workspace_id]).fetchone()
         return {**default_account(), **(row["state"] if row else {})}
 
+    def ids(self) -> list[str]:
+        with self.db.tx(None) as con:
+            return [r["workspace_id"] for r in con.execute(f"select workspace_id from {self.db.t('billing_accounts')}")]
+
     def save(self, workspace_id: str, account: dict) -> None:
         with self.db.tx(None) as con:
             con.execute(f"insert into {self.db.t('billing_accounts')} (workspace_id, state) values (%s, %s::jsonb) "
@@ -99,6 +106,7 @@ class Billing:
         self.ledger = ledger
         self.enforced = enforced
         self.preferences = preferences
+        self.lock = threading.Lock()  # read-change-write of an account (settling, cancelling, the 80% warning)
 
     def account(self, workspace_id: str) -> dict:
         return self.accounts.get(workspace_id)

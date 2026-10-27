@@ -136,6 +136,26 @@ drop policy if exists billing_read on {schema}.billing_accounts;
 create policy billing_read on {schema}.billing_accounts for select to authenticated
   using ({schema}.my_role(workspace_id) = 'admin');
 
+-- Payments: one row per settled purchase, with its numbered receipt. Kept when a workspace is deleted (receipts
+-- are tax records). Numbers come from one counter in the same transaction, so they have no gaps.
+create table if not exists {schema}.billing_payments (
+  purchase_id text primary key,
+  workspace_id text references {schema}.workspaces (id) on delete set null,
+  number text not null unique,
+  receipt jsonb not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists payments_by_workspace on {schema}.billing_payments (workspace_id, created_at);
+create table if not exists {schema}.billing_counters (
+  name text primary key,
+  n bigint not null
+);
+alter table {schema}.billing_payments enable row level security;
+alter table {schema}.billing_counters enable row level security;
+drop policy if exists payments_read on {schema}.billing_payments;
+create policy payments_read on {schema}.billing_payments for select to authenticated
+  using ({schema}.my_role(workspace_id) = 'admin');
+
 revoke all on all tables in schema {schema} from public, anon;
 grant select, insert, update, delete on all tables in schema {schema} to authenticated;
 

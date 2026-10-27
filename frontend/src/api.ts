@@ -256,10 +256,31 @@ export type BillingView = {
   plan: Plan;
   plans: Plan[];
   credits: { month: string; used: number; allowance: number; percent: number };
+  receipts: Receipt[];
+  payments_ready: boolean;
+  /** Monthly price in sen (RM 1 = 100) per seat; null until launch. */
+  prices: Record<"pro" | "team", number | null>;
+  topup: { credits: number; price: number | null };
+};
+export type Receipt = {
+  number: string;
+  date: string;
+  workspace: string;
+  bill_to: string | null;
+  currency: string;
+  lines: { description: string; quantity: number; unit_price: number; discount: number; amount: number }[];
+  subtotal: number;
+  tax: { name: string; rate: number; amount: number };
+  total: number;
+  paid_with: { brand: string; last4: string } | null;
 };
 
 export const billingApi = {
   get: () => request<BillingView>("/api/billing"),
+  checkout: (body: { kind: "plan" | "topup"; plan?: "pro" | "team"; seats?: number }) =>
+    request<{ id: string; checkout_url: string }>("/api/billing/checkout", json("POST", body)),
+  settle: (id: string) => request<{ status: string }>(`/api/billing/purchases/${id}/settle`, { method: "POST" }),
+  cancel: (cancel: boolean) => request<{ cancel_at_period_end: boolean }>("/api/billing/cancel", json("POST", { cancel })),
   usage: (month?: string) => request<Usage>(`/api/workspaces/current/usage${month ? `?month=${month}` : ""}`),
 };
 

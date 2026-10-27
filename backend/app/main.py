@@ -20,10 +20,27 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
 
-from . import ai_report, billing, db, digests, guidance, ingest, links, llm, notices, refresh, security, usage, workspace_admin, workspaces
+from . import (
+    ai_report,
+    billing,
+    db,
+    digests,
+    guidance,
+    ingest,
+    links,
+    llm,
+    notices,
+    refresh,
+    security,
+    subscriptions,
+    usage,
+    workspace_admin,
+    workspaces,
+)
 from .auth import AuthConfig, AuthGuard
 from .autopilot import Autopilot
 from .autopilot import build_router as build_autopilot_router
+from .billing_api import build_router as build_billing_router
 from .chat_api import build_router as build_chat_router
 from .dashboards import DashboardStore, migrate
 from .dashboards_api import build_router as build_dashboards_router
@@ -32,6 +49,7 @@ from .guidance import PreferenceStore
 from .jobs import Jobs
 from .language import LanguageMiddleware
 from .model_api import build_router as build_model_router
+from .payments import ChipProvider
 from .projects import LOCAL_WORKSPACE, NotFound, ProjectStore
 from .projects_api import build_router, project_view
 from .semantic import build_router as build_semantic_router
@@ -68,6 +86,10 @@ async def scheduler_lifespan(app: FastAPI):
                                           workspace_admin.now())
             except Exception:
                 log.exception("Purging deleted workspaces failed")
+            try:  # paid plans whose month has ended: charge the saved card, retry, or move to Free
+                app.state.subscriptions.renew_due(workspace_admin.now())
+            except Exception:
+                log.exception("Renewing plans failed")
             closing = {wid for wid, settings in members.all_settings() if settings.get("delete_after")}
             for workspace_id in members.ids():
                 if workspace_id in closing:
@@ -113,6 +135,7 @@ def create_app(
     auth: AuthConfig | None = None,
     database: "Database | None" = None,
     admin: SupabaseAdmin | None = None,
+    payments_provider=None,
 ) -> FastAPI:
     auth = auth or AuthConfig()  # local mode unless sign-in is configured
     store = SettingsStore(data_dir / "settings.json")
@@ -149,6 +172,19 @@ def create_app(
     accounts = billing.PgAccounts(database) if database is not None else billing.FileAccounts(root)
     app.state.billing = plans = billing.Billing(accounts, ledger, billing.enforced_here(auth.mode), preferences)
     projects.billing = plans
+    if payments_provider is None and os.getenv("CHIP_SECRET_KEY") and os.getenv("CHIP_BRAND_ID"):
+        payments_provider = ChipProvider(os.environ["CHIP_SECRET_KEY"], os.environ["CHIP_BRAND_ID"],
+                                         os.getenv("CHIP_BASE_URL", "https://gate.chip-in.asia/api/v1"))
+
+    def workspace_name(workspace_id: str) -> str:
+        try:
+            return members.get(workspace_id)["name"]
+        except workspaces.WorkspaceError:
+            return workspace_id
+
+    ledger_of_payments = subscriptions.PgPayments(database) if database is not None else subscriptions.FilePayments(root)
+    app.state.subscriptions = subscriptions.Subscriptions(plans, ledger_of_payments, payments_provider, workspace_name,
+                                                          preferences)
     client_factory = usage.metered(client_factory, ledger, before=plans.check_credits)
     if admin is not None:
         try:
@@ -209,6 +245,7 @@ def create_app(
     app.include_router(build_autopilot_router(Autopilot(projects, boards, store, jobs, calls)))
     app.include_router(build_semantic_router(projects, project_view))
     app.include_router(build_templates_router())
+    app.include_router(build_billing_router(plans, app.state.subscriptions, auth.mode))
     app.include_router(build_chat_router(projects, boards, store, client_factory, fetch_url))
 
     @app.get("/api/health")
@@ -273,14 +310,6 @@ def create_app(
         if auth.mode == "local":
             raise HTTPException(400, "Deleting a workspace needs the hosted version, with sign-in.")
         return access.workspace_id
-
-    @app.get("/api/billing")
-    def get_billing():
-        """The workspace's plan, AI credits this month and payment details, for its admins."""
-        access = workspaces.current()
-        if not access.at_least("admin"):
-            raise HTTPException(403, "Only workspace admins can see billing.")
-        return plans.view(access.workspace_id)
 
     @app.get("/api/workspaces/current/usage")
     def get_usage(month: str | None = None):

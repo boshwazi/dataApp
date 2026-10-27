@@ -24,7 +24,7 @@ from .workspaces import LOCAL_USER, Access, User, WorkspaceStore
 
 log = logging.getLogger(__name__)
 
-PUBLIC = {"/api/health", "/api/auth/config"}
+PUBLIC = {"/api/health", "/api/auth/config", "/api/billing/callback"}  # the callback is checked by its signature
 # Signed in, but no workspace needed: who am I, create a workspace, accept an invite, AI provider settings.
 ACCOUNT = re.compile(r"^/api/(me|workspaces|workspaces/joinable|workspaces/[0-9a-f]{12}/join|invites/[^/]+(/accept)?|settings(/test)?)$")
 VIEWER_GET = re.compile(r"^/api/(dashboards|dashboards/[0-9a-f]{12}|dashboards/[0-9a-f]{12}/values|workspaces/current|notifications)$")

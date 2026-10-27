@@ -603,3 +603,116 @@ def test_billing_is_for_admins_and_never_shows_the_card_token(tmp_path, database
     ok(bob.post(f"/api/invites/{invite(ana, 'bob@example.com', 'viewer')}/accept"))
     bob.workspace = ana.workspace
     assert bob.get("/api/billing").status_code == 403
+
+
+# Paying for a plan (CHIP stood in)
+
+@pytest.fixture
+def paying(tmp_path, database, monkeypatch):
+    from app import subscriptions
+    from app.payments import StandInProvider
+
+    monkeypatch.setitem(subscriptions.PRICES, "pro", 4900)
+    monkeypatch.setitem(subscriptions.PRICES, "team", 9900)
+    monkeypatch.setitem(subscriptions.TOPUP, "price", 2000)
+    chip = StandInProvider()
+    api = TestClient(create_app(data_dir=tmp_path, client_factory=lambda s: None, auth=CONFIG, database=database,
+                                payments_provider=chip))
+    ana = Person(api, "ana")
+    ana.workspace = ok(ana.post("/api/workspaces", json={"name": "Ana Trading"}))["id"]
+    return api, chip, ana
+
+
+def buy(ana, chip, **body):
+    started = ok(ana.post("/api/billing/checkout", json=body))
+    chip.pay(started["id"])  # the admin finishes CHIP's checkout
+    return started["id"], ok(ana.post(f"/api/billing/purchases/{started['id']}/settle"))
+
+
+def test_paid_plans_are_not_on_sale_until_prices_are_set(tmp_path, database):
+    from app.payments import StandInProvider
+
+    api = TestClient(create_app(data_dir=tmp_path, client_factory=lambda s: None, auth=CONFIG, database=database,
+                                payments_provider=StandInProvider()))
+    ana = Person(api, "ana")
+    ana.workspace = ok(ana.post("/api/workspaces", json={"name": "Ana Trading"}))["id"]
+    refused = ana.post("/api/billing/checkout", json={"kind": "plan", "plan": "pro"})
+    assert refused.status_code == 409 and refused.json()["detail"]["code"] == "billing_unavailable"
+
+
+def test_a_paid_plan_is_applied_once_with_one_numbered_receipt(paying):
+    api, chip, ana = paying
+    purchase, settled = buy(ana, chip, kind="plan", plan="pro", seats=2)
+    assert settled == {"status": "paid"}
+    view = ok(ana.get("/api/billing"))
+    assert view["account"]["plan"] == "pro" and view["account"]["seats"] == 2
+    assert view["account"]["payment_method"] == {"brand": "Visa", "last4": "4242"}
+    assert "recurring_token" not in view["account"]
+    [receipt] = view["receipts"]
+    assert re.fullmatch(r"DW-\d{4}-000001", receipt["number"]) and receipt["total"] == 9800
+    assert receipt["tax"]["amount"] == 0 and receipt["workspace"] == "Ana Trading"
+
+    # The callback and a second check arrive too: still one receipt.
+    body = json.dumps({"id": purchase}).encode()
+    assert api.post("/api/billing/callback", content=body, headers={"X-Signature": "forged"}).status_code == 401
+    ok(api.post("/api/billing/callback", content=body, headers={"X-Signature": "stand-in-signature"}))
+    ok(ana.post(f"/api/billing/purchases/{purchase}/settle"))
+    assert len(ok(ana.get("/api/billing"))["receipts"]) == 1
+
+    # Another workspace can't settle (or learn about) this purchase.
+    raj = Person(api, "raj")
+    raj.workspace = ok(raj.post("/api/workspaces", json={"name": "Raj Co"}))["id"]
+    assert raj.post(f"/api/billing/purchases/{purchase}/settle").status_code == 404
+
+
+def test_extra_credits_and_service_tax(paying, monkeypatch):
+    api, chip, ana = paying
+    monkeypatch.setenv("SST_RATE", "0.08")
+    buy(ana, chip, kind="topup")
+    view = ok(ana.get("/api/billing"))
+    assert view["credits"]["allowance"] == 1300  # Free's 300 + 1,000
+    assert view["receipts"][0]["tax"] == {"name": "Service tax (SST)", "rate": 0.08, "amount": 160}
+    assert view["receipts"][0]["total"] == 2160
+
+
+def test_changing_plan_mid_month_takes_off_the_unused_part(paying):
+    api, chip, ana = paying
+    buy(ana, chip, kind="plan", plan="pro", seats=1)
+    buy(ana, chip, kind="plan", plan="team", seats=1)
+    receipt = ok(ana.get("/api/billing"))["receipts"][0]
+    assert receipt["lines"][0]["discount"] > 4800  # nearly all of the month's RM 49 was unused
+    assert ok(ana.get("/api/billing"))["account"]["plan"] == "team"
+
+
+def renew_now(api, ana, days=31):
+    from datetime import UTC, datetime, timedelta
+
+    return api.app.state.subscriptions.renew_due(datetime.now(UTC) + timedelta(days=days))
+
+
+def test_renewals_charge_the_saved_card_and_failures_end_on_free(paying):
+    api, chip, ana = paying
+    buy(ana, chip, kind="plan", plan="pro", seats=1)
+    renew_now(api, ana)
+    view = ok(ana.get("/api/billing"))
+    assert len(view["receipts"]) == 2 and view["account"]["status"] == "active"
+
+    chip.declining = True
+    for days in (62, 64, 67):  # the first try, then retries after 2 and 3 days
+        renew_now(api, ana, days)
+        assert ok(ana.get("/api/billing"))["account"]["status"] == "past_due"
+    renew_now(api, ana, 69)  # the last retry fails too
+    view = ok(ana.get("/api/billing"))
+    assert view["account"]["plan"] == "free" and len(view["receipts"]) == 2
+    kinds = [n["kind"] for n in ok(ana.get("/api/notifications"))["notifications"]]
+    assert kinds.count("billing") == 4  # three "didn't go through", then "moved to Free"
+
+
+def test_a_cancelled_plan_ends_at_the_end_of_its_month(paying):
+    api, chip, ana = paying
+    buy(ana, chip, kind="plan", plan="pro", seats=1)
+    assert ok(ana.post("/api/billing/cancel", json={"cancel": True})) == {"cancel_at_period_end": True}
+    renew_now(api, ana, 10)
+    assert ok(ana.get("/api/billing"))["account"]["plan"] == "pro"  # paid until the month ends
+    renew_now(api, ana)
+    assert ok(ana.get("/api/billing"))["account"]["plan"] == "free" and len(ok(ana.get("/api/billing"))["receipts"]) == 1
