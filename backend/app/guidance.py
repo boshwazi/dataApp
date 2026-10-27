@@ -33,6 +33,19 @@ class PreferenceStore(FolderStore):
         self.save(record)
         return record
 
+    def set_ai_samples(self, allowed: bool) -> dict:
+        record = self.load()
+        record["ai_samples"] = bool(allowed)
+        self.save(record)
+        return record
+
+
+def samples_allowed(store) -> bool:
+    """Whether the AI may see sample rows in this workspace. When an admin turns it off, the AI works from
+    column profiles and aggregates only (types, counts, ranges, common values), never whole rows."""
+    preferences = getattr(store, "preferences", None)
+    return preferences.load().get("ai_samples", True) if preferences else True
+
 
 def clean(text) -> str:
     if text is None:

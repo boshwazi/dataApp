@@ -308,6 +308,20 @@ def test_ai_is_told_about_a_lookup_key_with_a_few_repeats(tmp_path):
     assert "remove_duplicates" in ai.calls[0]["messages"][0]["content"]
 
 
+def test_a_workspace_can_keep_sample_rows_from_the_ai(tmp_path):
+    """With sample rows off, the AI cleans from column profiles and aggregates only, never whole rows."""
+    p, ai = ai_project(tmp_path, [])
+    assert ok(p.api.get("/api/workspaces/current/ai-privacy")) == {"samples": True}
+    ok(p.api.post(f"{p.base}/queries/{p.query('sales')['id']}/ai"))
+    assert '"sample_rows": []' not in ai.calls[-1]["messages"][-1]["content"]
+
+    assert ok(p.api.put("/api/workspaces/current/ai-privacy", json={"samples": False})) == {"samples": False}
+    ok(p.api.post(f"{p.base}/queries/{p.query('sales')['id']}/ai"))
+    prompt = ai.calls[-1]["messages"][-1]["content"]
+    assert '"sample_rows": []' in prompt
+    assert '"all_values"' in prompt  # profiles and value counts still go
+
+
 def test_ai_cleaning_needs_a_key(p):
     assert p.api.post(f"{p.base}/queries/{p.query('sales')['id']}/ai").status_code == 400
 

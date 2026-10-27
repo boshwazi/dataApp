@@ -96,7 +96,7 @@ def repeated_keys(con, table: str, profile: dict) -> list[dict]:
     return out
 
 
-def build_prompt(con, project: dict, query: dict) -> str:
+def build_prompt(con, project: dict, query: dict, samples_allowed: bool = True) -> str:
     profile = query["output"]["profile"]
     table = f"{transform.OUTPUT_SCHEMA}.{quote(query['name'])}"
     types = {c["name"]: c["type"] for c in query["output"]["columns"]}
@@ -119,9 +119,11 @@ def build_prompt(con, project: dict, query: dict) -> str:
             entry["top_values"] = c["top_values"]
         columns.append(entry)
 
-    result = con.execute(f"SELECT * FROM {table} LIMIT {SAMPLE_ROWS}")
-    names = [d[0] for d in result.description]
-    samples = [{k: shorten(None if v is None else str(v)) for k, v in zip(names, row)} for row in result.fetchall()]
+    samples = []
+    if samples_allowed:  # the workspace can keep whole rows from the AI; it then works from the profiles above
+        result = con.execute(f"SELECT * FROM {table} LIMIT {SAMPLE_ROWS}")
+        names = [d[0] for d in result.description]
+        samples = [{k: shorten(None if v is None else str(v)) for k, v in zip(names, row)} for row in result.fetchall()]
 
     source = next((s for s in project["sources"] if s["id"] == query["source_id"]), {})  # lookup tables have none
     query_names = transform.query_names(project)
@@ -149,8 +151,8 @@ def build_prompt(con, project: dict, query: dict) -> str:
     )
 
 
-def propose(client, model: str, capabilities: dict, con, project: dict, query: dict) -> dict:
-    prompt = build_prompt(con, project, query)
+def propose(client, model: str, capabilities: dict, con, project: dict, query: dict, samples_allowed: bool = True) -> dict:
+    prompt = build_prompt(con, project, query, samples_allowed)
     raw = llm.ask_json(client, model, capabilities, SYSTEM, prompt, "propose_steps", SCHEMA)
     steps = [s for s in raw.get("steps") or [] if isinstance(s, dict)]
     tables = [t for t in raw.get("new_tables") or [] if isinstance(t, dict)]

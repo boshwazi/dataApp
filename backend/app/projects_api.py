@@ -635,7 +635,7 @@ def build_router(
         settings = settings_store.load()
         if not settings.api_key:
             raise HTTPException(400, "Add an API key in Settings to let the AI profile your data.")
-        samples = store.sample_rows(project, source_id, ai_profile.SAMPLE_ROWS)
+        samples = store.sample_rows(project, source_id, ai_profile.SAMPLE_ROWS) if guidance.samples_allowed(store) else []
         try:
             ai = ai_profile.describe(
                 guidance.guided(client_factory(settings), guidance.for_project(store, project)), settings.model,

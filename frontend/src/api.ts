@@ -223,6 +223,8 @@ export const accountApi = {
   instructions: () => request<{ instructions: string }>("/api/workspaces/current/instructions"),
   setInstructions: (instructions: string) =>
     request<{ instructions: string }>("/api/workspaces/current/instructions", json("PUT", { instructions })),
+  aiPrivacy: () => request<{ samples: boolean }>("/api/workspaces/current/ai-privacy"),
+  setAiPrivacy: (samples: boolean) => request<{ samples: boolean }>("/api/workspaces/current/ai-privacy", json("PUT", { samples })),
   people: () => request<People>("/api/workspaces/current/members"),
   setRole: (userId: string, role: Role) => request<People>(`/api/workspaces/current/members/${userId}`, json("PUT", { role })),
   removeMember: (userId: string) => request<People>(`/api/workspaces/current/members/${userId}`, { method: "DELETE" }),

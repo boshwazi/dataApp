@@ -237,7 +237,7 @@ def build_router(
             with store.connect(project_id) as con:
                 proposal = ai_transform.propose(
                     guidance.guided(client_factory(settings), guidance.for_project(store, project)), settings.model,
-                    settings.capabilities, con, project, query
+                    settings.capabilities, con, project, query, guidance.samples_allowed(store)
                 )
         except llm.AIError as exc:
             raise HTTPException(502, f"AI cleaning failed: {exc}") from exc

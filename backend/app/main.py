@@ -82,6 +82,10 @@ class InstructionsBody(BaseModel):
     instructions: str = ""
 
 
+class AIPrivacyBody(BaseModel):
+    samples: bool = True
+
+
 class GroupsBody(BaseModel):
     groups: list[dict]
 
@@ -235,6 +239,18 @@ def create_app(
             return {"instructions": preferences.set_instructions(body.instructions)["instructions"]}
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
+
+    @app.get("/api/workspaces/current/ai-privacy")
+    def get_ai_privacy():
+        return {"samples": preferences.load().get("ai_samples", True)}
+
+    @app.put("/api/workspaces/current/ai-privacy")
+    def put_ai_privacy(body: AIPrivacyBody):
+        if not workspaces.current().at_least("admin"):
+            raise HTTPException(403, "Only workspace admins can change what the AI may see.")
+        record = preferences.set_ai_samples(body.samples)
+        security.audit(preferences, "privacy", "Sample rows for the AI are now " + ("on" if body.samples else "off"))
+        return {"samples": record["ai_samples"]}
 
     @app.get("/api/settings")
     def get_settings():

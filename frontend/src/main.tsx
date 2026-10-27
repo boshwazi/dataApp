@@ -47,6 +47,7 @@ const Members = page(() => import("./pages/Members"), "Members");
 const Invite = page(() => import("./pages/Invite"), "Invite");
 const Landing = page(() => import("./pages/Landing"), "Landing");
 const Onboarding = page(() => import("./pages/Onboarding"), "Onboarding");
+const WorkspaceSettings = page(() => import("./pages/WorkspaceSettings"), "WorkspaceSettings");
 
 // Links from before datasets and dashboards were split.
 function OldProjectLink() {
@@ -98,6 +99,7 @@ function App() {
           <Route path="semantic-models" element={<Need role="creator"><SemanticModels /></Need>} />
           <Route path="settings" element={<PlatformAdmin><Settings /></PlatformAdmin>} />
           <Route path="members" element={<Need role="admin"><Members /></Need>} />
+          <Route path="workspace" element={<Need role="admin"><WorkspaceSettings /></Need>} />
           <Route path="datasets/:datasetId" element={<Need role="creator"><Dataset /></Need>}>
             <Route index element={<Navigate to="get-data" replace />} />
             <Route path="get-data" element={<GetData />} />

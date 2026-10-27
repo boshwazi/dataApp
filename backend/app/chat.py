@@ -17,7 +17,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from . import ingest, llm, model, report, transform
+from . import guidance, ingest, llm, model, report, transform
 from .projects import new_id, now, quote, table_name
 from .transform_ops import StepError, catalogue, describe
 
@@ -702,6 +702,8 @@ def look(ctx: Ctx, stage: Stage, requests: list[dict]) -> list[dict]:
                 entry["values"] = [[str(v) if v is not None else None, n] for v, n in rows]
                 entry["distinct"] = total
             elif item.get("tool") == "sample_rows":
+                if not guidance.samples_allowed(ctx.store):
+                    raise ChatError("This workspace keeps whole rows from the AI. Look with column_values instead.")
                 result = ctx.con.execute(f"SELECT * FROM {sql} LIMIT {LOOK_ROWS}")
                 entry["columns"] = [d[0] for d in result.description]
                 entry["rows"] = [[None if v is None else str(v) for v in row] for row in result.fetchall()]

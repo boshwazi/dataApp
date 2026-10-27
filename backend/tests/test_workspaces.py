@@ -281,6 +281,10 @@ def test_admins_manage_roles_and_keep_one_admin(api):
     assert Person(api, "dan").post(f"/api/invites/{pending}/accept").status_code == 404
     renamed = ok(cat.call("PATCH", "/api/workspaces/current", json={"name": "Ana & Cat Trading"}))
     assert renamed["name"] == "Ana & Cat Trading"
+    Person(api, "ana").post(f"/api/invites/{invite(cat, 'ana@example.com', 'viewer')}/accept")
+    viewer = Person(api, "ana", a["workspace"])
+    assert viewer.call("PATCH", "/api/workspaces/current", json={"name": "Renamed by a viewer"}).status_code == 403
+    assert viewer.call("PUT", "/api/workspaces/current/ai-privacy", json={"samples": False}).status_code == 403
 
 
 # AI provider settings belong to the people running the service

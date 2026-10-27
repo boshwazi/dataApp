@@ -41,6 +41,7 @@ const MS: Record<string, string> = {
   "Semantic models": "Model semantik",
   Dashboards: "Papan pemuka",
   Members: "Ahli",
+  Workspace: "Ruang kerja",
   Settings: "Tetapan",
   Notifications: "Pemberitahuan",
   Help: "Bantuan",

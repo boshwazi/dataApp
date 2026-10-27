@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Boxes, Check, CircleHelp, Database, Monitor, Moon, ScrollText, Sun, House, LayoutDashboard, LogOut, Plus, Search, Settings as SettingsIcon, Users } from "lucide-react";
+import { Boxes, Building2, Check, CircleHelp, Database, Monitor, Moon, ScrollText, Sun, House, LayoutDashboard, LogOut, Plus, Search, Settings as SettingsIcon, Users } from "lucide-react";
 import { accountApi, api, dashboardsApi, type DashboardSummary, type Dataset, type Role } from "./api";
 import { useAccount } from "./components/account";
 import { InstructionsDialog } from "./components/InstructionsDialog";
@@ -29,6 +29,7 @@ const NAV: NavItem[] = [
   { to: "/semantic-models", label: "Semantic models", icon: Boxes, end: false, section: "Workspace", role: "creator", more: true },
   { to: "/dashboards", label: "Dashboards", icon: LayoutDashboard, end: false, section: "Workspace" },
   { to: "/help", label: "Help", icon: CircleHelp, end: false, section: "Workspace" },
+  { to: "/workspace", label: "Workspace", icon: Building2, end: false, section: "Admin", role: "admin", more: true },
   { to: "/members", label: "Members", icon: Users, end: false, section: "Admin", role: "admin", hosted: true, more: true },
   { to: "/settings", label: "Settings", icon: SettingsIcon, end: false, section: "Admin", platform: true, more: true },
 ];

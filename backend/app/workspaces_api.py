@@ -88,6 +88,8 @@ def build_router(store: WorkspaceStore, config: AuthConfig, mailer: SupabaseAdmi
     @router.patch("/api/workspaces/current")
     def rename_workspace(body: NameBody):
         access = workspaces.current()
+        if not access.at_least("admin"):
+            raise HTTPException(403, "Only workspace admins can rename the workspace.")
         return {**checked(lambda: store.rename(access.workspace_id, body.name)), "role": access.role}
 
     @router.get("/api/workspaces/current/members")
