@@ -204,7 +204,7 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
                         {d.name}
                       </Link>
                     </td>
-                    <td className="muted">{d.dataset ? <span>{d.dataset.name}</span> : <span className="bad">{t("Removed")}</span>}</td>
+                    <td className="muted">{d.dataset ? <span className="cell-clip" title={d.dataset.name}>{d.dataset.name}</span> : <span className="bad">{t("Removed")}</span>}</td>
                     <td className="num">{d.pages}</td>
                     {creator && (
                       <td>

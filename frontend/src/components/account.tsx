@@ -682,7 +682,7 @@ function CreateWorkspace() {
       <form onSubmit={create} className="auth-form">
         <label className="field">
           <span>{t("Company or team name")}</span>
-          <input autoFocus autoComplete="organization" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("For example: Ana Trading")} />
+          <input autoFocus autoComplete="organization" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("For example: Ana Trading")} maxLength={60} />
         </label>
         <button type="submit" disabled={busy}>
           {busy ? t("Creating…") : t("Continue")}

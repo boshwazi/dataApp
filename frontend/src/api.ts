@@ -862,7 +862,9 @@ export function formatCompact(value: number | null | undefined, format: MeasureF
   const fmt = format ?? { type: "number" };
   if (fmt.type === "percent") return `${(value * 100).toLocaleString(undefined, { maximumFractionDigits: 1 })}%`;
   const abs = Math.abs(value);
-  const [scaled, unit] = abs >= 1e9 ? [value / 1e9, "B"] : abs >= 1e6 ? [value / 1e6, "M"] : abs >= 1e4 ? [value / 1e3, "K"] : [value, ""];
+  // Units are picked after rounding to one decimal, so 999,999,999 reads 1.0B, never 1,000.0M.
+  const [scaled, unit] =
+    abs >= 999.95e6 ? [value / 1e9, "B"] : abs >= 999.95e3 ? [value / 1e6, "M"] : abs >= 1e4 ? [value / 1e3, "K"] : [value, ""];
   // Cards round: RM 478, not RM 478.12; small values keep the measure's decimals.
   const digits = unit ? 1 : fmt.type === "integer" || abs >= 100 ? 0 : Math.min(fmt.decimals ?? 0, 2);
   const text = `${scaled.toLocaleString(undefined, { minimumFractionDigits: unit ? 1 : 0, maximumFractionDigits: digits })}${unit}`;

@@ -107,7 +107,7 @@ def short(value, fmt: dict) -> str:
         return f"{value * 100:.1f}%" if abs(value) <= 1.5 else f"{value:.1f}%"
     size = abs(value)
     for limit, suffix in ((1e9, "B"), (1e6, "M"), (1e3, "K")):
-        if size >= limit:
+        if size >= limit * 0.99995:  # after rounding to one decimal: 999,999,999 is 1.0B, not 1000.0M
             text = f"{value / limit:.1f}{suffix}"
             break
     else:

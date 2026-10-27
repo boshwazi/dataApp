@@ -65,7 +65,7 @@ export function WorkspaceSettings() {
           <WorkspaceBadge workspace={account.workspace} large />
           <label className="field grow">
             <span className="sr-only">Workspace name</span>
-            <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="organization" />
+            <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="organization" maxLength={WORKSPACE_NAME_MAX} />
           </label>
           {name.trim() && name.trim() !== current && (
             <button type="submit" disabled={saving}>
@@ -146,6 +146,7 @@ function useSettingChange() {
 }
 
 const LOGO_PX = 128;
+const WORKSPACE_NAME_MAX = 60; // the server keeps 60 characters (workspaces.MAX_NAME)
 
 /** Shrink any image, SVG included, to a small PNG (or WebP when that's much smaller). The server only takes
     these, never SVG, which can carry scripts. */

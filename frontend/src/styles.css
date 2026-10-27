@@ -1739,7 +1739,19 @@ button:where(:not(.link):not(.icon):not(.chip):not(.source-item):not(.step-main)
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important; /* shimmer and spinners stop instead of flickering */
+  }
+
+  /* Fewer and gentler, not none: what appears (dialogs, toasts, revealed panels) still fades, without moving. */
+  :not(.dialog, .toast, .reveal),
+  ::before,
+  ::after {
     transition-duration: 0.01ms !important;
+  }
+
+  .dialog,
+  .toast,
+  .reveal {
+    transform: none !important;
   }
 }
 
@@ -1770,7 +1782,7 @@ button.link {
 .sidebar {
   position: sticky;
   top: 0;
-  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   width: auto;
@@ -2072,8 +2084,13 @@ button.danger-solid:hover:not(:disabled) {
   color: var(--panel-2);
   font-size: 14px;
   box-shadow: var(--shadow);
-  animation: toast-in 200ms var(--ease-out);
-  transition: opacity 150ms var(--ease-out), transform 150ms var(--ease-out);
+  /* A transition with a starting style, not keyframes: toasts arriving close together retarget smoothly. */
+  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
+
+  @starting-style {
+    opacity: 0;
+    transform: translateY(8px);
+  }
 }
 
 .toast span {
@@ -2086,13 +2103,6 @@ button.danger-solid:hover:not(:disabled) {
 
 .toast .icon {
   color: inherit;
-}
-
-@keyframes toast-in {
-  from {
-    transform: translateY(8px);
-    opacity: 0;
-  }
 }
 
 .section-hint {
@@ -2642,7 +2652,7 @@ button.secondary.danger:hover:not(:disabled) {
 
 /* ---------- Sign-in, workspace switcher, members ---------- */
 .auth-page {
-  min-height: 100vh;
+  min-height: 100svh;
   display: grid;
   place-items: center;
   padding: 24px 16px;
@@ -3076,7 +3086,7 @@ button.secondary.danger:hover:not(:disabled) {
 
 /* The sign-in screen: the form on the left, what the company gets on the right (hidden on phones). */
 .signin {
-  min-height: 100vh;
+  min-height: 100svh;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   background: var(--bg);
@@ -3338,7 +3348,7 @@ button.secondary.danger:hover:not(:disabled) {
 
 .chat-panel {
   top: calc(var(--topbar-height) + 16px);
-  max-height: calc(100vh - var(--topbar-height) - 32px);
+  max-height: calc(100dvh - var(--topbar-height) - 32px);
 }
 
 @media (max-width: 1200px) {
@@ -3982,7 +3992,7 @@ button.workspace:hover {
 /* Shell */
 .shell {
   grid-template-columns: var(--rail-width) minmax(0, 1fr);
-  height: 100vh;
+  height: 100dvh;
   min-height: 0;
   overflow: hidden;
 }
@@ -3994,7 +4004,7 @@ button.workspace:hover {
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  height: 100vh;
+  height: 100dvh;
   padding: 10px 0;
   background: var(--sidebar);
 }
@@ -4144,7 +4154,7 @@ button.workspace:hover {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100dvh;
   min-height: 0;
   overflow: hidden;
 }
@@ -6177,10 +6187,10 @@ button.pill-x:hover {
     right: 0;
     bottom: 0;
     top: auto;
-    height: 60px;
+    height: calc(60px + env(safe-area-inset-bottom, 0px));
     flex-direction: row;
     justify-content: space-around;
-    padding: 0 8px;
+    padding: 0 8px env(safe-area-inset-bottom, 0px); /* clear of the home indicator */
   }
 
   .rail nav,
@@ -6222,7 +6232,7 @@ button.pill-x:hover {
     left: auto;
     right: 0;
     bottom: calc(100% + 10px);
-    max-height: calc(100vh - 90px);
+    max-height: calc(100dvh - 90px);
     overflow-y: auto;
   }
 
@@ -6235,7 +6245,7 @@ button.pill-x:hover {
   }
 
   .main-column {
-    height: calc(100vh - 60px);
+    height: calc(100dvh - 60px - env(safe-area-inset-bottom, 0px));
   }
 
   .rail [data-tip]:hover::after {
@@ -8085,8 +8095,9 @@ a.button:active {
   }
 }
 
-/* A toast leaves the way it came. */
+/* A toast leaves the way it came (exits a little faster than it arrived). */
 .toast.leaving {
+  transition-duration: 150ms;
   opacity: 0;
   transform: translateY(8px);
 }
@@ -8106,4 +8117,123 @@ summary {
 /* Home: the first block under the header keeps the same breathing room as the sections below it. */
 .home-head + :is(.next-steps, .notice, .quick-start) {
   margin-top: 16px;
+}
+
+/* Phones (mobile-native pass) */
+
+/* iOS zooms into any input under 16px and doesn't zoom back; on touch screens inputs are 16px. */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Long-press on a control shouldn't select its label or pop the link callout; content text stays selectable. */
+button,
+[role="button"],
+[role="tab"],
+.rail a,
+.stage-tabs a {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Scrolling to the end of a panel doesn't drag the page behind it (or trigger pull-to-refresh). */
+.main-column,
+.dialog,
+.ai-dock,
+.menu-list {
+  overscroll-behavior: contain;
+}
+
+/* The narrowest phones: six bar items fit in 320px. */
+@media (max-width: 360px) {
+  .rail-section a {
+    min-width: 46px;
+  }
+
+  .rail {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+}
+
+/* break-ui pass */
+
+/* Icons never squash next to long names. */
+.lucide {
+  flex-shrink: 0;
+}
+
+/* The top bar: a long dataset or dashboard name gives way (ellipsis, full name on hover); the page's tabs and
+   actions keep their size so Publish is never pushed out of view. */
+.crumb {
+  min-width: 0;
+}
+
+.crumb:first-child,
+.crumb-sep {
+  flex-shrink: 0;
+}
+
+.crumb > a,
+.crumb > span:not(.crumb-sep) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.topbar-slot {
+  flex: 1 0 auto;
+}
+
+.topbar-slot > :not(.topbar-grow) {
+  flex-shrink: 0;
+}
+
+.stage-tabs a,
+.stage-tabs button,
+.topbar-slot button,
+.topbar-slot a {
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .topbar-slot {
+    flex: 1 1 auto;
+  }
+}
+
+/* Lists: names wrap (people need them in full to tell rows apart), the icon hangs to the left of every line;
+   secondary text such as a dashboard's dataset is cut with an ellipsis, with the full name on hover. */
+.catalog td.catalog-name {
+  white-space: normal;
+  min-width: 14rem;
+  overflow-wrap: anywhere;
+  padding-left: 39px;
+  text-indent: -25px;
+}
+
+.cell-clip {
+  display: block;
+  max-width: 20rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Model diagram cards: long table and column names end in an ellipsis instead of being cut mid-letter. */
+.table-card header .card-name,
+.table-card li > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-button,
+.search-button kbd {
+  flex-shrink: 0;
+  white-space: nowrap;
 }

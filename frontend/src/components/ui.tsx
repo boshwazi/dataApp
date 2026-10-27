@@ -41,7 +41,7 @@ export function WorkspaceBadge({ workspace, small, large }: { workspace?: Pick<W
 // Toasts: short confirmations and errors that don't take focus.
 
 type Toast = { id: number; text: string; kind: "ok" | "error" | "info"; leaving?: boolean };
-const TOAST_EXIT_MS = 150; // matches .toast's transition
+const TOAST_EXIT_MS = 150; // matches .toast.leaving's transition
 const ToastContext = createContext<(text: string, kind?: Toast["kind"]) => void>(() => {});
 
 export function ToastProvider({ children }: { children: ReactNode }) {

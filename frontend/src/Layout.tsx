@@ -79,7 +79,11 @@ export function Layout() {
             {crumbs.map((c, i) => (
               <span key={i} className="crumb">
                 {i > 0 && <span className="crumb-sep" aria-hidden="true">/</span>}
-                {c.to && i < crumbs.length - 1 ? <Link to={c.to}>{c.label}</Link> : <span aria-current={i === crumbs.length - 1 ? "page" : undefined}>{c.label}</span>}
+                {c.to && i < crumbs.length - 1 ? (
+                  <Link to={c.to} title={c.label}>{c.label}</Link>
+                ) : (
+                  <span aria-current={i === crumbs.length - 1 ? "page" : undefined} title={c.label}>{c.label}</span>
+                )}
               </span>
             ))}
           </nav>

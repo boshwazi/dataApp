@@ -1510,7 +1510,7 @@ export function KpiCard({ visual, format }: { visual: Visual; format: MeasureFor
   const change =
     data.delta !== null
       ? `${data.delta >= 0 ? "▲" : "▼"} ${sign(data.delta)}${formatCompact(Math.abs(data.delta), format)}${
-          data.delta_pct !== null ? ` (${sign(data.delta_pct)}${Math.abs(data.delta_pct * 100).toFixed(1)}%)` : ""
+          data.delta_pct !== null ? ` (${sign(data.delta_pct)}${Math.abs(data.delta_pct * 100).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%)` : ""
         } ${data.comparison}`
       : null;
   const label = `${visual.title}: ${formatCompact(data.value, format)}${change ? `, ${change}` : ""}`;
