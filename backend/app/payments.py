@@ -55,20 +55,22 @@ class ChipProvider:
             "brand_id": self.brand_id,
             "client": {"email": email},
             "purchase": {"currency": "MYR", "products": [
-                {"name": line["name"][:256], "price": int(line["price"]), "quantity": str(line.get("quantity", 1)),
+                {"name": line["name"][:256], "price": int(line["price"]), "quantity": "1",
                  **({"discount": int(line["discount"])} if line.get("discount") else {})} for line in lines]},
             "reference": reference,
-            "success_redirect": success_url,
-            "failure_redirect": failure_url,
-            "success_callback": callback_url,
             "force_recurring": save_card,
             "send_receipt": False,  # datawazi issues its own numbered receipts
         }
+        # Optional URLs are left out rather than sent empty (saved-card charges have no checkout page).
+        for key, url in (("success_redirect", success_url), ("failure_redirect", failure_url),
+                         ("success_callback", callback_url)):
+            if url:
+                body[key] = url
         return self._call("POST", "/purchases/", body)
 
-    def charge(self, email: str, lines: list[dict], reference: str, token: str) -> dict:
+    def charge(self, email: str, lines: list[dict], reference: str, token: str, callback_url: str = "") -> dict:
         """Charge a saved card: a new purchase, then charge it with the first purchase's id as the token."""
-        purchase = self.create(email, lines, reference, "", "", "", save_card=False)
+        purchase = self.create(email, lines, reference, "", "", callback_url, save_card=False)
         return self._call("POST", f"/purchases/{purchase['id']}/charge/", {"recurring_token": token})
 
     def get(self, purchase_id: str) -> dict:
@@ -104,7 +106,9 @@ class StandInProvider:
         self.lock = threading.Lock()
 
     def _new(self, email, lines, reference, save_card, status="created") -> dict:
-        total = sum(int(line["price"]) * int(line.get("quantity", 1)) - int(line.get("discount", 0)) for line in lines)
+        lines = [{"name": line["name"], "price": int(line["price"]), "quantity": "1",
+                  **({"discount": int(line["discount"])} if line.get("discount") else {})} for line in lines]
+        total = sum(line["price"] - line.get("discount", 0) for line in lines)
         purchase = {"id": str(uuid.uuid4()), "status": status, "reference": reference, "client": {"email": email},
                     "purchase": {"currency": "MYR", "total": total, "products": lines},
                     "is_recurring_token": False, "recurring_token": None, "save_card": save_card,
@@ -124,10 +128,11 @@ class StandInProvider:
             purchase["is_recurring_token"] = True
         return purchase
 
-    def charge(self, email, lines, reference, token) -> dict:
+    def charge(self, email, lines, reference, token, callback_url="") -> dict:
         if token not in self.purchases or not self.purchases[token]["is_recurring_token"]:
             raise PaymentError("Unknown card.")
-        return self._new(email, lines, reference, False, status="error" if self.declining else "paid")
+        status = "error" if self.declining else getattr(self, "charge_status", "paid")
+        return self._new(email, lines, reference, False, status=status)
 
     def get(self, purchase_id: str) -> dict:
         if purchase_id not in self.purchases:

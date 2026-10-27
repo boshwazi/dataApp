@@ -87,6 +87,11 @@ class FileLedger:
             with open(folder / f"{month_of(entry['at'])}.jsonl", "a", encoding="utf-8") as f:
                 f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
+    def totals(self, workspace_id: str, month: str) -> tuple[int, int]:
+        """Prompt and completion tokens this month, for the credit check (whoever is asking)."""
+        entries = self.month(workspace_id, month)
+        return sum(e.get("prompt_tokens", 0) for e in entries), sum(e.get("completion_tokens", 0) for e in entries)
+
     def month(self, workspace_id: str, month: str) -> list[dict]:
         path = self.root / workspace_id / "usage" / f"{month}.jsonl"
         if not path.exists():
@@ -110,9 +115,23 @@ class PgLedger:
             con.execute(f"insert into {self.db.t('usage_events')} ({', '.join(self.COLUMNS)}) "
                         f"values ({', '.join(['%s'] * len(self.COLUMNS))})", [entry.get(c) for c in self.COLUMNS])
 
-    def month(self, workspace_id: str, month: str) -> list[dict]:
+    @staticmethod
+    def _range(month: str) -> tuple[datetime, datetime]:
         start = datetime.fromisoformat(f"{month}-01T00:00:00+00:00")
-        end = start.replace(year=start.year + 1, month=1) if start.month == 12 else start.replace(month=start.month + 1)
+        return start, start.replace(year=start.year + 1, month=1) if start.month == 12 else start.replace(month=start.month + 1)
+
+    def totals(self, workspace_id: str, month: str) -> tuple[int, int]:
+        """Prompt and completion tokens this month, read as the service: the credit check applies to everyone,
+        while only admins may read the rows themselves."""
+        start, end = self._range(month)
+        with self.db.tx(None) as con:
+            row = con.execute(f"select coalesce(sum(prompt_tokens), 0) as p, coalesce(sum(completion_tokens), 0) as c "
+                              f"from {self.db.t('usage_events')} where workspace_id = %s and at >= %s and at < %s",
+                              [workspace_id, start, end]).fetchone()
+        return int(row["p"]), int(row["c"])
+
+    def month(self, workspace_id: str, month: str) -> list[dict]:
+        start, end = self._range(month)
         with self.db.tx(workspaces.current_user()) as con:
             rows = con.execute(f"select {', '.join(self.COLUMNS)} from {self.db.t('usage_events')} "
                                "where workspace_id = %s and at >= %s and at < %s order by at",

@@ -83,7 +83,7 @@ async def scheduler_lifespan(app: FastAPI):
         while not stop.wait(SCHEDULER_SECONDS):
             try:  # workspaces whose 7-day grace period has ended
                 workspace_admin.purge_due(members, app.state.workspace_root, getattr(projects, "backup", None),
-                                          workspace_admin.now())
+                                          workspace_admin.now(), before=app.state.subscriptions.forget_card)
             except Exception:
                 log.exception("Purging deleted workspaces failed")
             try:  # paid plans whose month has ended: charge the saved card, retry, or move to Free
@@ -183,8 +183,14 @@ def create_app(
             return workspace_id
 
     ledger_of_payments = subscriptions.PgPayments(database) if database is not None else subscriptions.FilePayments(root)
+    def closing(workspace_id: str) -> bool:
+        try:
+            return bool((members.get(workspace_id).get("settings") or {}).get("delete_after"))
+        except workspaces.WorkspaceError:
+            return True
+
     app.state.subscriptions = subscriptions.Subscriptions(plans, ledger_of_payments, payments_provider, workspace_name,
-                                                          preferences)
+                                                          preferences, closing)
     client_factory = usage.metered(client_factory, ledger, before=plans.check_credits)
     if admin is not None:
         try:

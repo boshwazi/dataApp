@@ -52,6 +52,14 @@ def stamp(at: datetime) -> str:
     return at.isoformat(timespec="seconds")
 
 
+def plan_line(plan: str, seats: int) -> str:
+    return f"datawazi {PLANS[plan]['name']}, {seats} {'seat' if seats == 1 else 'seats'}, one month"
+
+
+def line_total(lines: list[dict]) -> int:
+    return sum(int(line["price"]) - int(line.get("discount", 0) or 0) for line in lines)
+
+
 class FilePayments:
     """Locally: one ledger for the whole server in <root>/_billing (kept when a workspace is deleted, as receipts
     must be)."""
@@ -78,6 +86,10 @@ class FilePayments:
                 f.write(json.dumps({"workspace_id": workspace_id, "purchase_id": purchase_id, **receipt}) + "\n")
             (self.folder / "payments.json").write_text(json.dumps(state), encoding="utf-8")
             return receipt
+
+    def record_exists(self, purchase_id: str) -> bool:
+        with self.lock:
+            return purchase_id in self._state()["done"]
 
     def receipts(self, workspace_id: str) -> list[dict]:
         path = self.folder / "receipts.jsonl"
@@ -107,6 +119,11 @@ class PgPayments:
                         "values (%s, %s, %s, %s::jsonb)", [purchase_id, workspace_id, receipt["number"], json.dumps(receipt)])
             return receipt
 
+    def record_exists(self, purchase_id: str) -> bool:
+        with self.db.tx(None) as con:
+            return con.execute(f"select 1 from {self.db.t('billing_payments')} where purchase_id = %s",
+                               [purchase_id]).fetchone() is not None
+
     def receipts(self, workspace_id: str) -> list[dict]:
         with self.db.tx(None) as con:
             rows = con.execute(f"select receipt from {self.db.t('billing_payments')} where workspace_id = %s "
@@ -118,13 +135,17 @@ def unavailable(message: str, code: str = "billing_unavailable") -> HTTPExceptio
     return HTTPException(409, {"message": message, "code": code})
 
 
+PENDING = {"created", "pending_charge", "pending_execute", "pending_capture", "hold", "preauthorized"}
+
+
 class Subscriptions:
-    def __init__(self, billing, payments, provider, names, preferences=None):
+    def __init__(self, billing, payments, provider, names, preferences=None, closing=lambda workspace_id: False):
         self.billing = billing  # plans, accounts and limits (billing.Billing)
         self.payments = payments
         self.provider = provider  # None until CHIP is configured
         self.names = names  # workspace id → name, for receipts
         self.preferences = preferences
+        self.closing = closing  # a workspace waiting to be deleted is never charged
 
     # Starting a payment
 
@@ -138,7 +159,7 @@ class Subscriptions:
         price = PRICES[plan]
         if price is None:
             raise unavailable("Paid plans open at launch, priced from what the AI really costs to run.")
-        line = {"name": f"datawazi {PLANS[plan]['name']}, one month", "price": price, "quantity": seats}
+        line = {"name": plan_line(plan, seats), "price": price * seats}
         # Changing plan mid-month: the unused part of what was paid comes off the new plan.
         end = account.get("period_end")
         old = PRICES.get(account["plan"])
@@ -152,7 +173,7 @@ class Subscriptions:
         rate = tax_rate()
         if not rate:
             return lines
-        net = sum(line["price"] * line.get("quantity", 1) - line.get("discount", 0) for line in lines)
+        net = sum(line["price"] - line.get("discount", 0) for line in lines)
         return lines + [{"name": f"Service tax ({rate:.0%})", "price": round(net * rate), "quantity": 1, "tax": True}]
 
     def checkout(self, workspace_id: str, email: str, kind: str, plan: str | None, seats: int, site: str) -> dict:
@@ -168,7 +189,18 @@ class Subscriptions:
                                             f"{site}/api/billing/callback", save_card=kind == "plan")
         except PaymentError as exc:
             raise HTTPException(502, str(exc)) from exc
+        self.expect(workspace_id, purchase["id"], lines)
         return {"id": purchase["id"], "checkout_url": purchase["checkout_url"]}
+
+    def expect(self, workspace_id: str, purchase_id: str, lines: list[dict]) -> None:
+        """Keep what the server priced for a purchase: the receipt is built from it, and CHIP's total must match."""
+        with self.billing.lock:
+            account = self.billing.account(workspace_id)
+            pending = account.setdefault("pending", {})
+            pending[purchase_id] = {"lines": lines, "total": line_total(lines)}
+            for stale in list(pending)[:-20]:  # checkouts started and never paid
+                pending.pop(stale)
+            self.billing.accounts.save(workspace_id, account)
 
     # Settling a paid purchase
 
@@ -188,17 +220,29 @@ class Subscriptions:
             raise HTTPException(404, "Not a purchase for this workspace.")
         if purchase.get("status") != "paid":
             return purchase.get("status") or "unknown"
-        self.apply(purchase, workspace_id, kind, plan, int(seats or 1))
+        expected = (self.billing.account(workspace_id).get("pending") or {}).get(purchase_id)
+        if expected is None:
+            if self.payments.record_exists(purchase_id):
+                return "paid"  # settled already
+            log.error("Paid purchase %s was never started here; not applied", purchase_id)
+            raise HTTPException(409, "This payment wasn't started from datawazi; contact support.")
+        total = (purchase.get("purchase") or {}).get("total")
+        if total is not None and int(total) != expected["total"]:
+            log.error("Purchase %s paid %s but was priced at %s; not applied", purchase_id, total, expected["total"])
+            raise HTTPException(409, "The amount paid doesn't match the price; contact support.")
+        self.apply(purchase, workspace_id, kind, plan, int(seats or 1), expected["lines"])
         return "paid"
 
-    def apply(self, purchase: dict, workspace_id: str, kind: str, plan: str, seats: int) -> None:
+    def apply(self, purchase: dict, workspace_id: str, kind: str, plan: str, seats: int, lines: list[dict]) -> None:
         now = datetime.now(UTC)
-        lines = (purchase.get("purchase") or {}).get("products") or []
         receipt = self.receipt(purchase, workspace_id, lines, now)
         if self.payments.record(purchase["id"], workspace_id, receipt) is None:
             return  # already settled (the callback and the page's check both arrive)
         with self.billing.lock:
             account = self.billing.account(workspace_id)
+            (account.get("pending") or {}).pop(purchase["id"], None)
+            if account.get("renewing") == purchase["id"]:
+                account["renewing"] = None
             if kind == "topup":
                 month = now.strftime("%Y-%m")
                 topups = account.setdefault("topup_credits", {})
@@ -218,10 +262,9 @@ class Subscriptions:
     def receipt(self, purchase: dict, workspace_id: str, lines: list[dict], now: datetime) -> dict:
         rows = []
         for line in lines:
-            qty = int(line.get("quantity", 1))
-            amount = int(line["price"]) * qty - int(line.get("discount", 0) or 0)
-            rows.append({"description": line["name"], "quantity": qty, "unit_price": int(line["price"]),
-                         "discount": int(line.get("discount", 0) or 0), "amount": amount, "tax": bool(line.get("tax"))})
+            discount = int(line.get("discount", 0) or 0)
+            rows.append({"description": line["name"], "quantity": 1, "unit_price": int(line["price"]),
+                         "discount": discount, "amount": int(line["price"]) - discount, "tax": bool(line.get("tax"))})
         subtotal = sum(r["amount"] for r in rows if not r["tax"])
         tax = sum(r["amount"] for r in rows if r["tax"])
         return {"date": stamp(now), "workspace": self.names(workspace_id), "bill_to": (purchase.get("client") or {}).get("email"),
@@ -250,31 +293,65 @@ class Subscriptions:
             end = account.get("period_end")
             if account["plan"] == "free" or not end or datetime.fromisoformat(end) > now:
                 continue
-            if account.get("next_try") and datetime.fromisoformat(account["next_try"]) > now:
-                continue
-            if account.get("cancel_at_period_end") or not account.get("recurring_token") or self.provider is None:
+            if self.closing(workspace_id):
+                continue  # waiting to be deleted: never charged again
+            if account.get("cancel_at_period_end") or not account.get("recurring_token"):
                 self.downgrade(workspace_id, "cancelled" if account.get("cancel_at_period_end") else "no card")
                 done.append(workspace_id)
+                continue
+            if self.provider is None:
+                log.warning("Plan for %s is due but payments aren't configured; left as it is", workspace_id)
+                continue
+            if account.get("renewing"):  # a charge CHIP was still processing: ask again, never charge twice
+                self.check_renewal(workspace_id, account["renewing"], now)
+                done.append(workspace_id)
+                continue
+            if account.get("next_try") and datetime.fromisoformat(account["next_try"]) > now:
                 continue
             self.renew(workspace_id, account, now)
             done.append(workspace_id)
         return done
 
+    def check_renewal(self, workspace_id: str, purchase_id: str, now: datetime) -> None:
+        try:
+            status = self.settle(purchase_id)
+        except HTTPException:
+            log.warning("Couldn't check renewal %s for %s", purchase_id, workspace_id, exc_info=True)
+            return
+        if status in PENDING:
+            return
+        if status != "paid":
+            with self.billing.lock:
+                account = self.billing.account(workspace_id)
+                account["renewing"] = None
+                self.billing.accounts.save(workspace_id, account)
+            self.failed(workspace_id, account["plan"], now)
+
     def renew(self, workspace_id: str, account: dict, now: datetime) -> None:
         plan, seats = account["plan"], account.get("seats", 1)
         price = PRICES.get(plan)
-        status = "error"
         if price is not None:
-            lines = self.with_tax([{"name": f"datawazi {PLANS[plan]['name']}, one month", "price": price, "quantity": seats}])
+            lines = self.with_tax([{"name": plan_line(plan, seats), "price": price * seats}])
+            site = os.getenv("PUBLIC_URL", "").rstrip("/")
             try:
                 purchase = self.provider.charge(account.get("payer") or "", lines, f"{workspace_id}:renewal:{plan}:{seats}",
-                                                account["recurring_token"])
+                                                account["recurring_token"], f"{site}/api/billing/callback" if site else "")
+                self.expect(workspace_id, purchase["id"], lines)
                 status = purchase.get("status")
                 if status == "paid":
-                    self.apply(purchase, workspace_id, "renewal", plan, seats)
+                    self.settle(purchase["id"])
                     return
-            except PaymentError:
+                if status in PENDING:  # CHIP is still processing it; the next tick asks again
+                    with self.billing.lock:
+                        account = self.billing.account(workspace_id)
+                        account["renewing"] = purchase["id"]
+                        self.billing.accounts.save(workspace_id, account)
+                    return
+            except (PaymentError, HTTPException):
                 log.warning("Renewal charge failed for %s", workspace_id, exc_info=True)
+        self.failed(workspace_id, plan, now)
+
+    def failed(self, workspace_id: str, plan: str, now: datetime) -> None:
         with self.billing.lock:
             account = self.billing.account(workspace_id)
             tries = account.get("retries", 0) + 1
@@ -305,6 +382,12 @@ class Subscriptions:
         self.tell(workspace_id, f"Moved from {was} to Free",
                   "The plan ended" + (" after its payment failed three times." if why == "payment failed" else ".")
                   + " Everything is kept; limits are Free's from now on.")
+
+    def forget_card(self, workspace_id: str) -> None:
+        """Before a workspace is deleted: remove its saved card at the provider."""
+        token = self.billing.account(workspace_id).get("recurring_token")
+        if token and self.provider is not None:
+            self.provider.forget_card(token)
 
     def tell(self, workspace_id: str, title: str, text: str) -> None:
         with workspaces.use(workspace_id):

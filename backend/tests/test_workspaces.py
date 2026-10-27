@@ -716,3 +716,57 @@ def test_a_cancelled_plan_ends_at_the_end_of_its_month(paying):
     assert ok(ana.get("/api/billing"))["account"]["plan"] == "pro"  # paid until the month ends
     renew_now(api, ana)
     assert ok(ana.get("/api/billing"))["account"]["plan"] == "free" and len(ok(ana.get("/api/billing"))["receipts"]) == 1
+
+
+def test_creators_are_held_to_the_credit_limit_too(tmp_path, database, monkeypatch):
+    from test_usage import FakeAI
+
+    api = billed_app(tmp_path, database, monkeypatch, ai=FakeAI(tokens=(100_000, 50_000, 0)))  # 300 credits a call
+    ops = Person(api, "ops")
+    ops.workspace = ok(ops.post("/api/workspaces", json={"name": "Ops Co"}))["id"]
+    ok(ops.call("PUT", "/api/settings", json={"api_key": "sk-secret-value-1234"}))
+    api.app.state.billing.accounts.save(ops.workspace, {"plan": "pro", "seats": 2})  # room for a creator
+    raj = Person(api, "raj")
+    ok(raj.post(f"/api/invites/{invite(ops, 'raj@example.com', 'creator')}/accept"))
+    raj.workspace = ops.workspace
+    pid = ok(raj.post("/api/datasets", json={"name": "Demo"}))["id"]
+    sid = ok(raj.post(f"/api/datasets/{pid}/sources/upload", files=[("files", ("o.csv", b"id,amount\n1,10\n"))]))["added"][0]["id"]
+    codes = [raj.post(f"/api/datasets/{pid}/sources/{sid}/describe").status_code for _ in range(11)]
+    assert codes[:10] == [200] * 10 and codes[10] == 402  # Pro's 3,000 credits, then paused
+
+
+def test_renewals_wait_without_payments_set_up_and_skip_closing_workspaces(paying):
+    api, chip, ana = paying
+    buy(ana, chip, kind="plan", plan="pro", seats=1)
+    subs = api.app.state.subscriptions
+    subs.provider = None  # a restart without CHIP's keys must not move anyone to Free
+    renew_now(api, ana)
+    assert ok(ana.get("/api/billing"))["account"]["plan"] == "pro"
+    subs.provider = chip
+    subs.closing = lambda workspace_id: True  # waiting to be deleted: never charged again
+    renew_now(api, ana)
+    assert len(ok(ana.get("/api/billing"))["receipts"]) == 1
+
+
+def test_a_renewal_still_processing_is_checked_again_not_charged_twice(paying):
+    api, chip, ana = paying
+    buy(ana, chip, kind="plan", plan="pro", seats=1)
+    chip.charge_status = "pending_charge"
+    renew_now(api, ana)
+    renew_now(api, ana, 32)
+    charges = [p for p in chip.purchases.values() if ":renewal:" in p["reference"]]
+    assert len(charges) == 1 and ok(ana.get("/api/billing"))["account"]["status"] == "active"
+    chip.pay(charges[0]["id"])
+    renew_now(api, ana, 33)
+    view = ok(ana.get("/api/billing"))
+    assert len(view["receipts"]) == 2 and view["receipts"][0]["lines"][0]["description"] == "datawazi Pro, 1 seat, one month"
+
+
+def test_a_payment_that_doesnt_match_the_price_is_not_applied(paying):
+    api, chip, ana = paying
+    started = ok(ana.post("/api/billing/checkout", json={"kind": "plan", "plan": "pro", "seats": 1}))
+    chip.pay(started["id"])
+    chip.purchases[started["id"]]["purchase"]["total"] = 100  # paid RM 1 for a RM 49 plan
+    assert ana.post(f"/api/billing/purchases/{started['id']}/settle").status_code == 409
+    view = ok(ana.get("/api/billing"))
+    assert view["account"]["plan"] == "free" and view["receipts"] == [] and "pending" not in view["account"]

@@ -35,7 +35,7 @@ REFRESH = {
     "hourly": {"off", "daily", "weekdays", "weekly", "hourly", "every_6_hours"},
 }
 WARN_AT = 0.8
-SECRET_KEYS = {"recurring_token", "payer", "next_try"}  # never leaves the server
+SECRET_KEYS = {"recurring_token", "payer", "next_try", "pending", "renewing"}  # never leaves the server
 
 
 def default_account() -> dict:
@@ -120,7 +120,8 @@ class Billing:
         return plan["credits"] + float((account.get("topup_credits") or {}).get(month, 0))
 
     def used(self, workspace_id: str, month: str) -> float:
-        return sum(usage.credits(e) for e in self.ledger.month(workspace_id, month))
+        prompt, completion = self.ledger.totals(workspace_id, month)
+        return usage.credits({"prompt_tokens": prompt, "completion_tokens": completion})
 
     def credits(self, workspace_id: str) -> dict:
         month = this_month()
@@ -145,8 +146,12 @@ class Billing:
                               "or until an admin adds credits in Billing; everything else still works.",
                               "credits_used_up")
         if used >= WARN_AT * allowance and account.get("warned") != month:
-            account["warned"] = month  # once a month
-            self.accounts.save(workspace_id, account)
+            with self.lock:
+                account = self.account(workspace_id)
+                if account.get("warned") == month:
+                    return
+                account["warned"] = month  # once a month
+                self.accounts.save(workspace_id, account)
             notices.notify(self.preferences, "credits", "AI credits are 80% used",
                            f"{round(used)} of {round(allowance)} credits used this month. Add credits or change plan "
                            "in Billing before AI steps pause.", link="/billing", by=notices.SYSTEM)

@@ -62,13 +62,19 @@ def export_is_fresh(settings: dict, at: datetime) -> bool:
     return bool(exported) and at - datetime.fromisoformat(exported) <= timedelta(hours=EXPORT_FRESH_HOURS)
 
 
-def purge_due(store, root: Path, backup, at: datetime) -> list[str]:
-    """Delete every workspace whose grace period has ended. Returns their ids."""
+def purge_due(store, root: Path, backup, at: datetime, before=None) -> list[str]:
+    """Delete every workspace whose grace period has ended. Returns their ids. `before` runs first for each
+    (removing a saved card at the payment provider)."""
     purged = []
     for workspace_id, settings in store.all_settings():
         due = settings.get("delete_after")
         if not due or datetime.fromisoformat(due) > at:
             continue
+        if before is not None:
+            try:
+                before(workspace_id)
+            except Exception:  # noqa: BLE001 — the deletion goes ahead; the card is logged for a hand check
+                log.exception("Couldn't tidy billing for workspace %s before deleting it", workspace_id)
         shutil.rmtree(root / workspace_id, ignore_errors=True)
         if backup is not None:
             backup.forget_workspace(workspace_id)
