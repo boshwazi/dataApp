@@ -11,6 +11,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+import { handledErrors } from "../api";
 
 // Logo
 
@@ -35,6 +36,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const next = useRef(0);
   const show = useCallback((text: string, kind: Toast["kind"] = "ok") => {
+    if (kind === "error" && handledErrors.has(text)) return;
     const id = ++next.current;
     setToasts((current) => [...current.slice(-3), { id, text, kind }]);
     setTimeout(() => setToasts((current) => current.filter((t) => t.id !== id)), kind === "error" ? 7000 : 4000);

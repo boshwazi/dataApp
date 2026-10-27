@@ -4,7 +4,7 @@ import {
 import { useLocation, useNavigate } from "react-router-dom";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Mail } from "lucide-react";
-import { accountApi, ApiError, configureSession, type Me, type Role, type WorkspaceRef } from "../api";
+import { accountApi, ApiError, configureSession, downloadFile, type Me, type Role, type WorkspaceRef } from "../api";
 import { BrandMark } from "./ui";
 import { SignInChart } from "./SignInChart";
 import { OnboardingShell } from "./OnboardingSteps";
@@ -47,7 +47,8 @@ function savedWorkspace(): string | null {
 type State =
   | { status: "loading" }
   | { status: "signed-out"; client: SupabaseClient; problem?: string }
-  | { status: "second-step"; client: SupabaseClient }
+  | { status: "second-step"; client: SupabaseClient; note?: string }
+  | { status: "two-step-setup"; client: SupabaseClient; note: string }
   | { status: "ready"; me: Me; workspaceId: string | null }
   | { status: "error"; message: string };
 
@@ -92,6 +93,15 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       configureSession({
         token: async () => (await supabase.auth.getSession()).data.session?.access_token ?? null,
         onSignedOut: () => setState({ status: "signed-out", client: supabase }),
+        // The workspace requires two-step sign-in: the code if they have an authenticator, else setting one up.
+        onTwoStepRequired: (note) =>
+          void supabase.auth.mfa.listFactors().then(({ data }) =>
+            setState(
+              data?.totp.some((f) => f.status === "verified")
+                ? { status: "second-step", client: supabase, note }
+                : { status: "two-step-setup", client: supabase, note },
+            ),
+          ),
       });
 
       // Coming back from a sign-in link or Google/Microsoft: swap the one-time code for a session here,
@@ -160,7 +170,8 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
   if (state.status === "loading") return <Splash />;
   if (state.status === "error") return <Splash message={`Can't reach datawazi: ${state.message}`} />;
-  if (state.status === "second-step") return <SecondStep client={state.client} />;
+  if (state.status === "second-step") return <SecondStep client={state.client} note={state.note} />;
+  if (state.status === "two-step-setup") return <TwoStepSetup client={state.client} note={state.note} />;
   if (state.status === "signed-out") {
     // Visitors see the landing page at /; every other address (and its Sign in links) asks them to sign in.
     if (location.pathname === "/" && !state.problem) {
@@ -179,11 +190,85 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 export function WorkspaceGate({ children }: { children: ReactNode }) {
   const account = useAccount();
   const location = useLocation();
+  if (account.workspace?.settings?.delete_after && !location.pathname.startsWith("/invite/")) {
+    return <WorkspaceClosed />;
+  }
   if (account.workspace || location.pathname.startsWith("/invite/")) {
     // A new workspace starts a fresh tree, so no page keeps the previous company's data.
     return <div key={account.workspace?.id ?? "none"}>{children}</div>;
   }
   return <CreateWorkspace />;
+}
+
+/** A workspace waiting to be deleted: closed to everyone; an admin can still download the export or cancel. */
+function WorkspaceClosed() {
+  const account = useAccount();
+  const [busy, setBusy] = useState<"export" | "restore" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const workspace = account.workspace!;
+  const when = new Date(workspace.settings!.delete_after!).toLocaleDateString(undefined, { dateStyle: "long" });
+  const admin = account.can("admin");
+  const others = account.me.workspaces.filter((w) => w.id !== workspace.id && !w.settings?.delete_after);
+
+  async function act(kind: "export" | "restore") {
+    setBusy(kind);
+    setError(null);
+    try {
+      if (kind === "export") {
+        const safe = workspace.name.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "") || "workspace";
+        await downloadFile("/api/workspaces/current/export", `datawazi-${safe}.zip`);
+      } else {
+        await accountApi.restoreWorkspace();
+        await account.refresh();
+      }
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="auth-page">
+      <main className="auth-card closed-card">
+        <div className="auth-brand">
+          <BrandMark size={28} /> datawazi
+        </div>
+        <h1>{t("{name} is closed", { name: workspace.name })}</h1>
+        <p className="muted">
+          {admin
+            ? t("It will be deleted with all its data on {when}. Until then you can download the export, or cancel and everything comes back as it was.", { when })
+            : t("It will be deleted on {when}. If this is a mistake, ask one of its admins to cancel.", { when })}
+        </p>
+        {admin && (
+          <div className="closed-actions">
+            <button onClick={() => void act("restore")} disabled={busy !== null}>
+              {busy === "restore" ? t("Cancelling…") : t("Cancel the deletion")}
+            </button>
+            <button className="secondary" onClick={() => void act("export")} disabled={busy !== null}>
+              {busy === "export" ? t("Preparing the export…") : t("Download the export")}
+            </button>
+          </div>
+        )}
+        {error && <p className="signin-error" role="alert">{error}</p>}
+        {others.length > 0 && (
+          <div className="closed-switch">
+            <p className="muted small">{t("Your other workspaces")}</p>
+            {others.map((w) => (
+              <button key={w.id} className="secondary" onClick={() => account.switchTo(w.id)}>
+                {w.name}
+              </button>
+            ))}
+          </div>
+        )}
+        {account.signOut && (
+          <button className="link small" onClick={() => void account.signOut!()}>
+            {t("Sign out")}
+          </button>
+        )}
+      </main>
+    </div>
+  );
 }
 
 function Splash({ message }: { message?: string }) {
@@ -430,7 +515,7 @@ function SignIn({ client, problem }: { client: SupabaseClient; problem?: string 
 }
 
 /** Signing in with two-step sign-in on: the code from the authenticator app, before anything else loads. */
-function SecondStep({ client }: { client: SupabaseClient }) {
+function SecondStep({ client, note }: { client: SupabaseClient; note?: string }) {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -459,6 +544,7 @@ function SecondStep({ client }: { client: SupabaseClient }) {
             <BrandMark size={28} /> datawazi
           </div>
           <h1>Enter your code</h1>
+          {note && <p className="notice">{note}</p>}
           <p className="muted">Open your authenticator app and type the 6-digit code for datawazi.</p>
           <form onSubmit={verify} className="auth-form">
             <label className="field">
@@ -499,12 +585,64 @@ function SecondStep({ client }: { client: SupabaseClient }) {
   );
 }
 
+const TwoStep = lazy(() => import("../pages/Account").then((m) => ({ default: m.TwoStep })));
+
+/** The workspace requires two-step sign-in and this person has no authenticator yet: set one up, then go on. */
+function TwoStepSetup({ client, note }: { client: SupabaseClient; note: string }) {
+  return (
+    <div className="signin">
+      <main className="signin-main">
+        <div className="signin-panel two-step-panel">
+          <div className="auth-brand signin-brand">
+            <BrandMark size={28} /> datawazi
+          </div>
+          <h1>Set up two-step sign-in</h1>
+          <p className="notice">{note}</p>
+          <Suspense fallback={<p className="muted">Loading…</p>}>
+            <TwoStep client={client} onDone={() => window.location.reload()} />
+          </Suspense>
+          <button className="link" onClick={() => void client.auth.signOut()}>
+            Sign out
+          </button>
+        </div>
+      </main>
+      <aside className="signin-aside">
+        <div className="signin-aside-text">
+          <h2>Clean data. Checked numbers.</h2>
+          <p>Your data becomes dashboards your team can trust.</p>
+        </div>
+        <SignInChart />
+      </aside>
+    </div>
+  );
+}
+
 function CreateWorkspace() {
   const account = useAccount();
   const navigate = useNavigate();
+  const [open, setOpen] = useState<{ id: string; name: string }[]>([]);
+  const [joining, setJoining] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (account.me.mode !== "local") accountApi.joinable().then((r) => setOpen(r.workspaces), () => setOpen([]));
+  }, [account.me.mode]);
+
+  async function join(id: string) {
+    setJoining(id);
+    setError(null);
+    try {
+      await accountApi.join(id);
+      await account.refresh();
+      account.switchTo(id);
+      navigate("/");
+    } catch (e) {
+      setError((e as Error).message);
+      setJoining(null);
+    }
+  }
 
   async function create(event: FormEvent) {
     event.preventDefault();
@@ -524,6 +662,19 @@ function CreateWorkspace() {
 
   return (
     <OnboardingShell step={1}>
+      {open.length > 0 && (
+        <div className="join-offer">
+          <p>{t("Your colleagues are already on datawazi.")}</p>
+          {open.map((w) => (
+            <button key={w.id} className="secondary join-button" onClick={() => void join(w.id)} disabled={joining !== null}>
+              {joining === w.id ? t("Joining…") : t("Join {name}", { name: w.name })}
+            </button>
+          ))}
+          <div className="auth-divider">
+            <span>{t("or make a new one")}</span>
+          </div>
+        </div>
+      )}
       <h1>{t("Name your workspace")}</h1>
       <p className="muted">
         {t("A workspace holds your company's data and dashboards. Joining a colleague's workspace instead? Open the invite link they sent you.")}

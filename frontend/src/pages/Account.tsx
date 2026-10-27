@@ -165,7 +165,7 @@ function qrSource(qr: string) {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
-function TwoStep({ client }: { client: SupabaseClient }) {
+export function TwoStep({ client, onDone }: { client: SupabaseClient; onDone?: () => void }) {
   const toast = useToast();
   const dialogs = useDialogs();
   const [factors, setFactors] = useState<Factor[] | null>(null);
@@ -208,6 +208,7 @@ function TwoStep({ client }: { client: SupabaseClient }) {
     setCode("");
     await load();
     toast("Two-step sign-in is on");
+    onDone?.();
   }
 
   async function turnOff() {

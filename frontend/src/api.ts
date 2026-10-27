@@ -165,7 +165,12 @@ const session = {
   token: async (): Promise<string | null> => null,
   workspace: null as string | null,
   onSignedOut: () => {},
+  /** The workspace requires two-step sign-in and this session hasn't done the second step. */
+  onTwoStepRequired: (_message: string) => {},
 };
+
+/** Errors a whole screen already explains (two-step sign-in required), so a toast repeating them is skipped. */
+export const handledErrors = new Set<string>();
 
 export function configureSession(options: Partial<typeof session>) {
   Object.assign(session, options);
@@ -188,6 +193,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const body = await response.json().catch(() => ({}));
     const detail = body.detail;
     const message = typeof detail === "string" ? detail : detail?.message ?? `Request failed (${response.status})`;
+    if (response.status === 403 && detail?.code === "mfa_required") {
+      handledErrors.add(message);
+      session.onTwoStepRequired(message);
+    }
     throw new ApiError(message, response.status, typeof detail === "object" ? detail : null);
   }
   return response.json();
@@ -207,7 +216,8 @@ const source = (pid: string, sid: string) => `${project(pid)}/sources/${sid}`;
 // Sign-in, workspaces and members
 
 export type Role = "admin" | "creator" | "viewer";
-export type WorkspaceRef = { id: string; name: string; role: Role };
+export type WorkspaceSettings = { require_mfa?: boolean; domains?: string[]; exported_at?: string; delete_after?: string };
+export type WorkspaceRef = { id: string; name: string; role: Role; settings?: WorkspaceSettings };
 export type AuthConfig = { mode: "local" | "supabase"; supabase_url: string | null; supabase_key: string | null };
 export type Me = { mode: "local" | "supabase"; user: { id: string; email: string }; platform_admin: boolean; workspaces: WorkspaceRef[] };
 export type Member = { workspace_id: string; user_id: string; email: string; role: Role; joined_at: string };
@@ -219,6 +229,14 @@ export const accountApi = {
   config: () => request<AuthConfig>("/api/auth/config"),
   me: () => request<Me>("/api/me"),
   deleteAccount: () => request<{ deleted: boolean }>("/api/me", { method: "DELETE" }),
+  setSignInRules: (require_mfa: boolean) =>
+    request<{ require_mfa: boolean }>("/api/workspaces/current/sign-in", json("PUT", { require_mfa })),
+  setDomains: (domains: string[]) => request<{ domains: string[] }>("/api/workspaces/current/domains", json("PUT", { domains })),
+  joinable: () => request<{ workspaces: { id: string; name: string }[] }>("/api/workspaces/joinable"),
+  join: (id: string) => request<WorkspaceRef>(`/api/workspaces/${id}/join`, { method: "POST" }),
+  deleteWorkspace: (confirm: string) =>
+    request<{ delete_after: string }>("/api/workspaces/current/delete", json("POST", { confirm })),
+  restoreWorkspace: () => request<{ delete_after: null }>("/api/workspaces/current/restore", { method: "POST" }),
   createWorkspace: (name: string) => request<WorkspaceRef>("/api/workspaces", json("POST", { name })),
   renameWorkspace: (name: string) => request<WorkspaceRef>("/api/workspaces/current", json("PATCH", { name })),
   instructions: () => request<{ instructions: string }>("/api/workspaces/current/instructions"),

@@ -84,7 +84,7 @@ class PgWorkspaceStore:
 
     def get(self, workspace_id: str) -> dict:
         with self._tx() as con:
-            row = con.execute(f"select id, name, created_at from {self.db.t('workspaces')} where id = %s",
+            row = con.execute(f"select id, name, created_at, settings from {self.db.t('workspaces')} where id = %s",
                               [workspace_id]).fetchone()
         if not row:
             raise WorkspaceError("Workspace not found.", 404)
@@ -112,9 +112,41 @@ class PgWorkspaceStore:
     def for_user(self, user: User) -> list[dict]:
         with self.db.tx(None) as con:  # filtered by user explicitly; runs before the request has a workspace
             rows = con.execute(
-                f"select w.id, w.name, m.role from {self.db.t('members')} m join {self.db.t('workspaces')} w "
+                f"select w.id, w.name, m.role, w.settings from {self.db.t('members')} m join {self.db.t('workspaces')} w "
                 f"on w.id = m.workspace_id where m.user_id = %s order by m.joined_at", [user.id]).fetchall()
         return [dict(r) for r in rows]
+
+    def by_domain(self, domain: str) -> list[dict]:
+        """Workspaces that let people with this email domain ask to join. Runs as the service: the person isn't a
+        member yet, and the domain comes from their verified sign-in, never from what they send."""
+        with self.db.tx(None) as con:
+            rows = con.execute(
+                f"select id, name from {self.db.t('workspaces')} where settings -> 'domains' ? %s "
+                "and not (settings ? 'delete_after') order by created_at", [domain]).fetchall()
+        return [dict(r) for r in rows]
+
+    def all_settings(self) -> list[tuple[str, dict]]:
+        with self.db.tx(None) as con:  # the scheduler's purge, across workspaces
+            return [(r["id"], r["settings"] or {}) for r in con.execute(f"select id, settings from {self.db.t('workspaces')}")]
+
+    def delete_workspace(self, workspace_id: str) -> None:
+        """The purge after the grace period: records, members and invites go with the row (on delete cascade)."""
+        with self.db.tx(None) as con:
+            con.execute(f"delete from {self.db.t('workspaces')} where id = %s", [workspace_id])
+
+    def update_settings(self, workspace_id: str, changes: dict) -> dict:
+        """Merge changes into the workspace's settings (a None value removes the setting). Admins only, by RLS."""
+        with self._tx() as con:
+            row = con.execute(f"select settings from {self.db.t('workspaces')} where id = %s", [workspace_id]).fetchone()
+            if not row:
+                raise WorkspaceError("Workspace not found.", 404)
+            merged = {**(row["settings"] or {}), **changes}
+            merged = {k: v for k, v in merged.items() if v is not None}
+            updated = con.execute(f"update {self.db.t('workspaces')} set settings = %s::jsonb where id = %s returning settings",
+                                  [json.dumps(merged), workspace_id]).fetchone()
+        if not updated:
+            raise WorkspaceError("Only admins can change workspace settings.", 403)
+        return updated["settings"]
 
     def role_of(self, workspace_id: str, user: User) -> str | None:
         return next((w["role"] for w in self.for_user(user) if w["id"] == workspace_id), None)

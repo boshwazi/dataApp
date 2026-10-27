@@ -45,11 +45,11 @@ def token(user: str, email: str | None = None, **overrides) -> str:
 class Person:
     """One signed-in user talking to the API, optionally inside a chosen workspace."""
 
-    def __init__(self, api: TestClient, user: str, workspace: str | None = None):
-        self.api, self.user, self.workspace = api, user, workspace
+    def __init__(self, api: TestClient, user: str, workspace: str | None = None, aal: str = "aal1", provider: str = "email"):
+        self.api, self.user, self.workspace, self.aal, self.provider = api, user, workspace, aal, provider
 
     def headers(self):
-        h = {"Authorization": f"Bearer {token(self.user)}"}
+        h = {"Authorization": f"Bearer {token(self.user, aal=self.aal, app_metadata={'provider': self.provider})}"}
         if self.workspace:
             h["X-Workspace"] = self.workspace
         return h
@@ -149,7 +149,7 @@ def test_a_new_user_creates_their_first_workspace(api):
     workspace = ok(ana.post("/api/workspaces", json={"name": "Ana Trading"}))
     assert workspace["role"] == "admin"
     me = ok(ana.get("/api/me"))
-    assert me["workspaces"] == [{"id": workspace["id"], "name": "Ana Trading", "role": "admin"}]
+    assert me["workspaces"] == [{"id": workspace["id"], "name": "Ana Trading", "role": "admin", "settings": {}}]
     assert ok(ana.get("/api/datasets")) == []  # the first workspace is used without a header
 
 
@@ -308,7 +308,7 @@ def test_data_from_before_sign_in_goes_to_the_first_platform_admin(tmp_path, dat
     api = TestClient(create_app(data_dir=tmp_path, client_factory=lambda s: None, auth=CONFIG, database=database))
     assert ok(Person(api, "ana").get("/api/me"))["workspaces"] == []  # not a platform admin: nothing inherited
     ops = Person(api, "ops")
-    assert ok(ops.get("/api/me"))["workspaces"] == [{"id": "local", "name": "Local workspace", "role": "admin"}]
+    assert ok(ops.get("/api/me"))["workspaces"] == [{"id": "local", "name": "Local workspace", "role": "admin", "settings": {}}]
     assert [d["id"] for d in ok(ops.get("/api/datasets"))] == [dataset["id"]]
 
 
@@ -366,3 +366,107 @@ def test_deleting_an_account_never_leaves_a_workspace_without_an_admin(tmp_path,
 def test_there_is_no_account_to_delete_locally(tmp_path):
     api = TestClient(create_app(data_dir=tmp_path, client_factory=lambda s: None))
     assert api.delete("/api/me").status_code == 400
+
+
+# Requiring two-step sign-in
+
+
+def test_a_workspace_can_require_two_step_sign_in(api):
+    ana, a = company(api, "ana", "Ana Trading")
+    Person(api, "cat").post(f"/api/invites/{invite(ana, 'cat@example.com', 'viewer')}/accept")
+    rule = "/api/workspaces/current/sign-in"
+
+    refused = ana.call("PUT", rule, json={"require_mfa": True})
+    assert refused.status_code == 409 and "your own account first" in refused.json()["detail"]
+    ana_two_step = Person(api, "ana", a["workspace"], aal="aal2")
+    assert ok(ana_two_step.call("PUT", rule, json={"require_mfa": True})) == {"require_mfa": True}
+
+    cat = Person(api, "cat", a["workspace"])
+    blocked = cat.get("/api/dashboards")
+    assert blocked.status_code == 403 and blocked.json()["detail"]["code"] == "mfa_required"
+    assert ok(cat.get("/api/me"))["user"]["email"] == "cat@example.com"  # the account itself stays reachable
+    assert ok(Person(api, "cat", a["workspace"], aal="aal2").get("/api/dashboards"))
+
+    assert ok(ana_two_step.call("PUT", rule, json={"require_mfa": False})) == {"require_mfa": False}
+    assert ok(cat.get("/api/dashboards")) is not None
+
+
+# Deleting a workspace: export first, then a grace period
+
+
+def test_a_workspace_is_deleted_only_after_an_export_and_a_grace_period(api):
+    import io
+    import zipfile
+    from datetime import timedelta
+
+    from app import workspace_admin
+
+    ana, a = company(api, "ana", "Ana Trading")
+    Person(api, "cat").post(f"/api/invites/{invite(ana, 'cat@example.com', 'viewer')}/accept")
+    cat = Person(api, "cat", a["workspace"])
+
+    refused = ana.post("/api/workspaces/current/delete", json={"confirm": "Ana Trading"})
+    assert refused.status_code == 409 and "Download the export first" in refused.json()["detail"]
+    assert cat.get("/api/workspaces/current/export").status_code == 403
+
+    exported = ana.get("/api/workspaces/current/export")
+    assert exported.status_code == 200
+    names = zipfile.ZipFile(io.BytesIO(exported.content)).namelist()
+    assert {"README.txt", "workspace.json", "preferences.json"} <= set(names)
+    assert any(n.startswith("datasets/") for n in names) and any(n.startswith("dashboards/") for n in names)
+    assert any(n.startswith("files/") and n.endswith(".duckdb") for n in names)
+
+    assert ana.post("/api/workspaces/current/delete", json={"confirm": "Ana"}).status_code == 400
+    after = ok(ana.post("/api/workspaces/current/delete", json={"confirm": "Ana Trading"}))["delete_after"]
+
+    closed = cat.get("/api/dashboards")
+    assert closed.status_code == 423 and closed.json()["detail"]["code"] == "workspace_deleting"
+    assert ana.get("/api/dashboards").status_code == 423  # closed to admins too, but for the export and cancelling
+    assert ana.get("/api/workspaces/current/export").status_code == 200
+
+    ok(ana.post("/api/workspaces/current/restore"))
+    assert cat.get("/api/dashboards").status_code == 200
+
+    # Asked again, then the grace period passes.
+    ok(ana.post("/api/workspaces/current/delete", json={"confirm": "Ana Trading"}))
+    store, root = api.app.state.refresh_job[3], api.app.state.workspace_root
+    forgotten = []
+
+    class Backup:
+        def forget_workspace(self, workspace_id):
+            forgotten.append(workspace_id)
+
+    assert workspace_admin.purge_due(store, root, Backup(), workspace_admin.now()) == []  # not yet
+    later = workspace_admin.now() + timedelta(days=workspace_admin.GRACE_DAYS, hours=1)
+    assert workspace_admin.purge_due(store, root, Backup(), later) == [a["workspace"]]
+    assert forgotten == [a["workspace"]] and not (root / a["workspace"]).exists()
+    assert ok(ana.get("/api/me"))["workspaces"] == [] and ok(cat.get("/api/me"))["workspaces"] == []
+    assert after
+
+
+def test_deleting_the_workspace_on_this_computer_is_refused(tmp_path):
+    api = TestClient(create_app(data_dir=tmp_path, client_factory=lambda s: None))
+    assert api.post("/api/workspaces/current/delete", json={"confirm": "Local workspace"}).status_code == 400
+
+
+# Joining by email domain
+
+
+def test_people_at_an_allowed_domain_are_offered_the_workspace(api):
+    ana, a = company(api, "ana", "Ana Trading")  # ana@example.com
+    domains = "/api/workspaces/current/domains"
+    assert ana.call("PUT", domains, json={"domains": ["other.com"]}).status_code == 400  # not her own domain
+    assert "free email" in ana.call("PUT", domains, json={"domains": ["gmail.com"]}).json()["detail"]
+    assert ok(ana.call("PUT", domains, json={"domains": ["@Example.com"]})) == {"domains": ["example.com"]}
+
+    dan = Person(api, "dan")  # dan@example.com, signed in with an email code
+    offered = ok(dan.get("/api/workspaces/joinable"))["workspaces"]
+    assert [w["name"] for w in offered] == ["Ana Trading"]
+    assert ok(dan.post(f"/api/workspaces/{a['workspace']}/join"))["role"] == "viewer"
+    assert ok(dan.get("/api/workspaces/joinable"))["workspaces"] == []
+    assert [w["role"] for w in ok(dan.get("/api/me"))["workspaces"]] == ["viewer"]
+
+    # Microsoft's email claim isn't verified for us, so a Microsoft sign-in isn't offered the workspace.
+    erin = Person(api, "erin", provider="azure")
+    assert ok(erin.get("/api/workspaces/joinable"))["workspaces"] == []
+    assert erin.post(f"/api/workspaces/{a['workspace']}/join").status_code == 403

@@ -44,6 +44,21 @@ class WorkspaceError(Exception):
 class User:
     id: str
     email: str
+    aal: str = "aal1"  # "aal2" once the second step (an authenticator code) was done this session
+    provider: str = ""  # how they signed in: "email" (a code or link), "google", "azure"...
+
+
+# Free email services: anyone can have an address there, so a domain like this says nothing about a company.
+FREE_MAIL = {"gmail.com", "googlemail.com", "yahoo.com", "ymail.com", "hotmail.com", "outlook.com", "live.com",
+             "msn.com", "icloud.com", "me.com", "aol.com", "proton.me", "protonmail.com", "gmx.com", "mail.com",
+             "yandex.com", "zoho.com", "qq.com", "163.com"}
+# Sign-ins whose email address is verified by the provider. Microsoft (azure) is left out: a tenant can set an
+# email claim it hasn't verified, so it can't prove someone belongs to a company's domain.
+VERIFIED_PROVIDERS = {"email", "google"}
+
+
+def email_domain(email: str) -> str:
+    return email.rsplit("@", 1)[-1].strip().lower()
 
 
 @dataclass(frozen=True)
@@ -170,9 +185,35 @@ class WorkspaceStore:
     def for_user(self, user: User) -> list[dict]:
         """The user's workspaces with their role, oldest membership first."""
         data = self._load()
-        names = {w["id"]: w["name"] for w in data["workspaces"]}
-        return [{"id": m["workspace_id"], "name": names.get(m["workspace_id"], "?"), "role": m["role"]}
-                for m in data["members"] if m["user_id"] == user.id and m["workspace_id"] in names]
+        found = {w["id"]: w for w in data["workspaces"]}
+        return [{"id": m["workspace_id"], "name": found[m["workspace_id"]]["name"], "role": m["role"],
+                 "settings": found[m["workspace_id"]].get("settings") or {}}
+                for m in data["members"] if m["user_id"] == user.id and m["workspace_id"] in found]
+
+    def all_settings(self) -> list[tuple[str, dict]]:
+        return [(w["id"], w.get("settings") or {}) for w in self._load()["workspaces"]]
+
+    def by_domain(self, domain: str) -> list[dict]:
+        """Workspaces that let people with this email domain ask to join (not ones being deleted)."""
+        return [{"id": w["id"], "name": w["name"]} for w in self._load()["workspaces"]
+                if domain in (w.get("settings") or {}).get("domains", []) and not (w.get("settings") or {}).get("delete_after")]
+
+    def delete_workspace(self, workspace_id: str) -> None:
+        """Remove the workspace with its members and invites (the purge after the grace period)."""
+        with self._edit() as data:
+            data["workspaces"] = [w for w in data["workspaces"] if w["id"] != workspace_id]
+            data["members"] = [m for m in data["members"] if m["workspace_id"] != workspace_id]
+            data["invites"] = [i for i in data.get("invites", []) if i["workspace_id"] != workspace_id]
+
+    def update_settings(self, workspace_id: str, changes: dict) -> dict:
+        """Merge changes into the workspace's settings (a None value removes the setting)."""
+        with self._edit() as data:
+            for workspace in data["workspaces"]:
+                if workspace["id"] == workspace_id:
+                    settings = {**(workspace.get("settings") or {}), **changes}
+                    workspace["settings"] = {k: v for k, v in settings.items() if v is not None}
+                    return workspace["settings"]
+        raise WorkspaceError("Workspace not found.", 404)
 
     def role_of(self, workspace_id: str, user: User) -> str | None:
         for m in self._load()["members"]:

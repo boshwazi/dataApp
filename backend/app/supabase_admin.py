@@ -93,6 +93,22 @@ class SupabaseAdmin:
             raise SupabaseError(f"Download failed: {self._message(raw)}")
         return raw
 
+    def list_paths(self, prefix: str) -> list[str]:
+        """Every file under a folder of the bucket, through its subfolders."""
+        found, offset = [], 0
+        while True:
+            status, raw = self._call("POST", f"/storage/v1/object/list/{BUCKET}",
+                                     {"prefix": prefix, "limit": 1000, "offset": offset})
+            if status >= 300:
+                raise SupabaseError(f"Listing failed: {self._message(raw)}")
+            entries = json.loads(raw or b"[]")
+            for entry in entries:
+                path = f"{prefix.rstrip('/')}/{entry['name']}"
+                found += [path] if entry.get("id") else self.list_paths(path)  # no id: a folder
+            if len(entries) < 1000:
+                return found
+            offset += 1000
+
     def delete(self, paths: list[str]) -> None:
         if paths:
             self._call("DELETE", f"/storage/v1/object/{BUCKET}", {"prefixes": paths})
@@ -120,6 +136,15 @@ class PublishedBackup:
         except SupabaseError:
             log.exception("Restoring %s of dataset %s failed", filename, dataset_id)
             return None
+
+    def forget_workspace(self, workspace_id: str) -> None:
+        """Remove every published copy the workspace has in storage."""
+        try:
+            paths = self.admin.list_paths(workspace_id)
+            for start in range(0, len(paths), 100):
+                self.admin.delete(paths[start:start + 100])
+        except SupabaseError:
+            log.exception("Removing workspace %s from storage failed", workspace_id)
 
     def forget(self, workspace_id: str, dataset_id: str, filenames: list[str]) -> None:
         try:

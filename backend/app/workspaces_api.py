@@ -16,6 +16,14 @@ from .workspaces import WorkspaceError, WorkspaceStore
 log = logging.getLogger(__name__)
 
 
+class DomainsBody(BaseModel):
+    domains: list[str] = []
+
+
+class SignInRulesBody(BaseModel):
+    require_mfa: bool = False
+
+
 class NameBody(BaseModel):
     name: str
 
@@ -115,6 +123,64 @@ def build_router(store: WorkspaceStore, config: AuthConfig, mailer: SupabaseAdmi
         if not access.at_least("admin"):
             raise HTTPException(403, "Only workspace admins can rename the workspace.")
         return {**checked(lambda: store.rename(access.workspace_id, body.name)), "role": access.role}
+
+    @router.put("/api/workspaces/current/sign-in")
+    def set_sign_in(body: SignInRulesBody):
+        """Require two-step sign-in for everyone in the workspace. The admin turning it on must already use it,
+        so nobody locks themselves out."""
+        access = workspaces.current()
+        if not access.at_least("admin"):
+            raise HTTPException(403, "Only workspace admins can change how people sign in.")
+        if config.mode == "local":
+            raise HTTPException(400, "Sign-in rules need the hosted version.")
+        if body.require_mfa and access.user.aal != "aal2":
+            raise HTTPException(409, "Turn on two-step sign-in for your own account first (in Your account), sign in "
+                                     "again with your code, then require it for everyone.")
+        settings = checked(lambda: store.update_settings(access.workspace_id, {"require_mfa": body.require_mfa or None}))
+        note("sign-in", "Two-step sign-in is now " + ("required" if body.require_mfa else "optional"))
+        return {"require_mfa": bool(settings.get("require_mfa"))}
+
+    @router.put("/api/workspaces/current/domains")
+    def set_domains(body: DomainsBody):
+        """Email domains whose people may ask to join. An admin can only add the domain of their own email."""
+        access = workspaces.current()
+        if not access.at_least("admin"):
+            raise HTTPException(403, "Only workspace admins can change who may join.")
+        if config.mode == "local":
+            raise HTTPException(400, "Joining by email domain needs the hosted version.")
+        mine = workspaces.email_domain(access.user.email)
+        domains = sorted({d.strip().lower().lstrip("@") for d in body.domains if d.strip()})
+        for domain in domains:
+            if domain in workspaces.FREE_MAIL:
+                raise HTTPException(400, f"{domain} is a free email service, so it can't stand for your company.")
+            if domain != mine:
+                raise HTTPException(400, f"You can only add your own email's domain ({mine}).")
+        checked(lambda: store.update_settings(access.workspace_id, {"domains": domains or None}))
+        note("domains", "People at " + (", ".join(domains) if domains else "no domain") + " may ask to join")
+        return {"domains": domains}
+
+    def joinable_for(user: workspaces.User) -> list[dict]:
+        if config.mode == "local" or user.provider not in workspaces.VERIFIED_PROVIDERS:
+            return []
+        domain = workspaces.email_domain(user.email)
+        if domain in workspaces.FREE_MAIL:
+            return []
+        member_of = {w["id"] for w in store.for_user(user)}
+        return [w for w in store.by_domain(domain) if w["id"] not in member_of]
+
+    @router.get("/api/workspaces/joinable")
+    def joinable():
+        """Workspaces this person may join because of their email's domain (offered, never joined silently)."""
+        return {"workspaces": joinable_for(workspaces.current_user())}
+
+    @router.post("/api/workspaces/{workspace_id}/join")
+    def join(workspace_id: str):
+        user = workspaces.current_user()
+        if not any(w["id"] == workspace_id for w in joinable_for(user)):
+            raise HTTPException(403, "This workspace isn't open to your email's domain.")
+        checked(lambda: store.add_member(workspace_id, user, "viewer"))
+        log.info("%s joined workspace %s by email domain", user.email, workspace_id)
+        return {**checked(lambda: store.get(workspace_id)), "role": "viewer"}
 
     @router.get("/api/workspaces/current/members")
     def members():

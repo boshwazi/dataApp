@@ -14,6 +14,8 @@ create table if not exists {schema}.workspaces (
   name text not null check (length(name) between 1 and 60),
   created_at timestamptz not null default now()
 );
+-- Workspace settings: require_mfa, allowed email domains, export and deletion dates.
+alter table {schema}.workspaces add column if not exists settings jsonb not null default '{}'::jsonb;
 
 create table if not exists {schema}.members (
   workspace_id text not null references {schema}.workspaces (id) on delete cascade,

@@ -7949,3 +7949,58 @@ button:not(:disabled):active,
 a.button:active {
   transform: scale(0.97);
 }
+
+/* The setup panel inside the sign-in frame is wider than the sign-in form. */
+.signin-panel.two-step-panel {
+  width: min(560px, 100%);
+}
+
+.delete-steps {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.delete-steps > li > button + span {
+  margin-left: 12px;
+}
+
+.ok-text {
+  color: var(--ok);
+}
+
+/* A workspace waiting to be deleted */
+.closed-card {
+  width: min(480px, 100%);
+}
+
+.closed-actions,
+.closed-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.closed-switch p {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+/* New-workspace screen: workspaces open to your email's domain */
+.join-offer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.join-offer p {
+  margin: 0;
+  font-weight: 600;
+}
+
+.join-button {
+  min-height: 44px;
+}

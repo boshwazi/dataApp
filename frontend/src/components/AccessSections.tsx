@@ -68,7 +68,7 @@ export function GroupsSection() {
   );
 }
 
-const ACTIONS: Record<string, string> = { members: "Members", groups: "Groups", roles: "Security roles", sharing: "Sharing", publish: "Publishing", privacy: "AI privacy" };
+const ACTIONS: Record<string, string> = { members: "Members", groups: "Groups", roles: "Security roles", sharing: "Sharing", publish: "Publishing", privacy: "AI privacy", "sign-in": "Sign-in rules", domains: "Joining by domain", workspace: "Workspace" };
 
 const AUDIT_PAGE = 15;
 

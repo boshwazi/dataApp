@@ -6,6 +6,7 @@ Run from the repo root:  uvicorn app.main:default_app --factory --app-dir backen
 import functools
 import logging
 import os
+import tempfile
 import threading
 from collections.abc import Callable
 from contextlib import asynccontextmanager
@@ -16,8 +17,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from starlette.background import BackgroundTask
 
-from . import ai_report, db, digests, guidance, ingest, links, llm, notices, refresh, security, workspaces
+from . import ai_report, db, digests, guidance, ingest, links, llm, notices, refresh, security, workspace_admin, workspaces
 from .auth import AuthConfig, AuthGuard
 from .autopilot import Autopilot
 from .autopilot import build_router as build_autopilot_router
@@ -60,7 +62,15 @@ async def scheduler_lifespan(app: FastAPI):
     def loop():
         projects, boards, fetch, members = app.state.refresh_job
         while not stop.wait(SCHEDULER_SECONDS):
+            try:  # workspaces whose 7-day grace period has ended
+                workspace_admin.purge_due(members, app.state.workspace_root, getattr(projects, "backup", None),
+                                          workspace_admin.now())
+            except Exception:
+                log.exception("Purging deleted workspaces failed")
+            closing = {wid for wid, settings in members.all_settings() if settings.get("delete_after")}
             for workspace_id in members.ids():
+                if workspace_id in closing:
+                    continue
                 try:
                     with workspaces.use(workspace_id):
                         for project_id in refresh.due(projects):
@@ -84,6 +94,10 @@ class InstructionsBody(BaseModel):
 
 class AIPrivacyBody(BaseModel):
     samples: bool = True
+
+
+class DeleteWorkspaceBody(BaseModel):
+    confirm: str = ""
 
 
 class GroupsBody(BaseModel):
@@ -135,6 +149,7 @@ def create_app(
             log.exception("Storage is not available; published data stays on this server only")
 
     app.state.refresh_job = (projects, boards, fetch_url, members)
+    app.state.workspace_root = root  # the purge removes a deleted workspace's folder
 
     def member_emails() -> list[str] | None:
         """Who digests may go to: the workspace's members (anyone, on a local single-user install)."""
@@ -239,6 +254,59 @@ def create_app(
             return {"instructions": preferences.set_instructions(body.instructions)["instructions"]}
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
+
+    def admin_only(what: str) -> str:
+        access = workspaces.current()
+        if not access.at_least("admin"):
+            raise HTTPException(403, f"Only workspace admins can {what}.")
+        if auth.mode == "local":
+            raise HTTPException(400, "Deleting a workspace needs the hosted version, with sign-in.")
+        return access.workspace_id
+
+    @app.get("/api/workspaces/current/export")
+    def export_workspace():
+        """Everything in the workspace as a zip: records, settings, members and the data files."""
+        wid = admin_only("export the workspace")
+        workspace = members.get(wid)
+        at = workspace_admin.now()
+        handle = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
+        handle.close()
+        target = Path(handle.name)
+        workspace_admin.write_export(target, workspace, members.members(wid), preferences.load(), projects.all(),
+                                     boards.all(), root / wid, at)
+        members.update_settings(wid, {"exported_at": workspace_admin.stamp(at)})
+        security.audit(preferences, "workspace", "Exported the workspace")
+        name = "".join(c if c.isalnum() else "-" for c in workspace["name"]).strip("-") or "workspace"
+        return FileResponse(target, media_type="application/zip", filename=f"datawazi-{name}-{at:%Y-%m-%d}.zip",
+                            background=BackgroundTask(target.unlink, missing_ok=True))
+
+    @app.post("/api/workspaces/current/delete")
+    def delete_workspace(body: DeleteWorkspaceBody):
+        """Close the workspace now and delete it after the grace period. Needs a fresh export and the name typed."""
+        wid = admin_only("delete the workspace")
+        workspace = members.get(wid)
+        at = workspace_admin.now()
+        if body.confirm.strip() != workspace["name"]:
+            raise HTTPException(400, f'Type the workspace name, "{workspace["name"]}", to confirm.')
+        if not workspace_admin.export_is_fresh(workspace.get("settings") or {}, at):
+            raise HTTPException(409, f"Download the export first (within the last {workspace_admin.EXPORT_FRESH_HOURS} "
+                                     "hours), so nothing is lost by accident.")
+        after = workspace_admin.stamp(at + workspace_admin.timedelta(days=workspace_admin.GRACE_DAYS))
+        settings = members.update_settings(wid, {"delete_after": after})
+        notices.notify(preferences, "workspace", f"{workspace['name']} will be deleted on {after[:10]}",
+                       text="An admin asked for it. Until then the workspace is closed; an admin can cancel.",
+                       to=notices.EVERYONE)
+        security.audit(preferences, "workspace", f"Asked to delete the workspace on {after[:10]}")
+        return {"delete_after": settings["delete_after"]}
+
+    @app.post("/api/workspaces/current/restore")
+    def restore_workspace():
+        wid = admin_only("cancel the deletion")
+        members.update_settings(wid, {"delete_after": None})
+        notices.notify(preferences, "workspace", f"{members.get(wid)['name']} won't be deleted",
+                       text="An admin cancelled the deletion. Everything is as it was.", to=notices.EVERYONE)
+        security.audit(preferences, "workspace", "Cancelled the workspace deletion")
+        return {"delete_after": None}
 
     @app.get("/api/workspaces/current/ai-privacy")
     def get_ai_privacy():

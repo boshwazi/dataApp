@@ -26,9 +26,11 @@ log = logging.getLogger(__name__)
 
 PUBLIC = {"/api/health", "/api/auth/config"}
 # Signed in, but no workspace needed: who am I, create a workspace, accept an invite, AI provider settings.
-ACCOUNT = re.compile(r"^/api/(me|workspaces|invites/[^/]+(/accept)?|settings(/test)?)$")
+ACCOUNT = re.compile(r"^/api/(me|workspaces|workspaces/joinable|workspaces/[0-9a-f]{12}/join|invites/[^/]+(/accept)?|settings(/test)?)$")
 VIEWER_GET = re.compile(r"^/api/(dashboards|dashboards/[0-9a-f]{12}|dashboards/[0-9a-f]{12}/values|workspaces/current|notifications)$")
 VIEWER_POST = re.compile(r"^/api/dashboards/[0-9a-f]{12}/(ask|export/summary)$")
+# While a workspace waits to be deleted, admins can still download the export and cancel; nothing else opens.
+DELETION_OPEN = re.compile(r"^/api/workspaces/current(/export|/restore)?$")
 ADMIN_ONLY = re.compile(r"^/api/workspaces/current/(members|invites)(/.*)?$|^/api/workspaces/current$")
 
 
@@ -84,7 +86,8 @@ class AuthConfig:
         email = (claims.get("email") or "").lower()
         if not email:
             raise AuthError("This account has no email address.")
-        return User(id=claims["sub"], email=email)
+        provider = str((claims.get("app_metadata") or {}).get("provider") or "")
+        return User(id=claims["sub"], email=email, aal=str(claims.get("aal") or "aal1"), provider=provider)
 
     def is_platform_admin(self, user: User) -> bool:
         return self.mode == "local" or user.email in self.platform_admins
@@ -135,9 +138,20 @@ class AuthGuard:
             raise workspaces.WorkspaceError("You have no workspace yet. Create one, or ask an admin for an invite.", 409,
                                            code="no_workspace")
         wanted = headers.get("x-workspace") or mine[0]["id"]
-        role = next((w["role"] for w in mine if w["id"] == wanted), None)
-        if role is None:
+        chosen = next((w for w in mine if w["id"] == wanted), None)
+        if chosen is None:
             raise workspaces.WorkspaceError("You are not a member of this workspace.", 403)
+        role = chosen["role"]
+        if (chosen.get("settings") or {}).get("require_mfa") and user.aal != "aal2":
+            raise workspaces.WorkspaceError(
+                f"{chosen['name']} asks everyone to use two-step sign-in. Set it up, then continue.", 403,
+                code="mfa_required")
+        deleting = (chosen.get("settings") or {}).get("delete_after")
+        if deleting and not (role == "admin" and DELETION_OPEN.match(path)):
+            raise workspaces.WorkspaceError(
+                f"{chosen['name']} will be deleted on {deleting[:10]}. "
+                + ("You can download the export or cancel." if role == "admin" else "Ask an admin if this is a mistake."),
+                423, code="workspace_deleting")
         if not allowed(role, method, path):
             raise workspaces.WorkspaceError(
                 "Only admins can do this." if ADMIN_ONLY.match(path) else "Viewers can see published dashboards only.", 403)
