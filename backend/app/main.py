@@ -6,6 +6,7 @@ Run from the repo root:  uvicorn app.main:default_app --factory --app-dir backen
 import functools
 import logging
 import os
+import re
 import tempfile
 import threading
 from collections.abc import Callable
@@ -19,7 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
 
-from . import ai_report, db, digests, guidance, ingest, links, llm, notices, refresh, security, workspace_admin, workspaces
+from . import ai_report, db, digests, guidance, ingest, links, llm, notices, refresh, security, usage, workspace_admin, workspaces
 from .auth import AuthConfig, AuthGuard
 from .autopilot import Autopilot
 from .autopilot import build_router as build_autopilot_router
@@ -141,6 +142,10 @@ def create_app(
         projects = ProjectStore(workspaces.folder_for(root, "datasets"), current, records=PgRecords(database, "dataset"))
         preferences = PreferenceStore(workspaces.folder_for(root, "preferences"), current, records=PgRecords(database, "preferences"))
     projects.preferences = preferences  # custom AI instructions, found by every AI call through the datasets store
+    # Every AI call is recorded against its workspace (tokens, model, feature, person).
+    ledger = usage.PgLedger(database) if database is not None else usage.FileLedger(root)
+    app.state.usage = ledger
+    client_factory = usage.metered(client_factory, ledger)
     if admin is not None:
         try:
             admin.ensure_bucket()
@@ -182,6 +187,7 @@ def create_app(
     projects.on_publish = after_publish
     app.add_middleware(AuthGuard, config=auth, store=members)
     app.add_middleware(LanguageMiddleware)
+    app.add_middleware(usage.PathMiddleware)
     app.include_router(build_workspaces_router(members, auth, admin,
                                                audit=lambda action, detail: security.audit(preferences, action, detail)))
     routers = [
@@ -262,6 +268,17 @@ def create_app(
         if auth.mode == "local":
             raise HTTPException(400, "Deleting a workspace needs the hosted version, with sign-in.")
         return access.workspace_id
+
+    @app.get("/api/workspaces/current/usage")
+    def get_usage(month: str | None = None):
+        """AI usage this month (or `month`, YYYY-MM): totals and by person, feature and day. Admins only."""
+        access = workspaces.current()
+        if not access.at_least("admin"):
+            raise HTTPException(403, "Only workspace admins can see AI usage.")
+        month = month or workspace_admin.now().strftime("%Y-%m")
+        if not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", month):
+            raise HTTPException(400, "Month must look like 2026-10.")
+        return {"month": month, **usage.summary(ledger.month(access.workspace_id, month))}
 
     @app.get("/api/workspaces/current/export")
     def export_workspace():

@@ -103,6 +103,27 @@ drop policy if exists records_delete on {schema}.records;
 create policy records_delete on {schema}.records for delete to authenticated
   using ({schema}.my_role(workspace_id) in ('creator', 'admin'));
 
+-- AI usage: one row per AI call (tokens, model, feature, person), for credits and cost. Written by the server
+-- as the service; workspace admins can read their workspace's rows. Credits are worked out when read.
+create table if not exists {schema}.usage_events (
+  id bigserial primary key,
+  workspace_id text not null references {schema}.workspaces (id) on delete cascade,
+  user_id text,
+  email text,
+  at timestamptz not null default now(),
+  feature text not null,
+  model text,
+  prompt_tokens integer not null default 0,
+  completion_tokens integer not null default 0,
+  cached_tokens integer not null default 0,
+  ms integer not null default 0
+);
+create index if not exists usage_by_workspace on {schema}.usage_events (workspace_id, at);
+alter table {schema}.usage_events enable row level security;
+drop policy if exists usage_read on {schema}.usage_events;
+create policy usage_read on {schema}.usage_events for select to authenticated
+  using ({schema}.my_role(workspace_id) = 'admin');
+
 revoke all on all tables in schema {schema} from public, anon;
 grant select, insert, update, delete on all tables in schema {schema} to authenticated;
 

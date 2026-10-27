@@ -505,3 +505,28 @@ def test_the_workspace_on_this_computer_can_have_a_logo(tmp_path):
     api = TestClient(create_app(data_dir=tmp_path, client_factory=lambda s: None))
     assert ok(api.put("/api/workspaces/current/logo", json={"image": PNG})) == {"logo": PNG}
     assert ok(api.get("/api/me"))["workspaces"][0]["settings"] == {"logo": PNG}
+
+
+# AI usage
+
+def test_ai_usage_is_recorded_per_workspace_and_only_admins_read_it(tmp_path, database):
+    from test_usage import FakeAI
+
+    api = TestClient(create_app(data_dir=tmp_path, client_factory=lambda s: FakeAI(), auth=CONFIG, database=database))
+    ops = Person(api, "ops")  # a platform admin may set the AI key
+    ops.workspace = ok(ops.post("/api/workspaces", json={"name": "Ops Co"}))["id"]
+    ok(ops.call("PUT", "/api/settings", json={"api_key": "sk-secret-value-1234"}))
+    pid = ok(ops.post("/api/datasets", json={"name": "Demo"}))["id"]
+    sid = ok(ops.post(f"/api/datasets/{pid}/sources/upload", files=[("files", ("o.csv", b"id,amount\n1,10\n"))]))["added"][0]["id"]
+    ok(ops.post(f"/api/datasets/{pid}/sources/{sid}/describe"))
+
+    got = ok(ops.get("/api/workspaces/current/usage"))
+    assert got["total"]["calls"] == 1 and got["by_person"][0]["person"] == "ops@example.com"
+
+    bob = Person(api, "bob")
+    ok(bob.post(f"/api/invites/{invite(ops, 'bob@example.com', 'viewer')}/accept"))
+    bob.workspace = ops.workspace
+    assert bob.get("/api/workspaces/current/usage").status_code == 403
+    other = Person(api, "ana")
+    other.workspace = ok(other.post("/api/workspaces", json={"name": "Ana Trading"}))["id"]
+    assert ok(other.get("/api/workspaces/current/usage"))["total"]["calls"] == 0  # one workspace's usage only
