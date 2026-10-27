@@ -315,7 +315,7 @@ def test_data_from_before_sign_in_goes_to_the_first_platform_admin(tmp_path, dat
 def test_local_mode_needs_no_sign_in(tmp_path):
     api = TestClient(create_app(data_dir=tmp_path, client_factory=lambda s: None))
     me = ok(api.get("/api/me"))
-    assert me["mode"] == "local" and me["workspaces"] == [{"id": "local", "name": "Local workspace", "role": "admin"}]
+    assert me["mode"] == "local" and me["workspaces"] == [{"id": "local", "name": "Local workspace", "role": "admin", "settings": {}}]
     assert api.post("/api/workspaces", json={"name": "Second"}).status_code == 400
 
 

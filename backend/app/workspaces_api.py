@@ -77,7 +77,8 @@ def build_router(store: WorkspaceStore, config: AuthConfig, mailer: SupabaseAdmi
             "user": {"id": user.id, "email": user.email},
             "platform_admin": config.is_platform_admin(user),
             # Locally there is one person and one workspace, so no membership is recorded.
-            "workspaces": [{"id": LOCAL_WORKSPACE, "name": store.get(LOCAL_WORKSPACE)["name"], "role": "admin"}]
+            "workspaces": [{"id": LOCAL_WORKSPACE, "name": store.get(LOCAL_WORKSPACE)["name"], "role": "admin",
+                            "settings": {}}]
             if config.mode == "local" else store.for_user(user),
         }
 
