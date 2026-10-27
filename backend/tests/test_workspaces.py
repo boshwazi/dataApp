@@ -317,3 +317,52 @@ def test_local_mode_needs_no_sign_in(tmp_path):
     me = ok(api.get("/api/me"))
     assert me["mode"] == "local" and me["workspaces"] == [{"id": "local", "name": "Local workspace", "role": "admin"}]
     assert api.post("/api/workspaces", json={"name": "Second"}).status_code == 400
+
+
+# Deleting an account
+
+
+class FakeAdmin:
+    """Supabase's admin API, standing in: records what would be deleted."""
+
+    def __init__(self):
+        self.deleted = []
+
+    def ensure_bucket(self):
+        pass
+
+    def upload(self, path, data):
+        pass
+
+    def download(self, path):
+        return None
+
+    def delete(self, paths):
+        pass
+
+    def send_invite(self, email, link):
+        pass
+
+    def delete_user(self, user_id):
+        self.deleted.append(user_id)
+
+
+def test_deleting_an_account_never_leaves_a_workspace_without_an_admin(tmp_path, database):
+    admin = FakeAdmin()
+    api = TestClient(create_app(data_dir=tmp_path, client_factory=lambda s: None, auth=CONFIG, database=database, admin=admin))
+    ana, a = company(api, "ana", "Ana Trading")
+    Person(api, "cat").post(f"/api/invites/{invite(ana, 'cat@example.com', 'viewer')}/accept")
+
+    blocked = ana.call("DELETE", "/api/me")
+    assert blocked.status_code == 409 and "only admin of Ana Trading" in blocked.json()["detail"]
+    assert admin.deleted == []
+
+    cat = Person(api, "cat", a["workspace"])
+    assert ok(cat.call("DELETE", "/api/me")) == {"deleted": True}  # a viewer leaves freely
+    assert admin.deleted == [uid("cat")]
+    assert [m["email"] for m in ok(ana.get("/api/workspaces/current/members"))["members"]] == ["ana@example.com"]
+
+
+def test_there_is_no_account_to_delete_locally(tmp_path):
+    api = TestClient(create_app(data_dir=tmp_path, client_factory=lambda s: None))
+    assert api.delete("/api/me").status_code == 400

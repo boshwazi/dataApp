@@ -73,6 +73,30 @@ def build_router(store: WorkspaceStore, config: AuthConfig, mailer: SupabaseAdmi
             if config.mode == "local" else store.for_user(user),
         }
 
+    @router.delete("/api/me")
+    def delete_account():
+        """Delete the signed-in person's account: their memberships, then their sign-in. A workspace never
+        loses its last admin this way; they hand it over first."""
+        if config.mode == "local":
+            raise HTTPException(400, "There's no account to delete on this computer.")
+        user = workspaces.current_user()
+        mine = store.for_user(user)
+        stuck = [w["name"] for w in mine if w["role"] == "admin"
+                 and not any(m["role"] == "admin" and m["user_id"] != user.id for m in store.members(w["id"]))]
+        if stuck:
+            names = ", ".join(stuck)
+            raise HTTPException(409, f"You're the only admin of {names}. Make someone else an admin in Members first, "
+                                     "so the workspace isn't left without one.")
+        if mailer is None:
+            raise HTTPException(503, "Deleting accounts needs the Supabase secret key on the server.")
+        for w in mine:
+            checked(lambda w=w: store.remove_member(w["id"], user.id))
+        try:
+            mailer.delete_user(user.id)
+        except SupabaseError as exc:
+            raise HTTPException(502, f"Your workspaces were left, but the sign-in account couldn't be deleted: {exc}") from exc
+        return {"deleted": True}
+
     @router.post("/api/workspaces")
     def create_workspace(body: NameBody):
         if config.mode == "local":

@@ -7843,3 +7843,109 @@ button.chip-button:hover:not(:disabled) {
 .switch-row input[role="switch"]:checked::after {
   transform: translateX(16px);
 }
+
+/* Your account */
+.account-page {
+  max-width: 820px;
+}
+
+.account-avatar {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--selected);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.account-status {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.account-status.on {
+  color: var(--ok);
+  font-weight: 500;
+}
+
+.mfa-setup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: flex-start;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+}
+
+.mfa-setup img {
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 8px;
+}
+
+.mfa-steps {
+  flex: 1 1 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mfa-steps ol {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.mfa-secret {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.mfa-secret code {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+
+.mfa-code {
+  width: 150px;
+}
+
+.account-danger .section-title {
+  color: var(--bad);
+}
+
+/* Something revealed by a click (a form, a setup panel): it fades in with a small rise, so it doesn't jump in.
+   Occasional actions only; reduced motion turns it off with the global rule. */
+.reveal {
+  transition: opacity 200ms cubic-bezier(0.23, 1, 0.32, 1), transform 200ms cubic-bezier(0.23, 1, 0.32, 1);
+
+  @starting-style {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+/* Every button answers a press: a slight scale down (not for keyboard repeats, which don't hold :active). */
+button:not(:disabled),
+a.button {
+  transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1), background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+button:not(:disabled):active,
+a.button:active {
+  transform: scale(0.97);
+}

@@ -64,6 +64,14 @@ class SupabaseAdmin:
             message = self._message(raw)
         raise SupabaseError(message)
 
+    # Accounts
+
+    def delete_user(self, user_id: str) -> None:
+        """Delete a person's sign-in account. Already gone counts as done."""
+        status, raw = self._call("DELETE", f"/auth/v1/admin/users/{urllib.parse.quote(user_id)}")
+        if status >= 300 and status != 404:
+            raise SupabaseError(self._message(raw))
+
     # Storage: one private bucket, a folder per workspace.
 
     def ensure_bucket(self) -> None:

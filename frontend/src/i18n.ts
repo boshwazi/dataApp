@@ -42,6 +42,7 @@ const MS: Record<string, string> = {
   Dashboards: "Papan pemuka",
   Members: "Ahli",
   Workspace: "Ruang kerja",
+  "Your account": "Akaun anda",
   Settings: "Tetapan",
   Notifications: "Pemberitahuan",
   Help: "Bantuan",

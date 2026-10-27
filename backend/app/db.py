@@ -159,8 +159,10 @@ class PgWorkspaceStore:
                 raise WorkspaceError("Member not found.", 404)
             if member["role"] == "admin":
                 self._keep_an_admin(con, workspace_id, user_id)
-            con.execute(f"delete from {self.db.t('members')} where workspace_id = %s and user_id = %s",
-                        [workspace_id, user_id])
+            gone = con.execute(f"delete from {self.db.t('members')} where workspace_id = %s and user_id = %s",
+                               [workspace_id, user_id])
+            if gone.rowcount == 0:  # row-level security refused it: say so rather than pretend
+                raise WorkspaceError("You can't remove this member.", 403)
 
     # Invites
 

@@ -218,6 +218,7 @@ export type People = { members: Member[]; invites: Invite[] };
 export const accountApi = {
   config: () => request<AuthConfig>("/api/auth/config"),
   me: () => request<Me>("/api/me"),
+  deleteAccount: () => request<{ deleted: boolean }>("/api/me", { method: "DELETE" }),
   createWorkspace: (name: string) => request<WorkspaceRef>("/api/workspaces", json("POST", { name })),
   renameWorkspace: (name: string) => request<WorkspaceRef>("/api/workspaces/current", json("PATCH", { name })),
   instructions: () => request<{ instructions: string }>("/api/workspaces/current/instructions"),

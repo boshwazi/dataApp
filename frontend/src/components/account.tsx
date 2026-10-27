@@ -21,6 +21,8 @@ type Account = {
   switchTo: (id: string) => void;
   refresh: () => Promise<Me>;
   signOut: (() => Promise<void>) | null;
+  /** The sign-in service, for the account page (null in local mode, where there is no account). */
+  client: SupabaseClient | null;
 };
 
 const AccountContext = createContext<Account | null>(null);
@@ -45,6 +47,7 @@ function savedWorkspace(): string | null {
 type State =
   | { status: "loading" }
   | { status: "signed-out"; client: SupabaseClient; problem?: string }
+  | { status: "second-step"; client: SupabaseClient }
   | { status: "ready"; me: Me; workspaceId: string | null }
   | { status: "error"; message: string };
 
@@ -61,6 +64,16 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     setState({ status: "ready", me, workspaceId });
     return me;
   }, []);
+
+  /** People with an authenticator app confirm a code first (Supabase's assurance level 2); everyone else goes on. */
+  const secondStepOrLoad = useCallback(
+    async (supabase: SupabaseClient) => {
+      const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (data && data.nextLevel === "aal2" && data.currentLevel !== "aal2") setState({ status: "second-step", client: supabase });
+      else await load();
+    },
+    [load],
+  );
 
   useEffect(() => {
     let unsubscribe = () => {};
@@ -108,12 +121,14 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       const { data } = supabase.auth.onAuthStateChange((event, session) => {
         if (!session) setState({ status: "signed-out", client: supabase, problem });
         // Run outside the auth event: calling the API from inside it waits on the auth lock and hangs.
-        else if (event === "SIGNED_IN" || event === "INITIAL_SESSION") setTimeout(() => void load(), 0);
+        else if (event === "SIGNED_IN" || event === "INITIAL_SESSION" || event === "MFA_CHALLENGE_VERIFIED") {
+          setTimeout(() => void secondStepOrLoad(supabase), 0);
+        }
       });
       unsubscribe = () => data.subscription.unsubscribe();
     })().catch((e) => setState({ status: "error", message: (e as Error).message }));
     return () => unsubscribe();
-  }, [load]);
+  }, [load, secondStepOrLoad]);
 
   const account = useMemo<Account | null>(() => {
     if (state.status !== "ready") return null;
@@ -139,11 +154,13 @@ export function AccountProvider({ children }: { children: ReactNode }) {
             await client.current!.auth.signOut();
           }
         : null,
+      client: client.current,
     };
   }, [state, load]);
 
   if (state.status === "loading") return <Splash />;
   if (state.status === "error") return <Splash message={`Can't reach datawazi: ${state.message}`} />;
+  if (state.status === "second-step") return <SecondStep client={state.client} />;
   if (state.status === "signed-out") {
     // Visitors see the landing page at /; every other address (and its Sign in links) asks them to sign in.
     if (location.pathname === "/" && !state.problem) {
@@ -408,6 +425,76 @@ function SignIn({ client, problem }: { client: SupabaseClient; problem?: string 
         </div>
       </main>
       <SignInAside />
+    </div>
+  );
+}
+
+/** Signing in with two-step sign-in on: the code from the authenticator app, before anything else loads. */
+function SecondStep({ client }: { client: SupabaseClient }) {
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function verify(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    const factors = await client.auth.mfa.listFactors();
+    const factor = factors.data?.totp.find((f) => f.status === "verified");
+    if (!factor) {
+      setBusy(false);
+      return setError("No authenticator app is set up for this account. Sign out and ask your admin for help.");
+    }
+    const { error } = await client.auth.mfa.challengeAndVerify({ factorId: factor.id, code: code.trim() });
+    setBusy(false);
+    if (error) setError("That code didn't work. Codes change every 30 seconds; enter the one showing now.");
+    // On success Supabase raises MFA_CHALLENGE_VERIFIED, and the app loads.
+  }
+
+  return (
+    <div className="signin">
+      <main className="signin-main">
+        <div className="signin-panel">
+          <div className="auth-brand signin-brand">
+            <BrandMark size={28} /> datawazi
+          </div>
+          <h1>Enter your code</h1>
+          <p className="muted">Open your authenticator app and type the 6-digit code for datawazi.</p>
+          <form onSubmit={verify} className="auth-form">
+            <label className="field">
+              <span>Code</span>
+              <input
+                autoFocus
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+                maxLength={6}
+                className="code-input"
+                aria-describedby={error ? "second-step-error" : undefined}
+              />
+            </label>
+            <button type="submit" disabled={busy || code.length < 6}>
+              {busy ? "Checking…" : "Continue"}
+            </button>
+          </form>
+          {error && (
+            <p id="second-step-error" className="signin-error" role="alert">
+              {error}
+            </p>
+          )}
+          <button className="link" onClick={() => void client.auth.signOut()}>
+            Sign out
+          </button>
+        </div>
+      </main>
+      <aside className="signin-aside">
+        <div className="signin-aside-text">
+          <h2>Clean data. Checked numbers.</h2>
+          <p>Your data becomes dashboards your team can trust.</p>
+        </div>
+        <SignInChart />
+      </aside>
     </div>
   );
 }

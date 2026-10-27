@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Boxes, Building2, Check, CircleHelp, Database, Monitor, Moon, ScrollText, Sun, House, LayoutDashboard, LogOut, Plus, Search, Settings as SettingsIcon, Users } from "lucide-react";
+import { Boxes, Building2, Check, UserRound, CircleHelp, Database, Monitor, Moon, ScrollText, Sun, House, LayoutDashboard, LogOut, Plus, Search, Settings as SettingsIcon, Users } from "lucide-react";
 import { accountApi, api, dashboardsApi, type DashboardSummary, type Dataset, type Role } from "./api";
 import { useAccount } from "./components/account";
 import { InstructionsDialog } from "./components/InstructionsDialog";
@@ -186,6 +186,9 @@ function WorkspaceMenu({ more }: { more: NavItem[] }) {
             </button>
           )}
           <div className="menu-separator" role="separator" />
+          <Link to="/account" role="menuitem" onClick={() => setOpen(false)}>
+            <UserRound size={16} aria-hidden="true" /> {t("Your account")}
+          </Link>
           {more.map(({ to, label, icon: Icon }) => (
             <Link key={to} to={to} role="menuitem" className="menu-phone-only" onClick={() => setOpen(false)}>
               <Icon size={16} aria-hidden="true" /> {t(label)}

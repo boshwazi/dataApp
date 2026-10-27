@@ -78,8 +78,10 @@ drop policy if exists members_change on {schema}.members;
 create policy members_change on {schema}.members for update to authenticated
   using ({schema}.my_role(workspace_id) = 'admin') with check ({schema}.my_role(workspace_id) = 'admin');
 drop policy if exists members_remove on {schema}.members;
+-- Admins remove members; anyone can remove themselves (leaving, or deleting their account).
+-- The app keeps every workspace's last admin.
 create policy members_remove on {schema}.members for delete to authenticated
-  using ({schema}.my_role(workspace_id) = 'admin');
+  using ({schema}.my_role(workspace_id) = 'admin' or user_id = (select auth.uid())::text);
 
 drop policy if exists invites_admin on {schema}.invites;
 create policy invites_admin on {schema}.invites for all to authenticated
