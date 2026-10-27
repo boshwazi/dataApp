@@ -30,7 +30,7 @@ export function Help() {
         <span className="spacer" />
         <label className="filter-box">
           <Search size={15} aria-hidden="true" />
-          <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Search help" aria-label="Search help" />
+          <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Search help…" aria-label="Search help" />
         </label>
       </div>
       <div className="help-layout">

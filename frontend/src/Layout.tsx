@@ -43,13 +43,14 @@ export function Layout() {
     (n) => (!n.role || account.can(n.role)) && (!n.platform || account.me.platform_admin) && (!n.hosted || account.me.mode !== "local"),
   );
   useShortcut("k", () => setSearching(true));
+  const rail = useWarmTips();
 
   return (
     <div className="shell">
       <a className="skip-link" href="#main">
         Skip to content
       </a>
-      <aside className="rail">
+      <aside className="rail" ref={rail}>
         <Link to="/" className="rail-brand" aria-label="datawazi home" title="datawazi">
           <BrandMark size={26} />
         </Link>
@@ -97,6 +98,36 @@ export function Layout() {
       {searching && <QuickSearch onClose={() => setSearching(false)} />}
     </div>
   );
+}
+
+const TIP_DELAY_MS = 400; // matches the tip-in delay in styles.css
+
+/** Once a rail tip has shown, the next ones show at once while the pointer stays on the rail (the first waits,
+    so sweeping past the rail doesn't flash names). */
+function useWarmTips() {
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const rail = ref.current;
+    if (!rail) return;
+    let timer = 0;
+    const over = (event: PointerEvent) => {
+      if (rail.dataset.tipsWarm !== undefined || !(event.target as Element).closest?.("[data-tip]")) return;
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => (rail.dataset.tipsWarm = ""), TIP_DELAY_MS);
+    };
+    const leave = () => {
+      window.clearTimeout(timer);
+      delete rail.dataset.tipsWarm;
+    };
+    rail.addEventListener("pointerover", over);
+    rail.addEventListener("pointerleave", leave);
+    return () => {
+      window.clearTimeout(timer);
+      rail.removeEventListener("pointerover", over);
+      rail.removeEventListener("pointerleave", leave);
+    };
+  }, []);
+  return ref;
 }
 
 function WorkspaceMenu({ more }: { more: NavItem[] }) {
@@ -368,7 +399,7 @@ function QuickSearch({ onClose }: { onClose: () => void }) {
             setActive(0);
           }}
           onKeyDown={onKey}
-          placeholder="Find a dashboard, dataset or action"
+          placeholder="Find a dashboard, dataset or action…"
           aria-label="Search"
           role="combobox"
           aria-expanded="true"

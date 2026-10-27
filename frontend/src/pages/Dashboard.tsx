@@ -39,7 +39,7 @@ import { ShareDialog } from "../components/ShareDialog";
 import { DigestDialog } from "../components/DigestDialog";
 import { useTheme } from "../components/theme";
 import { TypeTag } from "./Transform";
-import { t } from "../i18n";
+import { formatDay, t } from "../i18n";
 
 const SUGGESTIONS = ["Add a page about customers", "Swap the donut for a bar chart", "Which visual shows the biggest change?"];
 
@@ -302,7 +302,7 @@ export function Dashboard() {
         <span className="topbar-grow" />
         <span className={`topbar-status ${state.published ? (state.unpublished_changes ? "warn" : "ok") : ""}`}>
           {t(state.published ? (state.unpublished_changes ? "Draft changes" : "Published") : "Draft, not published")}
-          {state.as_of ? t(", data as of {date}", { date: state.as_of }) : ""}
+          {state.as_of ? t(", data as of {date}", { date: formatDay(state.as_of) }) : ""}
         </span>
         {editing && (
           <button className="tool" onClick={() => change(() => reportApi.undo(dashboardId))} disabled={!state.can_undo} title="Undo" aria-label="Undo">
@@ -409,7 +409,7 @@ export function Dashboard() {
                     <strong>{state.name}</strong>
                     <span className="muted small">
                       {editing ? "Draft" : "Published"}
-                      {state.as_of ? `, data as of ${state.as_of}` : ""}
+                      {state.as_of ? `, data as of ${formatDay(state.as_of)}` : ""}
                     </span>
                     <span className="grow" />
                     {pageTabs}
@@ -1109,7 +1109,7 @@ function FieldList({ fields, onPick }: { fields: ReportField[]; onPick?: (f: Fie
   return (
     <div className="field-list">
       <span className="well-label">Fields</span>
-      <input className="field-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search fields" aria-label="Search fields" />
+      <input className="field-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search fields…" aria-label="Search fields" />
       <ul className="tree" role="tree">
         {fields.map((t) => {
           const measures = t.measures.filter((m) => !q || m.toLowerCase().includes(q));
@@ -1278,7 +1278,7 @@ function ValuePicker(props: { dashboardId: string; table: string; column: string
       {!values && !error && <p className="muted small pad">Loading values…</p>}
       {values && (
         <>
-          {values.length > 8 && <input className="field-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search values" aria-label="Search values" />}
+          {values.length > 8 && <input className="field-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search values…" aria-label="Search values" />}
           <ul className="value-list" role="group" aria-label={`Values of ${props.column}`}>
             {shown.map((v) => (
               <li key={String(v)}>

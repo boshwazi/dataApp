@@ -109,7 +109,7 @@ def test_kpi_card_compares_year_to_date_with_the_same_period_last_year(p):
     # 2025 to 2 Feb: 20 + 4 = 24. Same period 2024 (to 2 Feb): 20.
     assert (data["value"], data["previous"], data["delta"]) == (24.0, 20.0, 4.0)
     assert data["delta_pct"] == pytest.approx(0.2)
-    assert data["period"] == "2025 to date (to 2025-02-02)" and data["comparison"] == "vs same period 2024"
+    assert data["period"] == "2025 to date (to 2 Feb)" and data["comparison"] == "vs same period 2024"
     # The 12 months to February 2025 start in March 2024; only months with sales are plotted.
     assert [s["label"] for s in data["sparkline"]] == ["2024-11", "2025-01", "2025-02"]
     assert data["driver"]["name"] == "Online" and data["driver"]["delta"] == 4.0

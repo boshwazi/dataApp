@@ -2,6 +2,11 @@
    Every colour is a theme token (light here, dark under :root[data-theme="dark"] near the workspace section). */
 
 :root {
+  /* Motion: strong curves (the built-in ones are too soft). ease-out for things arriving or answering a press,
+     ease-in-out for things moving on screen, the drawer curve for panels. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
   --bg: #f6f7f9;
   --panel: #ffffff;
   --sidebar: #0f1a2b;
@@ -2067,7 +2072,8 @@ button.danger-solid:hover:not(:disabled) {
   color: var(--panel-2);
   font-size: 14px;
   box-shadow: var(--shadow);
-  animation: toast-in 0.18s ease-out;
+  animation: toast-in 200ms var(--ease-out);
+  transition: opacity 150ms var(--ease-out), transform 150ms var(--ease-out);
 }
 
 .toast span {
@@ -2356,7 +2362,8 @@ button.danger-solid:hover:not(:disabled) {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--elevation);
-  animation: menu-in 0.12s ease-out;
+  transform-origin: top right;
+  animation: menu-in 150ms var(--ease-out);
 }
 
 .menu-list > button,
@@ -2389,7 +2396,7 @@ button.danger-solid:hover:not(:disabled) {
 @keyframes menu-in {
   from {
     opacity: 0;
-    transform: translateY(-4px);
+    transform: scale(0.97);
   }
 }
 
@@ -3253,6 +3260,7 @@ button.secondary.danger:hover:not(:disabled) {
 }
 
 .menu-list.up {
+  transform-origin: bottom center;
   top: auto;
   bottom: calc(100% + 6px);
   left: 0;
@@ -4070,6 +4078,25 @@ button.workspace:hover {
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
 }
 
+/* With a mouse, the first tip waits a moment so passing over the rail doesn't flash names; once one is showing,
+   the next ones come straight away (Layout marks the rail warm). Keyboard focus shows them at once. */
+@media (hover: hover) and (pointer: fine) {
+  .rail:not([data-tips-warm]) [data-tip]:hover:not(:focus-visible)::after {
+    animation: tip-in 120ms var(--ease-out) 400ms both;
+  }
+}
+
+/* The open workspace menu already names the workspace. */
+.rail [data-tip][aria-expanded="true"]::after {
+  display: none;
+}
+
+@keyframes tip-in {
+  from {
+    opacity: 0;
+  }
+}
+
 .rail .workspace-menu {
   position: relative;
   border: none;
@@ -4100,6 +4127,7 @@ button.workspace:hover {
 }
 
 .rail .menu-list.up.rail-menu {
+  transform-origin: bottom left; /* grows out of the workspace button beside it */
   left: calc(100% + 8px);
   right: auto;
   bottom: 0;
@@ -6069,7 +6097,7 @@ button.pill-x:hover {
   display: flex;
   border-radius: 10px;
   box-shadow: var(--elevation);
-  animation: dock-in 0.14s ease-out;
+  animation: dock-in 200ms var(--ease-out);
 }
 
 .ai-dock > * {
@@ -6795,9 +6823,9 @@ button.chip-button:hover:not(:disabled) {
 .ap-bar i {
   display: block;
   height: 100%;
-  border-radius: 4px;
   background: var(--accent);
-  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: left;
+  transition: transform 600ms var(--ease-out); /* transform only: no layout on every frame */
 }
 
 .ap-bar.stopped i {
@@ -7931,7 +7959,7 @@ button.chip-button:hover:not(:disabled) {
 /* Something revealed by a click (a form, a setup panel): it fades in with a small rise, so it doesn't jump in.
    Occasional actions only; reduced motion turns it off with the global rule. */
 .reveal {
-  transition: opacity 200ms cubic-bezier(0.23, 1, 0.32, 1), transform 200ms cubic-bezier(0.23, 1, 0.32, 1);
+  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
 
   @starting-style {
     opacity: 0;
@@ -7942,7 +7970,7 @@ button.chip-button:hover:not(:disabled) {
 /* Every button answers a press: a slight scale down (not for keyboard repeats, which don't hold :active). */
 button:not(:disabled),
 a.button {
-  transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1), background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+  transition: transform 160ms var(--ease-out), background-color 150ms ease, border-color 150ms ease, color 150ms ease;
 }
 
 button:not(:disabled):active,
@@ -8036,4 +8064,46 @@ a.button:active {
 
 .logo-row {
   flex-wrap: wrap;
+}
+
+/* Dialogs arrive with a small scale and fade from the centre (they aren't anchored to a trigger), with the
+   backdrop fading in under them. Occasional, so 200ms on the strong ease-out. */
+.dialog[open] {
+  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
+
+  @starting-style {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+.dialog[open]::backdrop {
+  transition: opacity 200ms var(--ease-out);
+
+  @starting-style {
+    opacity: 0;
+  }
+}
+
+/* A toast leaves the way it came. */
+.toast.leaving {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+/* Taps: no double-tap zoom delay on controls, and our own pressed state instead of the grey flash. */
+button,
+a,
+input,
+select,
+textarea,
+label,
+summary {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Home: the first block under the header keeps the same breathing room as the sections below it. */
+.home-head + :is(.next-steps, .notice, .quick-start) {
+  margin-top: 16px;
 }

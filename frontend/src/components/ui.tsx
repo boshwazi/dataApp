@@ -40,26 +40,32 @@ export function WorkspaceBadge({ workspace, small, large }: { workspace?: Pick<W
 
 // Toasts: short confirmations and errors that don't take focus.
 
-type Toast = { id: number; text: string; kind: "ok" | "error" | "info" };
+type Toast = { id: number; text: string; kind: "ok" | "error" | "info"; leaving?: boolean };
+const TOAST_EXIT_MS = 150; // matches .toast's transition
 const ToastContext = createContext<(text: string, kind?: Toast["kind"]) => void>(() => {});
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const next = useRef(0);
+  // A toast leaves the way it came: marked leaving (fades and drops), then removed.
+  const dismiss = useCallback((id: number) => {
+    setToasts((current) => current.map((t) => (t.id === id ? { ...t, leaving: true } : t)));
+    setTimeout(() => setToasts((current) => current.filter((t) => t.id !== id)), TOAST_EXIT_MS);
+  }, []);
   const show = useCallback((text: string, kind: Toast["kind"] = "ok") => {
     if (kind === "error" && handledErrors.has(text)) return;
     const id = ++next.current;
     setToasts((current) => [...current.slice(-3), { id, text, kind }]);
-    setTimeout(() => setToasts((current) => current.filter((t) => t.id !== id)), kind === "error" ? 7000 : 4000);
-  }, []);
+    setTimeout(() => dismiss(id), kind === "error" ? 7000 : 4000);
+  }, [dismiss]);
   return (
     <ToastContext.Provider value={show}>
       {children}
       <div className="toasts" role="status" aria-live="polite">
         {toasts.map((t) => (
-          <div key={t.id} className={`toast toast-${t.kind}`}>
+          <div key={t.id} className={`toast toast-${t.kind}${t.leaving ? " leaving" : ""}`}>
             <span>{t.text}</span>
-            <button className="icon" aria-label="Dismiss" onClick={() => setToasts((c) => c.filter((x) => x.id !== t.id))}>
+            <button className="icon" aria-label="Dismiss" onClick={() => dismiss(t.id)}>
               <X size={14} />
             </button>
           </div>

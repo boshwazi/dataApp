@@ -14,6 +14,7 @@ add up to the total, and numbers quoted in AI insights are checked against the v
 data; anything that cannot be confirmed is flagged rather than shown as fact.
 """
 
+import calendar
 import copy
 import math
 import re
@@ -477,7 +478,7 @@ def kpi_data(con, project: dict, visual: dict) -> dict:
     # Last year's period ignores date slicers (a Year slicer would leave it empty); other slicers apply.
     previous = model.evaluate(con, project, [name], filters=date_filters(py_start, py_end),
                               page_filters="except_dates")["rows"][0][0]
-    card.update(value=value, period=f"{last.year} to date (to {last.isoformat()})", previous=previous,
+    card.update(value=value, period=f"{last.year} to date (to {last.day} {calendar.month_abbr[last.month]})", previous=previous,
                 comparison=f"vs same period {last.year - 1}")
     if previous is None or value is None:
         card["note"] = f"No comparison: no data for the same period in {last.year - 1}."

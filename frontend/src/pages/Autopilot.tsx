@@ -179,7 +179,7 @@ export function Autopilot() {
               aria-valuenow={done}
               aria-label={t("Autopilot progress")}
             >
-              <i style={{ width: `${(done / stepCount) * 100}%` }} />
+              <i style={{ transform: `scaleX(${done / stepCount})` }} />
             </div>
           </div>
 

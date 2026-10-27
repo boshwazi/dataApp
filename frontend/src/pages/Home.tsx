@@ -121,7 +121,7 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
         <span className="spacer" />
         <label className="filter-box">
           <Search size={15} aria-hidden="true" />
-          <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t("Filter by name")} aria-label={t("Filter by name")} />
+          <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={`${t("Filter by name")}…`} aria-label={t("Filter by name")} />
         </label>
         {creator && show !== "dashboards" && (
           <button className="secondary" onClick={newDataset}>

@@ -233,7 +233,7 @@ function AddData(props: { projectId: string; busy: string | null; onAdd: (label:
         <input
           value={link}
           onChange={(e) => setLink(e.target.value)}
-          placeholder="Paste a shared link"
+          placeholder="Paste a shared link…"
           aria-label="Shared link to a Google Sheet or a file"
         />
         <button type="submit" className="secondary" disabled={!link.trim() || busy !== null}>

@@ -4,6 +4,7 @@ import { exportApi, reportApi, type ReportState } from "../api";
 import { ChartVisual, KpiCard } from "./Dashboard";
 import { applyTheme } from "../components/theme";
 import { BrandMark } from "../components/ui";
+import { formatDay } from "../i18n";
 
 type Bullet = { text: string; unmatched: number[] };
 
@@ -124,7 +125,7 @@ export function ExportView() {
           <header className="export-page-head">
             <h2>{page.title}</h2>
             <span className="muted small">
-              {state.name} · page {n + 1} of {state.pages.length} · data as of {state.as_of ?? "unknown"}
+              {state.name} · page {n + 1} of {state.pages.length} · data as of {state.as_of ? formatDay(state.as_of) : "unknown"}
             </span>
           </header>
           {page.summary && <p className="page-summary">{page.summary}</p>}

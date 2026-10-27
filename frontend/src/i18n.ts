@@ -29,6 +29,14 @@ export function setLanguage(next: Language) {
 }
 
 /** English text, translated when the person works in Bahasa Malaysia. {name} placeholders are filled from vars. */
+/** A data date (YYYY-MM-DD) for reading, in the reader's language: "30 Sep 2025". Read as UTC, so it never
+    slips a day in a timezone behind it. */
+export function formatDay(iso: string): string {
+  const date = new Date(`${iso.slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleDateString(language === "ms" ? "ms-MY" : undefined, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+}
+
 export function t(text: string, vars?: Record<string, string | number>): string {
   const chosen = language === "ms" ? (MS[text] ?? text) : text;
   return vars ? chosen.replace(/\{(\w+)\}/g, (_, k: string) => String(vars[k] ?? "")) : chosen;
