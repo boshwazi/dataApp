@@ -9025,3 +9025,86 @@ button,
 .home-head + .home-section > .section-hint:first-child {
   margin: 0 0 var(--space-5);
 }
+
+/* Page frame: content sits in a centred column with margins that grow with the screen (Primer: full pages
+   up to 1280px, 16px gutters on small screens, more on wide ones). Editors (Transform, Model, dashboards)
+   keep the full width. */
+:root {
+  --gutter: clamp(16px, 3.2vw, 48px);
+}
+
+.content {
+  padding: var(--space-6) var(--gutter) var(--space-7);
+}
+
+.page {
+  margin-inline: auto;
+}
+
+.page.wide {
+  max-width: 1280px;
+}
+
+.workbench-body > :not(.editor):not(.empty-state),
+.workbench-body > .autopilot {
+  width: min(1280px, 100% - 2 * var(--gutter));
+  margin: var(--space-6) auto var(--space-7);
+}
+
+.workbench-body > .lineage {
+  width: min(1440px, 100% - 2 * var(--gutter));
+}
+
+/* Settings-style pages open like every other page: title, then its line right under it. */
+.page > h1 {
+  margin: 0;
+}
+
+.page > h1 + p.muted {
+  margin: var(--space-1) 0 var(--space-5);
+  max-width: 72ch;
+}
+
+/* Inside a settings card: title, then content at one rhythm; paragraphs don't add their own margins. */
+.settings-section {
+  gap: var(--space-3);
+}
+
+.settings-section > p {
+  margin: 0;
+}
+
+.settings-section + .settings-section {
+  margin-top: var(--space-4);
+}
+
+/* A workspace's initial on a light surface (the rail's white-on-dark style is for the rail only). */
+.page .workspace-badge:not(.has-logo) {
+  background: var(--selected);
+  color: var(--accent);
+}
+
+/* Help: a docs layout (index + article) sized to its reading width, so nothing floats far to the right. */
+.page.wide.help {
+  max-width: 1120px;
+}
+
+.help-layout {
+  grid-template-columns: 280px minmax(0, 1fr);
+}
+
+.help-article {
+  max-width: none;
+}
+
+.help-article > * {
+  max-width: 72ch;
+}
+
+/* The search field inside an outlined filter box has no box of its own (it showed as a darker inset in dark mode). */
+.filter-box input,
+:root[data-theme="dark"] .filter-box input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
