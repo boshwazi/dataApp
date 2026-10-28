@@ -33,7 +33,7 @@ import { InstructionsDialog } from "../components/InstructionsDialog";
 import { AskPanel } from "../components/AskPanel";
 import { Chart, SERIES, TOKENS } from "../components/Chart";
 import { ChatPanel, type ChatHandle } from "../components/ChatPanel";
-import { EmptyState, Menu, PopMenu, TopbarActions, type MenuItem, useCrumbs, useDialogs, useShortcut, useToast } from "../components/ui";
+import { EmptyState, Menu, PopMenu, TopbarActions, powerBISteps, type MenuItem, useCrumbs, useDialogs, useShortcut, useToast } from "../components/ui";
 import { useAccount } from "../components/account";
 import { ShareDialog } from "../components/ShareDialog";
 import { DigestDialog } from "../components/DigestDialog";
@@ -242,7 +242,9 @@ export function Dashboard() {
           onSelect: () =>
             void dashboardsApi
               .downloadPowerBI(dashboardId, state.name)
-              .then(() => toast(t("Downloaded a Power BI project (.zip) with these pages. Unzip it and open the .pbip in Power BI Desktop.")))
+              .then(() =>
+                dialogs.confirm({ title: t("Unzip it before opening"), body: powerBISteps(state.name), confirmLabel: t("Got it"), notice: true }),
+              )
               .catch((e) => toast((e as Error).message, "error")),
         }]
       : []),

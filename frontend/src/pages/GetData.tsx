@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent, type FormEvent, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Sparkles } from "lucide-react";
+import { ArrowRight, MoreHorizontal, Pencil, Plus, RefreshCw, Sparkles, Table2, Trash2, Upload, X } from "lucide-react";
 import { api, powerbiApi, type AddResult, type ColumnProfile, type LinkCatalogue, type Preview, type Source, type SourceSummary } from "../api";
-import { useDialogs } from "../components/ui";
+import { Menu, useDialogs } from "../components/ui";
 import { PowerBIPanel } from "../components/PowerBIPanel";
 import { useDataset } from "./Dataset";
 
@@ -21,6 +21,7 @@ export function GetData() {
   const [describing, setDescribing] = useState<Set<string>>(new Set());
   const [describeErrors, setDescribeErrors] = useState<Record<string, string>>({});
   const [detailVersion, setDetailVersion] = useState(0);
+  const [adding, setAdding] = useState(false);
 
   const selectedId = params.get("source") ?? project.sources[0]?.id ?? null;
   const select = (id: string | null) => setParams(id ? { source: id } : {}, { replace: true });
@@ -75,12 +76,64 @@ export function GetData() {
     select(next.sources[0]?.id ?? null);
   }
 
+  const empty = project.sources.length === 0;
+  const notes = (
+    <>
+      {messages.map((m) => (
+        <p key={m} className="bad small" role="alert">
+          {m}
+        </p>
+      ))}
+    </>
+  );
+
+  // Nothing loaded yet: adding data is the only job, so it fills the page.
+  if (empty) {
+    return (
+      <div className="page-scroll">
+        <div className="page narrow-page">
+          <header className="page-header">
+            <div>
+              <h1>Add data</h1>
+              <p className="muted">
+                Load the tables this dataset is built from. Each one is profiled as it loads: types, blanks, ranges and
+                data quality issues.
+              </p>
+            </div>
+          </header>
+          <section className="card add-data-card">
+            <AddData busy={busy} onAdd={add} projectId={project.id} />
+            {notes}
+          </section>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="get-data">
-      <aside className="sources">
-        <h2>Sources</h2>
-        {project.sources.length === 0 && <p className="muted small">No data yet. Add a file or a shared link below.</p>}
-        <ul className="source-list">
+    <div className="editor getdata-editor">
+      {adding && (
+        <AddDataDialog onClose={() => setAdding(false)}>
+          <AddData
+            busy={busy}
+            onAdd={(label, action) => {
+              setAdding(false);
+              add(label, action);
+            }}
+            projectId={project.id}
+          />
+        </AddDataDialog>
+      )}
+      <aside className="pane pane-left" aria-label="Tables">
+        <div className="pane-head">
+          <span>Tables</span>
+          <span className="pane-count">{project.sources.length}</span>
+          <span className="grow" />
+          <button className="tool pane-add" onClick={() => setAdding(true)} disabled={busy !== null}>
+            <Plus size={15} aria-hidden="true" /> {busy ? "Adding…" : "Add data"}
+          </button>
+        </div>
+        <ul className="source-list" aria-label="Tables in this dataset">
           {project.sources.map((source) => (
             <SourceItem
               key={source.id}
@@ -91,30 +144,24 @@ export function GetData() {
             />
           ))}
         </ul>
-        {hasKey && project.sources.length > 0 && (
-          <div className="autopilot-offer">
-            <p className="small">
-              <strong>Rather not do each step?</strong> Autopilot cleans, models and publishes this data, then designs a draft dashboard.
-            </p>
-            <Link className="button secondary" to="../autopilot">
-              <Sparkles size={15} aria-hidden="true" /> Do it for me
+        <div className="pane-foot">
+          {notes}
+          {project.powerbi && <PowerBIPanel projectId={project.id} info={project.powerbi} onChanged={() => void refresh()} />}
+          {hasKey ? (
+            <Link className="autopilot-line" to="../autopilot">
+              <Sparkles size={14} aria-hidden="true" />
+              <span>
+                <strong>Autopilot</strong> cleans, models and publishes this, then drafts a dashboard
+              </span>
             </Link>
-          </div>
-        )}
-        <AddData busy={busy} onAdd={add} projectId={project.id} />
-        {project.powerbi && <PowerBIPanel projectId={project.id} info={project.powerbi} onChanged={() => void refresh()} />}
-        {messages.map((m) => (
-          <p key={m} className="bad small">
-            {m}
-          </p>
-        ))}
-        {!hasKey && (
-          <p className="muted small">Add an API key in Settings and the AI will describe each table as it loads.</p>
-        )}
+          ) : (
+            <p className="muted small">Add an API key in Settings and the AI describes each table as it loads.</p>
+          )}
+        </div>
       </aside>
 
-      <div className="source-detail">
-        {selectedId ? (
+      <section className="pane-center source-detail" aria-label="Selected table">
+        {selectedId && (
           <SourceDetail
             key={`${selectedId}-${detailVersion}`}
             projectId={project.id}
@@ -126,17 +173,39 @@ export function GetData() {
             onChanged={refresh}
             onRemoved={removed}
           />
-        ) : (
-          <div className="empty-state">
-            <h2>Get Data</h2>
-            <p className="muted">
-              Load CSV or Excel files, or link a Google Sheet. Each table is profiled as it loads: types, blanks, ranges
-              and data quality issues. Not sure where to start? Load the sample data.
-            </p>
-          </div>
         )}
-      </div>
+      </section>
     </div>
+  );
+}
+
+/** Adding data as a dialog over the page, so it's there when wanted and out of the way otherwise. */
+function AddDataDialog({ onClose, children }: { onClose: () => void; children: ReactNode }) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    ref.current?.showModal();
+  }, []);
+  return (
+    <dialog
+      ref={ref}
+      className="dialog add-data-dialog"
+      aria-labelledby="add-data-title"
+      onCancel={(e) => {
+        e.preventDefault();
+        onClose();
+      }}
+      onClick={(e) => {
+        if (e.target === ref.current) onClose();
+      }}
+    >
+      <div className="dialog-head">
+        <h2 id="add-data-title">Add data</h2>
+        <button className="icon" aria-label="Close" onClick={onClose}>
+          <X size={16} aria-hidden="true" />
+        </button>
+      </div>
+      {children}
+    </dialog>
   );
 }
 
@@ -144,19 +213,29 @@ function SourceItem(props: { source: SourceSummary; selected: boolean; describin
   const { source } = props;
   return (
     <li>
-      <button className={`source-item ${props.selected ? "selected" : ""}`} onClick={props.onSelect}>
-        <span className="source-name">{source.table}</span>
-        <span className="muted small">
-          {ORIGIN_LABEL[source.origin.kind]} · {source.rows.toLocaleString()} rows · {source.columns} cols
+      <button
+        className={`source-item ${props.selected ? "selected" : ""}`}
+        onClick={props.onSelect}
+        aria-current={props.selected ? "true" : undefined}
+      >
+        <span className="source-line">
+          <Table2 size={14} aria-hidden="true" className="source-icon" />
+          <span className="source-name" title={source.table}>
+            {source.table}
+          </span>
+          <span className="source-rows">{source.rows.toLocaleString()}</span>
         </span>
-        <span className="badges">
-          {source.update_available && <span className="badge warn">update available</span>}
-          {source.issue_count > 0 && <span className="badge warn">{source.issue_count} {source.issue_count === 1 ? "issue" : "issues"}</span>}
-          {props.describing ? (
-            <span className="badge">AI profiling…</span>
-          ) : (
-            source.has_ai && <span className="badge ai">AI</span>
+        <span className="source-meta">
+          <span className="muted">
+            {ORIGIN_LABEL[source.origin.kind]}, {source.columns} columns
+          </span>
+          {source.update_available && <span className="badge warn">update</span>}
+          {source.issue_count > 0 && (
+            <span className="badge warn">
+              {source.issue_count} {source.issue_count === 1 ? "issue" : "issues"}
+            </span>
           )}
+          {props.describing ? <span className="badge">AI…</span> : source.has_ai && <span className="badge ai">AI</span>}
         </span>
       </button>
     </li>
@@ -202,7 +281,7 @@ function AddData(props: { projectId: string; busy: string | null; onAdd: (label:
 
   return (
     <div className="add-data">
-      <h3>Add data</h3>
+      <h3 className="add-data-label">From your computer</h3>
       <div
         className={`dropzone ${dragging ? "dragging" : ""}`}
         onDragOver={(e) => {
@@ -216,7 +295,11 @@ function AddData(props: { projectId: string; busy: string | null; onAdd: (label:
         tabIndex={0}
         onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && input.current?.click()}
       >
-        {busy === "upload" ? "Loading…" : "Drop CSV or Excel files, or click to browse"}
+        <Upload size={18} aria-hidden="true" />
+        <span>
+          <strong>{busy === "upload" ? "Loading…" : "Drop CSV or Excel files here"}</strong>
+          <span className="muted small">or click to choose them</span>
+        </span>
         <input
           ref={input}
           type="file"
@@ -229,22 +312,29 @@ function AddData(props: { projectId: string; busy: string | null; onAdd: (label:
           }}
         />
       </div>
+      <h3 className="add-data-label">From a shared link</h3>
       <form onSubmit={addSheet} className="sheet-form">
         <input
           value={link}
           onChange={(e) => setLink(e.target.value)}
-          placeholder="Paste a shared link…"
+          placeholder="https://docs.google.com/spreadsheets/…"
           aria-label="Shared link to a Google Sheet or a file"
+          aria-describedby="shared-link-hint"
         />
         <button type="submit" className="secondary" disabled={!link.trim() || busy !== null}>
           {busy === "gsheet" ? "Loading…" : "Add"}
         </button>
       </form>
-      <p className="muted small">A Google Sheet, or a OneDrive, SharePoint or Google Drive file anyone with the link can view. It can be pulled on a schedule.</p>
-      <LinkPicker projectId={projectId} busy={busy} onAdd={onAdd} />
-      <button className="link" disabled={busy !== null} onClick={() => pbiInput.current?.click()}>
-        {busy === "powerbi" ? "Reading the Power BI model…" : "Import a Power BI file (.pbix or .pbip as .zip)"}
-      </button>
+      <p className="muted small" id="shared-link-hint">
+        A Google Sheet, or a OneDrive, SharePoint or Google Drive file anyone with the link can view. It can be pulled on a
+        schedule.
+      </p>
+      <h3 className="add-data-label">Other ways</h3>
+      <div className="add-data-more">
+        <LinkPicker projectId={projectId} busy={busy} onAdd={onAdd} />
+        <button className="link" disabled={busy !== null} onClick={() => pbiInput.current?.click()}>
+          {busy === "powerbi" ? "Reading the Power BI model…" : "Import a Power BI file (.pbix, or .pbip as .zip)"}
+        </button>
       <input
         ref={pbiInput}
         type="file"
@@ -255,9 +345,10 @@ function AddData(props: { projectId: string; busy: string | null; onAdd: (label:
           e.target.value = "";
         }}
       />
-      <button className="link" disabled={busy !== null} onClick={() => onAdd("sample", () => api.addSample(projectId))}>
-        {busy === "sample" ? "Loading sample data…" : "Load the sample data"}
-      </button>
+        <button className="link" disabled={busy !== null} onClick={() => onAdd("sample", () => api.addSample(projectId))}>
+          {busy === "sample" ? "Loading sample data…" : "Load the sample data"}
+        </button>
+      </div>
     </div>
   );
 }
@@ -328,6 +419,7 @@ function SourceDetail(props: DetailProps) {
   if (!source) return <p className={error ? "bad" : "muted"}>{error ?? "Loading…"}</p>;
 
   const { profile, ai } = source;
+  const issues = profile.columns.reduce((n, c) => n + c.issues.length, 0);
   const origin =
     source.origin.kind === "gsheet"
       ? "Google Sheet"
@@ -342,26 +434,47 @@ function SourceDetail(props: DetailProps) {
 
   return (
     <>
-      <header className="detail-header">
-        <div>
-          <h2>{source.table}</h2>
+      <header className="page-header detail-header">
+        <div className="page-header-text">
+          <h1 title={source.table}>{source.table}</h1>
           <p className="muted small">
             {origin}
-            {source.origin.sample && " (sample)"} · {profile.rows.toLocaleString()} rows · {profile.columns.length}{" "}
-            columns
-            {profile.duplicate_rows > 0 && <span className="warn-text"> · {profile.duplicate_rows} duplicate rows</span>}
+            {source.origin.sample && " (sample)"}
           </p>
+          <dl className="fact-row">
+            <div>
+              <dt>Rows</dt>
+              <dd>{profile.rows.toLocaleString()}</dd>
+            </div>
+            <div>
+              <dt>Columns</dt>
+              <dd>{profile.columns.length}</dd>
+            </div>
+            <div>
+              <dt>Issues</dt>
+              <dd className={issues ? "warn-text" : ""}>{issues}</dd>
+            </div>
+            {profile.duplicate_rows > 0 && (
+              <div>
+                <dt>Duplicate rows</dt>
+                <dd className="warn-text">{profile.duplicate_rows}</dd>
+              </div>
+            )}
+          </dl>
         </div>
-        <div className="actions">
-          <button className="secondary" onClick={rename} disabled={working}>
-            Rename
-          </button>
-          <button className="secondary" onClick={reprofile} disabled={working || props.describing}>
-            Re-profile
-          </button>
-          <button className="secondary danger" onClick={remove} disabled={working}>
-            Remove
-          </button>
+        <div className="page-actions">
+          <Menu
+            label="More actions for this table"
+            icon={<MoreHorizontal size={16} aria-hidden="true" />}
+            items={[
+              { label: "Rename", icon: <Pencil size={15} aria-hidden="true" />, onSelect: () => void rename() },
+              { label: "Profile again", icon: <RefreshCw size={15} aria-hidden="true" />, onSelect: () => void reprofile() },
+              { label: "Remove table", icon: <Trash2 size={15} aria-hidden="true" />, onSelect: () => void remove(), danger: true },
+            ]}
+          />
+          <Link className="button" to={`../transform?table=${encodeURIComponent(source.table)}`} aria-disabled={working}>
+            Clean in Transform <ArrowRight size={15} aria-hidden="true" />
+          </Link>
         </div>
       </header>
 

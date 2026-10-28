@@ -8474,3 +8474,461 @@ button,
     flex-basis: 100%;
   }
 }
+
+/* ==========================================================================
+   Layout system (UI/UX pass, 28 Oct 2026). One page anatomy everywhere:
+   a header that says where you are (title, the facts that matter, actions on the right with one primary),
+   then the work. Spacing on a 4px base: 4/8 inside a component, 12/16 between related items,
+   24/32 between groups and sections. Benchmarked on Primer and Atlassian layout rules, and on
+   Power BI's Power Query editor for the dataset stages.
+   ========================================================================== */
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4) var(--space-5);
+  flex-wrap: wrap;
+  margin: 0 0 var(--space-5);
+}
+
+.page-header-text {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.page-header h1 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.page-header-text > p {
+  margin: var(--space-1) 0 0;
+}
+
+.page-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.page-actions a.button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* A short row of facts under a title: the numbers someone checks first. */
+.fact-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-6);
+  margin: var(--space-3) 0 0;
+}
+
+.fact-row dt {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.fact-row dd {
+  margin: 2px 0 0;
+  font-size: 15px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Get Data: the same frame as Transform and Model (tables on the left, the work in the middle). */
+.getdata-editor {
+  grid-template-columns: 248px minmax(0, 1fr);
+}
+
+.getdata-editor > .pane-center {
+  display: block;
+  overflow: auto;
+  padding: var(--space-5) var(--space-6) var(--space-7);
+}
+
+.getdata-editor .pane-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.pane-head .pane-add {
+  margin-left: auto;
+  gap: 5px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.getdata-editor .source-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  list-style: none;
+  margin: 0;
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.getdata-editor .source-item {
+  gap: 3px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  box-shadow: none;
+}
+
+.getdata-editor .source-item:hover {
+  background: var(--bg);
+}
+
+.getdata-editor .source-item.selected {
+  background: var(--selected);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.source-line {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.source-line .source-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-icon {
+  color: var(--muted);
+}
+
+.source-rows {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.source-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-left: 21px;
+  font-size: 12px;
+}
+
+.source-meta .badge {
+  font-size: 11px;
+}
+
+.pane-foot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.pane-foot > p {
+  margin: 0;
+}
+
+.autopilot-line {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2) 10px;
+  border: 1px solid var(--ai-border);
+  border-radius: 6px;
+  background: var(--ai-soft);
+  color: var(--text-2);
+  font-size: 12.5px;
+  line-height: 1.4;
+  text-decoration: none;
+}
+
+.autopilot-line svg {
+  margin-top: 2px;
+  color: var(--ai);
+}
+
+.autopilot-line:hover {
+  border-color: var(--ai);
+}
+
+.source-detail .page-header {
+  margin-bottom: var(--space-5);
+}
+
+.source-detail .ai-card,
+.source-detail .ai-offer-row {
+  margin-bottom: var(--space-5);
+}
+
+/* Adding data: three groups, the commonest first. */
+.add-data {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border: none;
+  padding: 0;
+  background: none;
+}
+
+.add-data-label {
+  margin: var(--space-4) 0 0;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.add-data-label:first-child {
+  margin-top: 0;
+}
+
+.add-data .dropzone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-4);
+  text-align: left;
+}
+
+.add-data .dropzone > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.add-data .dropzone strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.add-data > p {
+  margin: 0;
+}
+
+.add-data-more {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+
+.add-data-more button.link {
+  padding: 4px 0;
+}
+
+.add-data-dialog {
+  width: min(560px, calc(100vw - 32px));
+  padding: var(--space-5);
+}
+
+.dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.dialog-head h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.page-scroll {
+  height: 100%;
+  overflow: auto;
+}
+
+.narrow-page {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-5);
+}
+
+.add-data-card {
+  padding: var(--space-5);
+}
+
+@media (max-width: 1100px) {
+  .getdata-editor {
+    grid-template-columns: 208px minmax(0, 1fr);
+  }
+
+  .getdata-editor > .pane-center {
+    padding: var(--space-5);
+  }
+}
+
+@media (max-width: 700px) {
+  .getdata-editor {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .getdata-editor .pane-left {
+    max-height: 240px;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .getdata-editor > .pane-center {
+    padding: var(--space-4);
+  }
+
+  .page-actions {
+    width: 100%;
+  }
+
+  .page-actions a.button {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+.steps-list {
+  margin: 0 0 var(--space-3);
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.add-data-dialog form.sheet-form {
+  flex-direction: row;
+  padding: 0;
+  gap: var(--space-2);
+}
+
+.add-data-label {
+  margin-top: 20px;
+}
+
+/* A new measure: describe it to the AI first, or write the formula. */
+.describe-measure {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--ai-border);
+  border-radius: 8px;
+  background: var(--ai-soft);
+}
+
+.describe-measure label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.describe-measure label svg {
+  color: var(--ai);
+}
+
+.describe-measure textarea {
+  resize: vertical;
+  background: var(--panel);
+}
+
+.describe-measure-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.describe-measure-foot .muted {
+  flex: 1;
+  line-height: 1.35;
+}
+
+.or-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-1) 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.or-divider::before,
+.or-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.formula-help summary {
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.formula-help p {
+  margin: var(--space-2) 0 0;
+}
+
+.describe-measure textarea {
+  font-family: inherit;
+  font-size: 13px;
+}
+
+/* AI replies read like a short note: the verdict, then one fact per line. */
+.chat-msg.assistant,
+.ask-answer {
+  line-height: 1.55;
+}
+
+.chat-msg.assistant {
+  padding: 10px 12px;
+}
+
+.md p + ul,
+.md p + ol {
+  margin-top: 6px;
+}
+
+.md li {
+  margin: 4px 0;
+  padding-left: 2px;
+}
+
+.md li::marker {
+  color: var(--muted);
+}
+
+.md strong {
+  font-weight: 650;
+}

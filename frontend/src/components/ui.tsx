@@ -81,7 +81,7 @@ export function useToast() {
 
 // Dialogs: confirm and name prompts as real, keyboard-friendly dialogs.
 
-type ConfirmOptions = { title: string; body?: ReactNode; confirmLabel: string; danger?: boolean };
+type ConfirmOptions = { title: string; body?: ReactNode; confirmLabel: string; danger?: boolean; /** Information only: one button. */ notice?: boolean };
 type PromptOptions = { title: string; label: string; initial?: string; confirmLabel: string; hint?: string };
 type Request =
   | ({ kind: "confirm"; resolve: (ok: boolean) => void } & ConfirmOptions)
@@ -161,9 +161,11 @@ function DialogView({ request, onClose }: { request: Request; onClose: (value: b
           </label>
         )}
         <div className="dialog-actions">
-          <button type="button" className="secondary" onClick={() => onClose(request.kind === "confirm" ? false : null)}>
-            Cancel
-          </button>
+          {!(request.kind === "confirm" && request.notice) && (
+            <button type="button" className="secondary" onClick={() => onClose(request.kind === "confirm" ? false : null)}>
+              Cancel
+            </button>
+          )}
           <button
             type="submit"
             className={request.kind === "confirm" && request.danger ? "danger-solid" : ""}
@@ -175,6 +177,30 @@ function DialogView({ request, onClose }: { request: Request; onClose: (value: b
         </div>
       </form>
     </dialog>
+  );
+}
+
+/** What to do with a Power BI download. Opening the .pbip from inside the zip fails in Power BI ("Required
+    artifact is missing"): Windows takes out only the file clicked, not the folders next to it. */
+export function powerBISteps(name: string): ReactNode {
+  return (
+    <>
+      <ol className="steps-list">
+        <li>
+          Find <strong>{name}.zip</strong> in your Downloads folder.
+        </li>
+        <li>
+          Right-click it and choose <strong>Extract All</strong>.
+        </li>
+        <li>
+          In the extracted folder, open <strong>{name}.pbip</strong> in Power BI Desktop.
+        </li>
+      </ol>
+      <p className="muted small">
+        Opening the .pbip straight from the zip gives a "Required artifact is missing" error, because Windows only takes
+        that one file out of the zip.
+      </p>
+    </>
   );
 }
 

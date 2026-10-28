@@ -98,7 +98,7 @@ function draftOf(m: Measure): Draft {
 }
 
 export function Model() {
-  const { project, refresh } = useDataset();
+  const { project, refresh, askAI } = useDataset();
   const [state, setState] = useState<ModelState | null>(null);
   const [hasKey, setHasKey] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -317,6 +317,11 @@ export function Model() {
           onSave={save}
           onBuild={build}
           onNewMeasure={newMeasure}
+          onAskAI={(text) => {
+            setSelection(null);
+            setDraft(null);
+            askAI(text);
+          }}
           onSelect={(s) => {
             setSelection(s);
             if (s?.kind === "measure") {
@@ -470,6 +475,7 @@ function FormulaBar(props: {
   }, [draft.text, typing, open, caret, word]);
 
   const format = check?.ok ? formatMeasure(check.value, draft.format) : null;
+  const pristine = !draft.id && draft.text.trim() === "SUM()"; // a new measure nobody has typed into yet
 
   return (
     <div className="formula-bar">
@@ -520,8 +526,10 @@ function FormulaBar(props: {
           </ul>
         )}
       </div>
-      <span className={`formula-check ${check ? (check.ok ? "ok" : "bad") : ""}`} role="status" title={check && !check.ok ? check.error : undefined}>
-        {checking && !check ? (
+      <span className={`formula-check ${check && !pristine ? (check.ok ? "ok" : "bad") : ""}`} role="status" title={check && !check.ok ? check.error : undefined}>
+        {pristine ? (
+          <span className="muted">Type a formula, or describe it on the right</span>
+        ) : checking && !check ? (
           "Checking…"
         ) : check?.ok ? (
           <>
@@ -909,6 +917,7 @@ function Properties(props: {
   onSave: () => void;
   onBuild: () => void;
   onNewMeasure: (tableId?: string) => void;
+  onAskAI: (text: string) => void;
   onSelect: (s: Selection) => void;
   onChange: (action: () => Promise<ModelState>) => Promise<void>;
 }) {
@@ -941,6 +950,14 @@ function Properties(props: {
             </div>
           )}
           {measure?.error && <p className="bad small">{measure.error}</p>}
+          {!measure && (
+            <>
+              <DescribeMeasure hasKey={props.hasKey} onAsk={props.onAskAI} />
+              <div className="or-divider" role="separator">
+                <span>or write it yourself</span>
+              </div>
+            </>
+          )}
           <label className="prop">
             <span>Name</span>
             <input value={draft.name} onChange={(e) => onDraft({ ...draft, name: e.target.value })} />
@@ -1014,9 +1031,12 @@ function Properties(props: {
               </select>
             </label>
           )}
-          <p className="muted small">
+          <details className="formula-help">
+            <summary>Formula help</summary>
+            <p className="muted small">
             Write <code>SUM([Column])</code>, <code>AVERAGE( )</code>, <code>COUNTROWS()</code>, <code>DISTINCTCOUNT( )</code>, <code>MIN( )</code> or <code>MAX( )</code> over the home table's columns, or a formula over other measures such as <code>[Revenue] / [Orders]</code>. Over time: <code>YTD([Revenue])</code>, <code>QTD( )</code>, <code>MTD( )</code>, <code>LASTYEAR([Revenue])</code>, <code>LASTYEARYTD( )</code> or <code>ROLLING([Revenue], 3)</code>; these need the date table. Conditions: <code>IF([Qty] &gt;= 10, [Qty] * [Price], 0)</code>, <code>SWITCH([Region], "North", 1, 0)</code>, with <code>AND</code>, <code>OR</code> and <code>NOT</code>.
-          </p>
+            </p>
+          </details>
           <div className="actions">
             <button onClick={props.onSave} disabled={!dirty}>
               {measure ? "Save changes" : "Add measure"}
@@ -1235,5 +1255,46 @@ function Properties(props: {
         </dl>
       </div>
     </>
+  );
+}
+
+/** A new measure, described in words: the Model AI writes the formula, checks it on the data, and shows it for approval. */
+function DescribeMeasure({ hasKey, onAsk }: { hasKey: boolean; onAsk: (text: string) => void }) {
+  const [text, setText] = useState("");
+  if (!hasKey) {
+    return <p className="muted small describe-measure">Add an API key in Settings and the AI can write measures from a description.</p>;
+  }
+  return (
+    <form
+      className="describe-measure"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!text.trim()) return;
+        onAsk(
+          `Add a new measure: ${text.trim()}. Write the formula, check it against the data, and give it a clear name, ` +
+            "a sensible format and a one-line description.",
+        );
+      }}
+    >
+      <label htmlFor="describe-measure">
+        <Sparkles size={14} aria-hidden="true" /> Describe it, and the AI writes it
+      </label>
+      <textarea
+        id="describe-measure"
+        rows={3}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="For example: the share of trips that were for business"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) e.currentTarget.form?.requestSubmit();
+        }}
+      />
+      <div className="describe-measure-foot">
+        <span className="muted small">You see the formula and its value before anything is added.</span>
+        <button type="submit" className="ai-button" disabled={!text.trim()}>
+          Write it
+        </button>
+      </div>
+    </form>
   );
 }

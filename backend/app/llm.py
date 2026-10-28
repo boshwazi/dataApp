@@ -12,7 +12,7 @@ from dataclasses import asdict, dataclass
 
 import openai
 
-from . import language
+from . import language, writing
 from .settings import ProviderSettings
 
 TEST_TOOL = {
@@ -142,6 +142,7 @@ def ask_json(
     """
     # The user's own instructions (guidance.guided) follow the agent's rules.
     system += getattr(client, "datawazi_instructions", "") or ""
+    system += writing.STYLE  # one house style for every text a person reads
     system += language.instruction()  # Bahasa Malaysia when the person works in it
     messages = [{"role": "system", "content": system}, {"role": "user", "content": prompt}]
     try:

@@ -14,7 +14,7 @@ import { BadgeCheck, FileDown, ScrollText, GitBranch, History, Layers, MoreHoriz
 import { ActivityDrawer } from "../components/ActivityDrawer";
 import { InstructionsDialog } from "../components/InstructionsDialog";
 import { ChatPanel, type ChatHandle } from "../components/ChatPanel";
-import { Menu, TopbarActions, useCrumbs, useDialogs, useShortcut, useToast } from "../components/ui";
+import { Menu, TopbarActions, powerBISteps, useCrumbs, useDialogs, useShortcut, useToast } from "../components/ui";
 
 // The dataset half of the pipeline, in Power BI order. Dashboards build on what is published here.
 const STAGES: { path: string; key: DatasetStage; name: string; suggestions: string[] }[] = [
@@ -43,6 +43,8 @@ const CHAT_KEY = "chatOpen";
 export type DatasetContext = {
   project: DatasetData;
   refresh: () => Promise<DatasetData>;
+  /** Open this stage's AI panel and send it a request. */
+  askAI: (text: string) => void;
 };
 
 export function useDataset() {
@@ -182,16 +184,14 @@ export function Dataset() {
     }
   }
 
-  function askToCheck(changedStage: string) {
+  function askAI(text: string) {
     if (!chatOpen) toggleChat();
     // The panel may only mount now, so send on the next tick.
-    setTimeout(
-      () =>
-        chat.current?.send(
-          `${changedStage} changed since this stage was last updated. Check this stage against it and fix anything that no longer fits.`,
-        ),
-      0,
-    );
+    setTimeout(() => chat.current?.send(text), 0);
+  }
+
+  function askToCheck(changedStage: string) {
+    askAI(`${changedStage} changed since this stage was last updated. Check this stage against it and fix anything that no longer fits.`);
   }
 
   useShortcut("i", () => !onRefresh && toggleChat());
@@ -247,7 +247,9 @@ export function Dataset() {
               onSelect: () =>
                 void powerbiApi
                   .download(dataset.id, dataset.name)
-                  .then(() => toast("Downloaded a Power BI project (.zip). Unzip it and open the .pbip in Power BI Desktop."))
+                  .then(() =>
+                    dialogs.confirm({ title: "Unzip it before opening", body: powerBISteps(dataset.name), confirmLabel: "Got it", notice: true }),
+                  )
                   .catch((e) => toast((e as Error).message, "error")),
             },
             ...(status.published
@@ -326,7 +328,7 @@ export function Dataset() {
       )}
 
       <div className="workbench-body">
-        <Outlet key={version} context={{ project: dataset, refresh } satisfies DatasetContext} />
+        <Outlet key={version} context={{ project: dataset, refresh, askAI } satisfies DatasetContext} />
       </div>
         {showChat && (
           <div className="ai-dock" role="dialog" aria-label={`${stage.name} AI`}>

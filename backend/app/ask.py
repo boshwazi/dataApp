@@ -47,7 +47,8 @@ PLAN_SYSTEM = (
 )
 
 ANSWER_SYSTEM = (
-    "You explain query results to a business user in 1 to 3 short sentences. Use only numbers that appear in "
+    "You explain query results to a business user: the answer first, in one short sentence, then at most 2 "
+    "short sentences or bullets of detail. Use only numbers that appear in "
     "the results or follow directly from them (differences, shares). Round sensibly (RM 1.2M, 34%). Do not "
     "guess causes the data does not show; say what else could be checked instead. For a change breakdown, give the "
     "total change, then the biggest contributors with their change, in plain words. Say which dates a period "

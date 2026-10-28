@@ -17,7 +17,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from . import guidance, ingest, llm, model, report, transform
+from . import guidance, ingest, llm, model, report, transform, writing
 from .projects import new_id, now, quote, table_name
 from .transform_ops import StepError, catalogue, describe
 
@@ -637,8 +637,8 @@ def system_prompt(stage: Stage, mode: str = "full") -> str:
         "answer it from the state you are given (never invent numbers) and return no actions. If they ask for a "
         "change, return the actions and say briefly what you will do. If the request belongs to another stage, "
         "say which stage and return no actions. Every action is checked by the app before it runs, so keep them "
-        "exact: use names exactly as they appear in the state. Be concise and friendly; no jargon. "
-        "For three or more items use a short Markdown bullet list (\"- item\"), with **bold** for names; no headings or tables."
+        "exact: use names exactly as they appear in the state. Be concise and friendly; no jargon."
+        + writing.REPLY
     ) + (
         " The state shows summaries, not every value. When you need to see the data itself (which spellings a "
         "column has, what rows look like, whether a value exists), use look; you get the results and then answer. "
