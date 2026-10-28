@@ -1209,7 +1209,7 @@ function PagePane(props: {
                 ))}
               </div>
             )}
-            <p className="muted small">Click a visual to change its fields and format. Drag a field onto the canvas to add a visual, or onto the slicer bar to add a slicer.</p>
+            <p className="pane-tip">Select a visual to edit it, or drag a field onto the canvas to add one.</p>
             <PageFilters dashboardId={dashboardId} page={page} fields={props.fields} onChange={onChange} />
             <FieldList fields={props.fields} />
             <div className="actions">
@@ -1416,7 +1416,12 @@ function SlicerBar(props: {
 /** The Page pane's filters: slicers offered to viewers, and fixed filters that apply for everyone. */
 function PageFilters({ dashboardId, page, fields, onChange }: { dashboardId: string; page: ReportPage; fields: ReportField[]; onChange: Change }) {
   const [picking, setPicking] = useState<{ table: string; column: string; x: number; y: number } | null>(null);
-  const columns = fields.flatMap((t) => t.columns.map((c) => ({ table: t.id, column: c.name, label: `${t.name}[${c.name}]` })));
+  const shared = new Set(
+    fields.flatMap((t) => t.columns.map((c) => c.name)).filter((n, i, all) => all.indexOf(n) !== i),
+  );
+  const columns = fields.flatMap((t) =>
+    t.columns.map((c) => ({ table: t.id, column: c.name, label: shared.has(c.name) ? `${c.name} (${t.name})` : c.name })),
+  );
   const slicers = page.slicers ?? [];
   const fixed = page.filters ?? [];
   const keyOf = (c: { table: string; column: string }) => `${c.table}\u0000${c.column}`;
@@ -1424,8 +1429,9 @@ function PageFilters({ dashboardId, page, fields, onChange }: { dashboardId: str
 
   return (
     <div className="page-filters">
-      <span className="well-label">Slicers</span>
-      <p className="muted small">Viewers pick values; each person's choice is their own and nothing is saved.</p>
+      <span className="well-label" title="Viewers pick values; each person's choice is their own and nothing is saved.">
+        Slicers <span className="well-hint">viewers choose</span>
+      </span>
       <div className="well-slot filled">
         {slicers.map((s, i) => (
           <span key={keyOf(s)} className="pill">
@@ -1454,8 +1460,9 @@ function PageFilters({ dashboardId, page, fields, onChange }: { dashboardId: str
         </select>
       </div>
 
-      <span className="well-label">Page filters</span>
-      <p className="muted small">Always on, for everyone who opens this page.</p>
+      <span className="well-label" title="Always on, for everyone who opens this page.">
+        Page filters <span className="well-hint">always on</span>
+      </span>
       <div className="well-slot filled">
         {fixed.map((f, i) => (
           <span key={keyOf(f)} className="pill">

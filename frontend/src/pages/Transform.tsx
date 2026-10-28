@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
-import { AlertTriangle, ArrowDown, ArrowUp, ChevronDown, ChevronRight, Combine, CopyMinus, MoreHorizontal, Plus, Rows3, Sparkles, Table2, Undo2, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, ChevronDown, ChevronRight, Combine, CopyMinus, MoreHorizontal, Pencil, Plus, Rows3, Sparkles, Table2, Undo2, X } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import {
   api,
@@ -299,6 +299,10 @@ function QueryWorkspace({ projectId, query, others, canUndo, hasKey, cleaning, r
             <Undo2 size={16} />
           </button>
           <span className="tool-sep" />
+          <button className="tool labelled ai" onClick={onClean} disabled={!hasKey || cleaning || !!query.error} title={hasKey ? "Let the AI suggest steps for this table" : "Add an API key in Settings first"}>
+            <Sparkles size={15} aria-hidden="true" /> {cleaning ? "AI is cleaning…" : "Clean with AI"}
+          </button>
+          <span className="tool-sep" />
           <button className="tool labelled" onClick={() => add("remove_duplicates", {})} disabled={!!query.error}>
             <CopyMinus size={15} aria-hidden="true" /> Remove duplicates
           </button>
@@ -318,21 +322,13 @@ function QueryWorkspace({ projectId, query, others, canUndo, hasKey, cleaning, r
               if (name && name !== query.name) void onChange(() => transformApi.rename(projectId, query.id, name));
             }}
           >
-            Rename
+            <Pencil size={14} aria-hidden="true" /> Rename
           </button>
           {query.kind === "lookup" && (
             <button className="tool labelled danger" onClick={() => onChange(() => transformApi.removeTable(projectId, query.id))}>
               Remove table
             </button>
           )}
-          <button className="tool labelled ai" onClick={onClean} disabled={!hasKey || cleaning || !!query.error} title={hasKey ? "Let the AI suggest steps for this table" : "Add an API key in Settings first"}>
-            <Sparkles size={15} aria-hidden="true" /> {cleaning ? "AI is cleaning…" : "Clean with AI"}
-          </button>
-          <span className="grow" />
-          <span className="toolbar-note">
-            Step {step} of {total}
-            {query.rows !== null && `, ${query.rows.toLocaleString()} rows, ${query.columns.length} columns`}
-          </span>
         </div>
 
         <div className="step-bar">

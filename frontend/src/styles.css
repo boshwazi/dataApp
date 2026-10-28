@@ -8960,3 +8960,68 @@ button,
 .refresh > .page-header {
   margin-bottom: 12px; /* + the column's 12px gap */
 }
+
+.well-hint {
+  margin-left: 6px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.pane-tip {
+  margin: 0;
+  padding: var(--space-2) 10px;
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* "X changed since this was reviewed": a slim bar flush under the top bar (like Power BI's message bar),
+   not a floating box that pushes the work down. */
+.notice.stale-banner {
+  margin: 0;
+  padding: 5px 16px;
+  border-radius: 0;
+  border-width: 0 0 1px;
+  min-height: 0;
+}
+
+.stale-banner .actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.stale-banner .actions button.secondary {
+  min-height: 26px;
+  padding: 0 10px;
+  font-size: 12.5px;
+}
+
+/* The notices area hugs a lone change bar, so it runs edge to edge. */
+.workbench-notices:has(> .stale-banner:only-child) {
+  padding: 0;
+  border-bottom: none;
+}
+
+/* One title size and one width for every top-level page. */
+.page-header h1,
+.workbench-body .page-header h1,
+.autopilot-head h1 {
+  font-size: 20px;
+}
+
+.workspace-settings,
+.account-page {
+  max-width: 900px;
+}
+
+/* Datasets and Dashboards: the line under the title belongs to it, not to the table below. */
+.home-head + .home-section {
+  margin-top: 0;
+}
+
+.home-head + .home-section > .section-hint:first-child {
+  margin: 0 0 var(--space-5);
+}
