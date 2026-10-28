@@ -823,6 +823,8 @@ export type DashboardSummary = {
   published: boolean;
   published_at: string | null;
   unpublished_changes: boolean;
+  /** The first page's shape, for a card on Home (kinds and places of its visuals, no data). */
+  preview?: { title: string; visuals: { id: string; type: VisualType; layout?: GridBox | null; width?: string | null; insight?: boolean }[] } | null;
 };
 
 export type ReportState = Omit<DashboardSummary, "pages"> & {

@@ -129,8 +129,21 @@ def summary(dashboard: dict, datasets: ProjectStore) -> dict:
         "dataset": data,
         "owner": dashboard.get("owner"),
         "sharing": dashboard.get("sharing") or {"mode": "workspace"},
+        "preview": preview(dashboard),
         **dashboards.status(dashboard),
     }
+
+
+def preview(dashboard: dict) -> dict | None:
+    """The first page's shape for a card on Home: each visual's kind and place, never its data. The published
+    page when there is one (what viewers see), otherwise the draft."""
+    pages = (dashboard.get("published") or dashboard["draft"]).get("pages") or []
+    if not pages:
+        return None
+    first = pages[0]
+    return {"title": first.get("title", ""), "visuals": [
+        {"id": v["id"], "type": v["type"], "layout": v.get("layout"), "width": v.get("width"),
+         "insight": bool(v.get("insight"))} for v in first.get("visuals", [])[:24]]}
 
 
 class ResultCache:

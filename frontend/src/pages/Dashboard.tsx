@@ -33,6 +33,8 @@ import { InstructionsDialog } from "../components/InstructionsDialog";
 import { AskPanel } from "../components/AskPanel";
 import { Chart, SERIES, TOKENS } from "../components/Chart";
 import { ChatPanel, type ChatHandle } from "../components/ChatPanel";
+import { COLUMNS, firstFit, layoutOf, MiniPage, overlaps } from "../components/miniPage";
+import { rememberOpened } from "../components/recent";
 import { EmptyState, Menu, PopMenu, TopbarActions, powerBISteps, type MenuItem, useCrumbs, useDialogs, useShortcut, useToast } from "../components/ui";
 import { useAccount } from "../components/account";
 import { ShareDialog } from "../components/ShareDialog";
@@ -86,6 +88,7 @@ export function Dashboard() {
   const navigate = useNavigate();
 
   useCrumbs(state && [{ label: t("Dashboards"), to: "/dashboards" }, { label: state.name }]);
+  useEffect(() => rememberOpened(dashboardId), [dashboardId]);
   useShortcut("i", () => setAiOpen((o) => !o));
 
   const fetchState = useCallback(() => {
@@ -385,7 +388,7 @@ export function Dashboard() {
             <div className="page-thumbs">
               {state.pages.map((p) => (
                 <button key={p.id} className={`page-thumb ${p.id === page?.id ? "on" : ""}`} onClick={() => go({ page: p.id })} aria-current={p.id === page?.id ? "page" : undefined}>
-                  <MiniPage page={p} />
+                  <MiniPage visuals={p.visuals} />
                   <span className="thumb-title">
                     {p.title}
                     {editing && p.status === "AI" && <span className="badge ai">AI</span>}
@@ -541,35 +544,8 @@ function RunResult({ run, onClose }: { run: ReportRun | { error: string }; onClo
 
 // Layout on the canvas: a 12-column grid. Visuals saved before the canvas get a place by first fit.
 
-const COLUMNS = 12;
 const ROW = 30;
 const GAP = 12;
-
-function defaultSize(v: Visual, kpis: number): { w: number; h: number } {
-  if (v.type === "kpi") return { w: Math.max(2, Math.floor(COLUMNS / Math.min(Math.max(kpis, 1), 6))), h: v.insight ? 7 : 5 };
-  if (v.type === "table") return { w: COLUMNS, h: 9 };
-  return { w: v.width === "full" ? COLUMNS : 6, h: 8 };
-}
-
-const overlaps = (a: GridBox, b: GridBox) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
-
-function firstFit(size: { w: number; h: number }, placed: GridBox[]): GridBox {
-  for (let y = 0; ; y++) {
-    for (let x = 0; x + size.w <= COLUMNS; x++) {
-      const box = { x, y, ...size };
-      if (!placed.some((p) => overlaps(p, box))) return box;
-    }
-  }
-}
-
-export function layoutOf(visuals: Visual[]): Record<string, GridBox> {
-  const out: Record<string, GridBox> = {};
-  const placed: GridBox[] = [];
-  for (const v of visuals) if (v.layout) placed.push((out[v.id] = v.layout));
-  const kpis = visuals.filter((v) => v.type === "kpi").length;
-  for (const v of visuals) if (!v.layout) placed.push((out[v.id] = firstFit(defaultSize(v, kpis), placed)));
-  return out;
-}
 
 /** After a move or resize, push anything it now covers down, keeping the moved visual where it was dropped. */
 function settle(boxes: Record<string, GridBox>, moved: string): Record<string, GridBox> {
@@ -590,44 +566,6 @@ function settle(boxes: Record<string, GridBox>, moved: string): Record<string, G
 }
 
 const same = (a: GridBox, b: GridBox) => a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
-
-// A tiny drawing of each visual's kind, so a page's thumbnail reads as its layout, not as a loading placeholder.
-function MiniGlyph({ type }: { type: VisualType }) {
-  const shape =
-    type === "kpi" ? <path d="M3 9h10M3 5h6" /> :
-    type === "line" || type === "area" ? <polyline points="2,12 6,7 9,9 14,3" /> :
-    type === "pie" || type === "donut" ? <circle cx="8" cy="8" r="4.5" /> :
-    type === "table" ? <path d="M2 4h12M2 8h12M2 12h12" /> :
-    type === "scatter" ? <path d="M4 11h.01M7 6h.01M11 8h.01M12 3h.01" /> :
-    type === "bar" || type === "stacked_bar" ? <path d="M2 4h11M2 8h7M2 12h9" /> :
-    <path d="M4 14V8M8 14V3M12 14V6" />;
-  return (
-    <svg viewBox="0 0 16 16" preserveAspectRatio="xMidYMid meet">
-      {shape}
-    </svg>
-  );
-}
-
-function MiniPage({ page }: { page: ReportPage }) {
-  const boxes = layoutOf(page.visuals);
-  const rows = Math.max(12, ...Object.values(boxes).map((b) => b.y + b.h));
-  return (
-    <span className="mini-page" aria-hidden="true">
-      {page.visuals.map((v) => {
-        const b = boxes[v.id];
-        return (
-          <i
-            key={v.id}
-            className={v.type === "kpi" ? "kpi" : ""}
-            style={{ left: `${(b.x / COLUMNS) * 100}%`, top: `${(b.y / rows) * 100}%`, width: `${(b.w / COLUMNS) * 100}%`, height: `${(b.h / rows) * 100}%` }}
-          >
-            <MiniGlyph type={v.type} />
-          </i>
-        );
-      })}
-    </span>
-  );
-}
 
 type FieldDrag = { kind: "measure"; name: string } | { kind: "column"; table: string; column: string };
 const FIELD_TYPE = "application/x-datawazi-field";

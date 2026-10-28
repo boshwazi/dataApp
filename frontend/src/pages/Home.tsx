@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { BadgeCheck, Database, LayoutDashboard, Plus, Search, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, BadgeCheck, Database, LayoutDashboard, Plus, Search, Trash2 } from "lucide-react";
 import {
   api,
   dashboardsApi,
@@ -16,10 +16,50 @@ import { EmptyState, Skeleton, useCrumbs, useDialogs, useToast } from "../compon
 import { useAccount } from "../components/account";
 import { QuickStart } from "../components/QuickStart";
 import { NextSteps } from "../components/NextSteps";
+import { MiniPage } from "../components/miniPage";
+import { recentlyOpened } from "../components/recent";
 import { t } from "../i18n";
 
 type Choice = "existing" | "new";
 type Show = "all" | "datasets" | "dashboards";
+type Sort = { key: string; dir: 1 | -1 };
+type StatusFilter = "all" | "published" | "draft";
+
+/** How many rows each list shows on Home; the Datasets and Dashboards pages show all of them. */
+const HOME_ROWS = 6;
+
+const DASHBOARD_KEYS: Record<string, (d: DashboardSummary) => string | number> = {
+  name: (d) => d.name.toLowerCase(),
+  dataset: (d) => d.dataset?.name.toLowerCase() ?? "",
+  pages: (d) => d.pages,
+  status: (d) => (d.published ? (d.unpublished_changes ? 1 : 2) : 0),
+  updated: (d) => d.updated_at,
+};
+
+const DATASET_KEYS: Record<string, (d: Dataset) => string | number> = {
+  name: (d) => d.name.toLowerCase(),
+  tables: (d) => d.progress.sources,
+  steps: (d) => d.progress.steps,
+  measures: (d) => d.progress.measures,
+  status: (d) => (d.status.published ? (d.status.unpublished_changes ? 1 : 2) : 0),
+  used: (d) => d.dashboards.length,
+  updated: (d) => d.updated_at,
+};
+
+function sorted<T>(rows: T[], keys: Record<string, (r: T) => string | number>, sort: Sort): T[] {
+  const key = keys[sort.key];
+  return [...rows].sort((a, b) => {
+    const x = key(a);
+    const y = key(b);
+    return (x < y ? -1 : x > y ? 1 : 0) * sort.dir;
+  });
+}
+
+/** Names sort A to Z first; numbers, statuses and dates sort largest or newest first. */
+function nextSort(current: Sort, key: string): Sort {
+  if (current.key === key) return { key, dir: current.dir === 1 ? -1 : 1 };
+  return { key, dir: key === "name" || key === "dataset" ? 1 : -1 };
+}
 
 export function Home({ show: wanted = "all" }: { show?: Show }) {
   const account = useAccount();
@@ -33,6 +73,10 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
   const [params, setParams] = useSearchParams();
   const [creating, setCreating] = useState<Choice | null>(null);
   const [filter, setFilter] = useState("");
+  const [dashboardSort, setDashboardSort] = useState<Sort>({ key: "updated", dir: -1 });
+  const [datasetSort, setDatasetSort] = useState<Sort>({ key: "updated", dir: -1 });
+  const [dashboardStatus, setDashboardStatus] = useState<StatusFilter>("all");
+  const [datasetStatus, setDatasetStatus] = useState<StatusFilter>("all");
   const navigate = useNavigate();
   const toast = useToast();
   const dialogs = useDialogs();
@@ -110,8 +154,15 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
 
   const connected = settings?.capabilities.tools !== undefined;
   const match = (name: string) => name.toLowerCase().includes(filter.trim().toLowerCase());
-  const shownDashboards = (dashboards ?? []).filter((d) => match(d.name));
-  const shownDatasets = (datasets ?? []).filter((d) => match(d.name));
+  const overview = show === "all";
+  const keepDashboard = (d: DashboardSummary) =>
+    dashboardStatus === "all" || (dashboardStatus === "published" ? d.published : !d.published || d.unpublished_changes);
+  const keepDataset = (d: Dataset) =>
+    datasetStatus === "all" || (datasetStatus === "published" ? d.status.published : !d.status.published || d.status.unpublished_changes);
+  const allDashboards = sorted((dashboards ?? []).filter((d) => match(d.name) && keepDashboard(d)), DASHBOARD_KEYS, dashboardSort);
+  const allDatasets = sorted((datasets ?? []).filter((d) => match(d.name) && keepDataset(d)), DATASET_KEYS, datasetSort);
+  const shownDashboards = overview && !filter ? allDashboards.slice(0, HOME_ROWS) : allDashboards;
+  const shownDatasets = overview && !filter ? allDatasets.slice(0, HOME_ROWS) : allDatasets;
   const title = t(wanted === "all" ? "Home" : show === "datasets" ? "Datasets" : "Dashboards");
 
   return (
@@ -172,9 +223,16 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
         />
       )}
 
+      {wanted === "all" && dashboards && dashboards.length > 0 && !filter && <RecentDashboards dashboards={dashboards} creator={creator} />}
+
       {show !== "datasets" && (
         <section className="home-section">
-          {show === "all" && <h2 className="section-title">{t("Dashboards")}</h2>}
+          <div className="list-head">
+            {show === "all" && <h2 className="section-title">{t("Dashboards")}</h2>}
+            {!overview && creator && (
+              <StatusTabs value={dashboardStatus} onChange={setDashboardStatus} draftLabel={t("Drafts")} label={t("Dashboards")} />
+            )}
+          </div>
           {dashboards === null ? (
             <Skeleton lines={3} height={52} />
           ) : dashboards.length === 0 ? (
@@ -187,11 +245,11 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
             <table className="catalog">
               <thead>
                 <tr>
-                  <th>{t("Name")}</th>
-                  <th>{t("Dataset")}</th>
-                  <th className="num">{t("Pages")}</th>
-                  {creator && <th>{t("Status")}</th>}
-                  <th>{t("Updated")}</th>
+                  <SortTh label={t("Name")} k="name" sort={dashboardSort} onSort={setDashboardSort} />
+                  <SortTh label={t("Dataset")} k="dataset" sort={dashboardSort} onSort={setDashboardSort} />
+                  <SortTh label={t("Pages")} k="pages" sort={dashboardSort} onSort={setDashboardSort} num />
+                  {creator && <SortTh label={t("Status")} k="status" sort={dashboardSort} onSort={setDashboardSort} />}
+                  <SortTh label={t("Updated")} k="updated" sort={dashboardSort} onSort={setDashboardSort} />
                   {creator && <th aria-label="Actions" />}
                 </tr>
               </thead>
@@ -235,6 +293,12 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
               </tbody>
             </table>
           )}
+          {dashboards && dashboards.length > 0 && allDashboards.length === 0 && <p className="muted small list-empty">{t("No dashboards match.")}</p>}
+          {overview && !filter && allDashboards.length > HOME_ROWS && (
+            <Link className="view-all" to="/dashboards">
+              {t("View all {n} dashboards", { n: allDashboards.length })}
+            </Link>
+          )}
         </section>
       )}
 
@@ -242,6 +306,11 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
         <section className="home-section">
           {show === "all" && <h2 className="section-title">{t("Datasets")}</h2>}
           <p className="muted small section-hint">{t("Load, clean and model data once, then reuse it in any number of dashboards.")}</p>
+          {!overview && (
+            <div className="list-head">
+              <StatusTabs value={datasetStatus} onChange={setDatasetStatus} draftLabel={t("Not published or changed")} label={t("Datasets")} />
+            </div>
+          )}
           {datasets === null ? (
             <Skeleton lines={3} height={52} />
           ) : datasets.length === 0 ? (
@@ -260,13 +329,13 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
             <table className="catalog">
               <thead>
                 <tr>
-                  <th>{t("Name")}</th>
-                  <th className="num">{t("Tables")}</th>
-                  <th className="num">{t("Steps")}</th>
-                  <th className="num">{t("Measures")}</th>
-                  <th>{t("Status")}</th>
-                  <th className="num">{t("Used by")}</th>
-                  <th>{t("Updated")}</th>
+                  <SortTh label={t("Name")} k="name" sort={datasetSort} onSort={setDatasetSort} />
+                  <SortTh label={t("Tables")} k="tables" sort={datasetSort} onSort={setDatasetSort} num />
+                  <SortTh label={t("Steps")} k="steps" sort={datasetSort} onSort={setDatasetSort} num />
+                  <SortTh label={t("Measures")} k="measures" sort={datasetSort} onSort={setDatasetSort} num />
+                  <SortTh label={t("Status")} k="status" sort={datasetSort} onSort={setDatasetSort} />
+                  <SortTh label={t("Used by")} k="used" sort={datasetSort} onSort={setDatasetSort} num />
+                  <SortTh label={t("Updated")} k="updated" sort={datasetSort} onSort={setDatasetSort} />
                   <th aria-label="Actions" />
                 </tr>
               </thead>
@@ -311,10 +380,103 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
               </tbody>
             </table>
           )}
+          {datasets && datasets.length > 0 && allDatasets.length === 0 && <p className="muted small list-empty">{t("No datasets match.")}</p>}
+          {overview && !filter && allDatasets.length > HOME_ROWS && (
+            <Link className="view-all" to="/datasets">
+              {t("View all {n} datasets", { n: allDatasets.length })}
+            </Link>
+          )}
         </section>
       )}
     </div>
   );
+}
+
+/** A sortable column header: the button sorts, aria-sort says how it's sorted now. */
+function SortTh({ label, k, sort, onSort, num }: { label: string; k: string; sort: Sort; onSort: (s: Sort) => void; num?: boolean }) {
+  const active = sort.key === k;
+  return (
+    <th className={num ? "num" : ""} aria-sort={active ? (sort.dir === 1 ? "ascending" : "descending") : "none"}>
+      <button className={`sort-th ${active ? "on" : ""}`} onClick={() => onSort(nextSort(sort, k))}>
+        {label}
+        {active ? (
+          sort.dir === 1 ? <ArrowUp size={12} aria-hidden="true" /> : <ArrowDown size={12} aria-hidden="true" />
+        ) : (
+          <ArrowUpDown size={12} aria-hidden="true" className="sort-idle" />
+        )}
+      </button>
+    </th>
+  );
+}
+
+function StatusTabs(props: { value: StatusFilter; onChange: (v: StatusFilter) => void; draftLabel: string; label: string }) {
+  const options: [StatusFilter, string][] = [
+    ["all", t("All")],
+    ["published", t("Published")],
+    ["draft", props.draftLabel],
+  ];
+  return (
+    <div className="segmented compact status-tabs" role="group" aria-label={t("Show {what}", { what: props.label })}>
+      {options.map(([v, l]) => (
+        <button key={v} className={props.value === v ? "on" : ""} aria-pressed={props.value === v} onClick={() => props.onChange(v)}>
+          {l}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Up to four dashboards to pick up again: the ones opened here lately first, then the ones changed lately. */
+function RecentDashboards({ dashboards, creator }: { dashboards: DashboardSummary[]; creator: boolean }) {
+  const opened = new Map(recentlyOpened().map((o) => [o.id, o.at]));
+  const recent = [...dashboards]
+    .sort((a, b) => (opened.get(b.id) ?? "").localeCompare(opened.get(a.id) ?? "") || b.updated_at.localeCompare(a.updated_at))
+    .slice(0, 4);
+  return (
+    <section className="home-section" aria-labelledby="recent-title">
+      <h2 className="section-title" id="recent-title">
+        {t("Recent dashboards")}
+      </h2>
+      <div className="recent-grid">
+        {recent.map((d) => {
+          const when = opened.get(d.id);
+          return (
+            <Link key={d.id} className="recent-card" to={`/dashboards/${d.id}`}>
+              <span className="recent-preview">
+                {d.preview?.visuals.length ? (
+                  <MiniPage visuals={d.preview.visuals} />
+                ) : (
+                  <span className="recent-empty">
+                    <LayoutDashboard size={22} aria-hidden="true" />
+                  </span>
+                )}
+              </span>
+              <span className="recent-body">
+                <strong className="recent-name" title={d.name}>
+                  {d.name}
+                </strong>
+                <span className="recent-meta">
+                  {creator && (
+                    <span className={`status-dot ${d.published ? (d.unpublished_changes ? "warn" : "ok") : ""}`}>
+                      {t(d.published ? (d.unpublished_changes ? "Draft changes" : "Published") : "Draft")}
+                    </span>
+                  )}
+                  <span className="muted">
+                    {when ? t("Opened {when}", { when: lowerFirst(ago(when)) }) : t("Updated {when}", { when: lowerFirst(ago(d.updated_at)) })}
+                  </span>
+                </span>
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+/** "Yesterday" reads "opened yesterday" mid-sentence; dates such as "20 Oct 2026" stay as they are. */
+function lowerFirst(text: string) {
+  return /^[A-Z][a-z]/.test(text) ? text.charAt(0).toLowerCase() + text.slice(1) : text;
 }
 
 function NewDashboard(props: {

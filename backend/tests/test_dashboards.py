@@ -137,3 +137,16 @@ def test_old_projects_become_a_dataset_and_a_dashboard(tmp_path):
 def test_dataset_list_shows_which_dashboards_use_it(p):
     listed = next(d for d in p.api.get("/api/datasets").json() if d["id"] == p.id)
     assert [d["name"] for d in listed["dashboards"]] == ["Sales"]
+
+
+def test_the_list_carries_a_preview_of_the_first_page_without_data(p):
+    assert ok(p.api.get("/api/dashboards"))[0]["preview"] is None  # no pages yet
+    kpi_page(p)
+    preview = ok(p.api.get("/api/dashboards"))[0]["preview"]
+    assert preview["title"] == "Sales overview"
+    assert [v["type"] for v in preview["visuals"]] == ["bar"]
+    assert set(preview["visuals"][0]) == {"id", "type", "layout", "width", "insight"}  # its shape, never its data
+    ok(p.api.post(f"{p.base}/publish"))
+    ok(p.api.post(f"{p.base}/pages", json={"title": "Draft only"}))
+    ok(p.api.post(f"{p.base}/pages", json={"title": "Draft two"}))
+    assert ok(p.api.get("/api/dashboards"))[0]["preview"]["title"] == "Sales overview"  # what viewers see
