@@ -69,14 +69,16 @@ export function Security() {
 
   return (
     <div className="security">
-      <section className="card">
-        <h2>Who sees which rows</h2>
-        <p className="muted small security-lead">
-          Roles limit what viewers see on this dataset's dashboards: a fixed filter (Region is North), or a column matched to each
-          person's email so everyone sees their own rows. Once there is a role, a viewer in none of them sees no data. Creators and admins
-          see everything, and can view a dashboard as any role.
-        </p>
-      </section>
+      <header className="page-header">
+        <div className="page-header-text">
+          <h1>Who sees which rows</h1>
+          <p className="muted security-lead">
+            Roles limit what viewers see on this dataset's dashboards: a fixed filter (Region is North), or a column matched to
+            each person's email so everyone sees their own rows. Once there is a role, a viewer in none of them sees no data.
+            Creators and admins see everything, and can view a dashboard as any role.
+          </p>
+        </div>
+      </header>
 
       {roles.map((role, i) => (
         <section key={role.id ?? i} className="card role-card">

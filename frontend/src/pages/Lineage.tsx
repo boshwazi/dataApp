@@ -79,10 +79,15 @@ export function Lineage() {
 
   return (
     <div className="lineage">
-      <p className="muted small">
-        From the data you loaded to every number on a dashboard. Click any item to highlight what feeds it and what it
-        feeds; click again to clear.
-      </p>
+      <header className="page-header">
+        <div className="page-header-text">
+          <h1>Lineage</h1>
+          <p className="muted">
+            From the data you loaded to every number on a dashboard. Click an item to see what feeds it and what it feeds;
+            click again to clear.
+          </p>
+        </div>
+      </header>
       <div className="lineage-board" ref={board}>
         <svg className="lineage-lines" aria-hidden="true">
           {lines.map((l, i) => (

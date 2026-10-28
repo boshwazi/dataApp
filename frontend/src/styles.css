@@ -8932,3 +8932,31 @@ button,
 .md strong {
   font-weight: 650;
 }
+
+/* Dataset pages all start in the same place, under the same kind of header. */
+.workbench-body > .autopilot {
+  margin: 20px 24px 40px;
+  padding: 0;
+}
+
+.page-header-text > p {
+  max-width: 72ch;
+}
+
+.workbench-body .page-header h1,
+.autopilot-head h1 {
+  font-size: 22px;
+}
+
+/* Header to first block is 24px on every dataset page (their containers space children differently). */
+.page-header + .card {
+  margin-top: 0;
+}
+
+.security > .page-header {
+  margin-bottom: 10px; /* + the grid's 14px gap */
+}
+
+.refresh > .page-header {
+  margin-bottom: 12px; /* + the column's 12px gap */
+}

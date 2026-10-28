@@ -105,12 +105,18 @@ export function Refresh() {
         </div>
       )}
 
+      <header className="page-header">
+        <div className="page-header-text">
+          <h1>Refresh</h1>
+          <p className="muted">
+            New data replaces old rows (or is appended, if you choose); the Applied Steps, model and dashboards stay as they
+            are. Every refresh is checked, and dashboards only change when a version is published.
+          </p>
+        </div>
+      </header>
+
       <section className="card refresh-settings">
-        <h2>Refresh</h2>
-        <p className="muted small">
-          New data replaces old rows (or is appended, if you choose); the Applied Steps, model and dashboards stay as they are.
-          Every refresh is checked, and dashboards only change when a version is published.
-        </p>
+        <h2 className="section-title">Schedule</h2>
         {!pullable.length && (
           <p className="notice">
             This dataset has only uploaded files, so there's nothing to pull on a schedule. Refresh them with "Replace file" below,
