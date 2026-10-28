@@ -8446,3 +8446,31 @@ button,
 .notice.warn {
   border-color: var(--warn);
 }
+
+/* The export preview on a narrow screen fits the screen; printing (print media) keeps the A4 width above. */
+@media screen and (max-width: 1080px) {
+  .export {
+    width: auto;
+    padding: 12px 16px 32px;
+  }
+
+  .export-sheet {
+    padding: 16px;
+    min-height: 0;
+  }
+}
+
+@media screen and (max-width: 700px) {
+  .export-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .export-toolbar button,
+  .export-toolbar a {
+    white-space: nowrap;
+  }
+
+  .export-toolbar > :last-child {
+    flex-basis: 100%;
+  }
+}

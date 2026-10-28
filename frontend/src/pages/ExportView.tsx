@@ -58,7 +58,7 @@ export function ExportView() {
     );
   }
 
-  const exported = new Date().toLocaleString();
+  const exported = new Date().toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
   return (
     <div className="export">
       <div className="export-toolbar no-print">
@@ -81,13 +81,13 @@ export function ExportView() {
         <h1>{state.name}</h1>
         <dl>
           <dt>Data as of</dt>
-          <dd>{state.as_of ?? "unknown"}</dd>
+          <dd>{state.as_of ? formatDay(state.as_of) : "unknown"}</dd>
           <dt>Dataset</dt>
           <dd>
             {state.dataset?.name} (version {state.dataset?.version})
           </dd>
           <dt>Published</dt>
-          <dd>{state.published_at ? new Date(state.published_at).toLocaleString() : "—"}</dd>
+          <dd>{state.published_at ? new Date(state.published_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "—"}</dd>
           <dt>Exported</dt>
           <dd>{exported}</dd>
         </dl>
