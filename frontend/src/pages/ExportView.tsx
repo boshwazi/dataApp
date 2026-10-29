@@ -60,7 +60,7 @@ export function ExportView() {
 
   const exported = new Date().toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
   return (
-    <div className="export">
+    <div className="export light-surface">
       <div className="export-toolbar no-print">
         <Link to={`/dashboards/${dashboardId}?view=published`}>← Back</Link>
         <span className="spacer" />

@@ -31,7 +31,7 @@ import {
 import { ActivityDrawer } from "../components/ActivityDrawer";
 import { InstructionsDialog } from "../components/InstructionsDialog";
 import { AskPanel } from "../components/AskPanel";
-import { Chart, SERIES, TOKENS } from "../components/Chart";
+import { Chart, LIGHT_TOKENS as TOKENS, SERIES } from "../components/Chart";
 import { ChatPanel, type ChatHandle } from "../components/ChatPanel";
 import { COLUMNS, firstFit, layoutOf, MiniPage, overlaps } from "../components/miniPage";
 import { rememberOpened } from "../components/recent";
@@ -685,7 +685,7 @@ function ReportCanvas(props: {
   const guides = drag && boxes[drag.id] ? alignments(boxes[drag.id], Object.entries(boxes).filter(([id]) => id !== drag.id).map(([, b]) => b)) : null;
 
   return (
-    <div className="report-page-frame">
+    <div className="report-page-frame light-surface">
       <header className="report-head">
         <h2>{page.title}</h2>
         {page.summary && (
@@ -1544,10 +1544,10 @@ export function ChartVisual(props: {
       {option &&
         (fill ? (
           <div className="chart-fill">
-            <Chart option={option} height="100%" label={`${visual.title} chart`} onPick={pickName} />
+            <Chart option={option} height="100%" label={`${visual.title} chart`} onPick={pickName} surface="light" />
           </div>
         ) : (
-          <Chart option={option} height={height} label={`${visual.title} chart`} onPick={pickName} />
+          <Chart option={option} height={height} label={`${visual.title} chart`} onPick={pickName} surface="light" />
         ))}
       <Footnotes data={data} groups={groups} />
     </>

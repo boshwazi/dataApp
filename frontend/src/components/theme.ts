@@ -46,7 +46,19 @@ export function useTheme(): "light" | "dark" {
   return useSyncExternalStore(subscribe, () => (document.documentElement.dataset.theme === "dark" ? "dark" : "light"));
 }
 
+/** Where something is painted: on the app's theme, or on a light surface (dashboards stay light in every theme). */
+export type Surface = "theme" | "light";
+
+let lightProbe: HTMLElement | null = null;
+
 /** A token's current value, for libraries that need real colours rather than CSS variables. */
-export function token(name: string): string {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+export function token(name: string, surface: Surface = "theme"): string {
+  if (surface === "light" && !lightProbe?.isConnected) {
+    // An empty element with the light surface's tokens, read like any other.
+    lightProbe = document.createElement("div");
+    lightProbe.className = "light-surface";
+    lightProbe.hidden = true;
+    document.body.appendChild(lightProbe);
+  }
+  return getComputedStyle(surface === "light" ? lightProbe! : document.documentElement).getPropertyValue(name).trim();
 }

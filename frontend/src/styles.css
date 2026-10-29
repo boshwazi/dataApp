@@ -34,15 +34,14 @@
   --radius: 6px;
   --radius-lg: 8px;
   --shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
-  --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --mono: "JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+  --font: "Host Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Fragment Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
   font-family: var(--font);
   font-size: 14px;
   line-height: 1.5;
   color: var(--text);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
-  font-feature-settings: "cv11", "ss01";
 }
 
 * {
@@ -2689,7 +2688,7 @@ button.secondary.danger:hover:not(:disabled) {
   gap: 9px;
   font-size: 22px;
   font-weight: 700;
-  letter-spacing: -0.045em; /* the wordmark: Inter Bold, set tight */
+  letter-spacing: -0.045em; /* the wordmark: Host Grotesk Bold, set tight */
 }
 
 .auth-providers,
@@ -3938,32 +3937,33 @@ button.workspace:hover {
   --elevation: 0 14px 34px rgba(15, 26, 43, 0.18);
 }
 
-/* Dark: chosen in the workspace menu, or following the computer's setting. */
+/* Dark (Night): chosen in the workspace menu, or following the computer's setting. A blue-biased ink, the
+   brand blue lifted for a dark ground, and yellow kept for the AI. */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #0d121b;
-  --panel: #141b27;
-  --panel-2: #18202d;
-  --hover: #1d2634;
-  --grid-line: #212a39;
-  --canvas: #0a0f17;
-  --dots: #263042;
-  --border: #263041;
-  --border-strong: #344055;
-  --border-hover: #46536a;
-  --neutral-mark: #3a465a;
-  --text: #e6eaf0;
-  --text-2: #c9d1dc;
-  --muted: #9aa5b4;
-  --faint: #6f7b8c;
-  --accent: #3d78e6;
-  --accent-hover: #5a8eee;
-  --selected: rgba(91, 141, 239, 0.16);
-  --selected-strong: rgba(91, 141, 239, 0.3);
-  --accent-line: #2f4a7a;
-  --notice: #172238;
-  --notice-line: #2a3d60;
-  --ok: #3fbf8f;
+  --bg: #080b14;
+  --panel: #0e1421;
+  --panel-2: #121a2a;
+  --hover: #172033;
+  --grid-line: #1a2333;
+  --canvas: #060912;
+  --dots: #1d2738;
+  --border: #1c2638;
+  --border-strong: #2a3650;
+  --border-hover: #3b4965;
+  --neutral-mark: #344058;
+  --text: #eef2fa;
+  --text-2: #c9d2e4;
+  --muted: #8a95ab;
+  --faint: #66718a;
+  --accent: #3d7bff;
+  --accent-hover: #5c91ff;
+  --selected: rgba(61, 123, 255, 0.16);
+  --selected-strong: rgba(61, 123, 255, 0.3);
+  --accent-line: #22407e;
+  --notice: #121c33;
+  --notice-line: #243a66;
+  --ok: #34d399;
   --ok-bg: rgba(63, 191, 143, 0.14);
   --ok-line: #2a6b53;
   --bad: #f07a6e;
@@ -3984,9 +3984,61 @@ button.workspace:hover {
   --tag-num-line: #3f3270;
   --changed: rgba(91, 141, 239, 0.14);
   --chart-accent: #5b9bd5;
-  --sidebar: #090d14;
+  --sidebar: #05080f;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
   --elevation: 0 14px 34px rgba(0, 0, 0, 0.5);
+}
+
+/* Dashboards stay light in every theme: the page sits on a light surface, the way it prints and exports. */
+:root[data-theme="dark"] .light-surface {
+  color-scheme: light;
+  color: var(--text);
+  --bg: #f6f7f9;
+  --panel: #ffffff;
+  --panel-2: #fafbfc;
+  --hover: #f0f2f5;
+  --grid-line: #eef0f3;
+  --canvas: #e9ecf1;
+  --dots: #d9dde4;
+  --border: #e4e7ec;
+  --border-strong: #cfd4dc;
+  --border-hover: #b7bfca;
+  --neutral-mark: #c7ccd4;
+  --text: #16202e;
+  --text-2: #2b3646;
+  --muted: #5d6878;
+  --faint: #8a94a3;
+  --accent: #1b5fd1;
+  --accent-hover: #154ca8;
+  --selected: #e9f0fc;
+  --selected-strong: #cfdcf0;
+  --accent-line: #c4d6f6;
+  --notice: #eef3fc;
+  --notice-line: #cbd9f3;
+  --ok: #067a57;
+  --ok-bg: #e3f4ec;
+  --ok-line: #b7e3d0;
+  --bad: #b42318;
+  --bad-bg: #fdf1f0;
+  --bad-line: #f0b8b8;
+  --warn: #9a3412;
+  --warn-bg: #ffedd5;
+  --warn-dot: #f59e0b;
+  --ai: #854d0e;
+  --ai-bg: #fef3c7;
+  --ai-soft: #fef6dc;
+  --ai-bg-strong: #fdeeb9;
+  --ai-border: #f1d77a;
+  --ai-line: #eab308;
+  --tag-date: #0b6e99;
+  --tag-date-line: #b8dcef;
+  --tag-num: #6b46c1;
+  --tag-num-line: #d8cdf3;
+  --changed: #eef4fe;
+  --chart-accent: #005a9c;
+  --sidebar: #0f1a2b;
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --elevation: 0 14px 34px rgba(15, 26, 43, 0.18);
 }
 
 /* Shell */
@@ -9286,4 +9338,94 @@ th.num .sort-th {
 
 .home-head + .home-section > .section-hint:first-child + .list-head .status-tabs {
   margin-top: 0;
+}
+
+/* Night components ------------------------------------------------------------------------------------------- */
+
+/* Buttons are tactile: a lit top edge, a real edge underneath, and a small press. Only the colours change by theme. */
+:root {
+  --btn-edge: rgba(16, 24, 40, 0.22);
+  --btn-shadow: 0 1px 2px rgba(16, 24, 40, 0.12);
+  --btn-light: rgba(255, 255, 255, 0.22);
+  --btn2-top: #ffffff;
+  --btn2-bottom: #f6f7f9;
+  --btn2-light: #ffffff;
+  --btn2-shadow: 0 1px 2px rgba(16, 24, 40, 0.07);
+  /* Panel cards: a soft top light and an edge (felt more than seen on white) */
+  --card-top: rgba(255, 255, 255, 0);
+  --card-edge: rgba(255, 255, 255, 0.9);
+  --card-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 10px 24px -18px rgba(16, 24, 40, 0.18);
+  --card-radius: 10px;
+}
+:root[data-theme="dark"] {
+  --btn-edge: rgba(0, 0, 0, 0.55);
+  --btn-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --btn-light: rgba(255, 255, 255, 0.24);
+  --btn2-top: rgba(255, 255, 255, 0.07);
+  --btn2-bottom: rgba(255, 255, 255, 0.03);
+  --btn2-light: rgba(255, 255, 255, 0.09);
+  --btn2-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --card-top: rgba(255, 255, 255, 0.035);
+  --card-edge: rgba(255, 255, 255, 0.06);
+  --card-shadow: 0 20px 40px -24px rgba(0, 0, 0, 0.8);
+}
+:root[data-theme="dark"] .light-surface {
+  --btn-edge: rgba(16, 24, 40, 0.22);
+  --btn-shadow: 0 1px 2px rgba(16, 24, 40, 0.12);
+  --btn2-top: #ffffff;
+  --btn2-bottom: #f6f7f9;
+  --btn2-light: #ffffff;
+  --btn2-shadow: 0 1px 2px rgba(16, 24, 40, 0.07);
+  --card-top: rgba(255, 255, 255, 0);
+  --card-edge: rgba(255, 255, 255, 0.9);
+  --card-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 10px 24px -18px rgba(16, 24, 40, 0.18);
+}
+
+/* Primary: the one blue action on a screen. Only plain buttons and the blue button classes: tabs, menus,
+   chips and tools keep their own look. */
+button:where(:not([class]):not([role]):not(:is(.tabs, .segmented, .menu-list, .page-tabs, .stage-tabs, .type-chips, .catalog-actions, .menu, .theme-picker, .slicer-bar, .chat-head, .topbar-slot) *), .primary-compact, .compact:not(.secondary):not(.link), .small-button:not(.secondary):not(.link):not(.danger), .confirm:not(.secondary), .save:not(.secondary), .join-button:not(.secondary)),
+a.button:not(.secondary) {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 86%, #fff), var(--accent));
+  border-color: color-mix(in srgb, var(--accent) 70%, #000);
+  box-shadow: inset 0 1px 0 var(--btn-light), var(--btn-shadow);
+}
+button:where(:not([class]):not([role]):not(:is(.tabs, .segmented, .menu-list, .page-tabs, .stage-tabs, .type-chips, .catalog-actions, .menu, .theme-picker, .slicer-bar, .chat-head, .topbar-slot) *), .primary-compact, .compact:not(.secondary):not(.link), .small-button:not(.secondary):not(.link):not(.danger), .confirm:not(.secondary), .save:not(.secondary), .join-button:not(.secondary)):hover:not(:disabled),
+a.button:not(.secondary):hover {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent-hover) 86%, #fff), var(--accent-hover));
+  border-color: color-mix(in srgb, var(--accent-hover) 70%, #000);
+}
+
+/* Secondary: neutral, with the same edges */
+button.secondary,
+a.button.secondary {
+  background: linear-gradient(180deg, var(--btn2-top), var(--btn2-bottom)), var(--panel);
+  box-shadow: inset 0 1px 0 var(--btn2-light), var(--btn2-shadow);
+}
+button.secondary:hover:not(:disabled),
+a.button.secondary:hover {
+  background: var(--hover);
+}
+
+button,
+a.button {
+  transition: transform 160ms var(--ease-out), background-color 160ms, border-color 160ms, box-shadow 160ms;
+}
+button:where(:not(.link):not(.chip):not([role="tab"]):not([role="menuitem"]):not(.tree-row):not(.col-head)):active:not(:disabled) {
+  transform: scale(0.97);
+}
+button:disabled {
+  box-shadow: none;
+}
+
+/* Cards are panels: a soft top light, an edge, and a shadow that sits under them */
+.card,
+.empty-state,
+.visual,
+.chat-panel,
+.auth-card,
+.settings-section,
+.dialog {
+  border-radius: var(--card-radius);
+  background: linear-gradient(180deg, var(--card-top), transparent 60%), var(--panel);
+  box-shadow: inset 0 1px 0 var(--card-edge), var(--card-shadow);
 }

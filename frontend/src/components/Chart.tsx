@@ -4,40 +4,46 @@ import { GridComponent, LegendComponent, TooltipComponent } from "echarts/compon
 import * as echarts from "echarts/core";
 import { SVGRenderer } from "echarts/renderers";
 import type { EChartsCoreOption } from "echarts/core";
-import { token, useTheme } from "./theme";
+import { token, useTheme, type Surface } from "./theme";
 
 echarts.use([BarChart, LineChart, PieChart, ScatterChart, GridComponent, LegendComponent, TooltipComponent, SVGRenderer]);
 
-// House style colours, read from the theme tokens so charts follow light and dark.
-export const TOKENS = {
-  get text() {
-    return token("--text") || "#1F2937";
-  },
-  get muted() {
-    return token("--muted") || "#6B7280";
-  },
-  get accent() {
-    return token("--chart-accent") || "#005A9C";
-  },
-  get context() {
-    return token("--faint") || "#9CA3AF";
-  },
-  get grid() {
-    return token("--grid-line") || "#E5E7EB";
-  },
-  get good() {
-    return token("--ok") || "#007A5E";
-  },
-  get bad() {
-    return token("--warn") || "#B54A00";
-  },
-};
+// House style colours, read from the theme tokens so charts follow light and dark. LIGHT_TOKENS reads the light
+// surface's values, for dashboards, which stay light in every theme.
+function palette(surface: Surface) {
+  return {
+    get text() {
+      return token("--text", surface) || "#1F2937";
+    },
+    get muted() {
+      return token("--muted", surface) || "#6B7280";
+    },
+    get accent() {
+      return token("--chart-accent", surface) || "#005A9C";
+    },
+    get context() {
+      return token("--faint", surface) || "#9CA3AF";
+    },
+    get grid() {
+      return token("--grid-line", surface) || "#E5E7EB";
+    },
+    get good() {
+      return token("--ok", surface) || "#007A5E";
+    },
+    get bad() {
+      return token("--warn", surface) || "#B54A00";
+    },
+  };
+}
+export const TOKENS = palette("theme");
+export const LIGHT_TOKENS = palette("light");
 // Okabe-Ito order, colour-blind safe; never more than 6 series.
 export const SERIES = ["#0072B2", "#E69F00", "#009E73", "#56B4E9", "#D55E00", "#CC79A7"];
 
 /** One ECharts instance, resized with its box and disposed on unmount. */
-export function Chart(props: { option: EChartsCoreOption; height: number | string; label: string; onPick?: (name: string) => void }) {
-  const { option, height, label } = props;
+export function Chart(props: { option: EChartsCoreOption; height: number | string; label: string; onPick?: (name: string) => void; surface?: Surface }) {
+  const { option, height, label, surface = "theme" } = props;
+  const colours = surface === "light" ? LIGHT_TOKENS : TOKENS;
   const box = useRef<HTMLDivElement>(null);
   const chart = useRef<echarts.ECharts | null>(null);
   const theme = useTheme();
@@ -67,16 +73,17 @@ export function Chart(props: { option: EChartsCoreOption; height: number | strin
   useEffect(() => {
     chart.current?.setOption(
       {
-        textStyle: { fontFamily: "system-ui, 'Segoe UI', sans-serif", color: TOKENS.text },
+        textStyle: { fontFamily: "'Host Grotesk', system-ui, 'Segoe UI', sans-serif", color: colours.text },
         animation: false,
         ...option,
         tooltip: option.tooltip
-          ? { backgroundColor: token("--panel"), borderColor: token("--border"), textStyle: { color: TOKENS.text }, ...(option.tooltip as object) }
+          ? { backgroundColor: token("--panel", surface), borderColor: token("--border", surface), textStyle: { color: colours.text }, ...(option.tooltip as object) }
           : undefined,
       },
       true,
     );
-  }, [option, theme]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [option, theme, surface]);
 
   /** On bar, column and line charts a click anywhere in a category's band picks it, as in Power BI. */
   function onClick(e: ReactMouseEvent<HTMLDivElement>) {
