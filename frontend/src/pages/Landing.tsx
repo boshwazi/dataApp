@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Check, Eye, FileDown, FileUp, Lock, ShieldCheck, Sparkles, Undo2 } from "lucide-react";
 import { BrandMark } from "../components/ui";
 import { AutopilotLoop } from "./AutopilotLoop";
@@ -537,10 +537,8 @@ const FAQ = [
 ];
 
 export function Landing() {
-  // Night by default; ?look=light shows the light version while the two are compared.
-  const look = new URLSearchParams(useLocation().search).get("look") === "light" ? "light" : "night";
   return (
-    <div className="landing" data-look={look}>
+    <div className="landing" data-look="light">
       <a className="skip-link" href="#lp-main">Skip to content</a>
       <header className="lp-header">
         <div className="lp-wrap lp-header-row">

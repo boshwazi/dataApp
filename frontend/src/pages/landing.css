@@ -1,5 +1,6 @@
-/* The landing page for visitors ("Night"). Loaded with the page only, and scoped to .landing so the app's look is
-   untouched. Dark whatever the app's theme: a blue-biased ink, one light falling on the product, Host Grotesk, the
+/* The landing page for visitors. Loaded with the page only, and scoped to .landing so the app's look is untouched.
+   It shows light (the data-look="light" rules near the end), whatever the app's theme. The rules before them are the
+   Night palette it was designed in: the light look overrides its tokens, so both stay consistent. Host Grotesk, the
    brand blue for data and yellow only for the AI. */
 
 .landing {
