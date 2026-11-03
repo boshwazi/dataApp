@@ -108,7 +108,7 @@ Moving around:
 Projects from earlier versions are moved over automatically. Each becomes a dataset, plus a
 dashboard if it had report pages.
 
-## Power BI import and export
+## Power BI import
 
 **Import:** in Get Data, choose **Import from Power BI**.
 
@@ -141,15 +141,8 @@ run Power BI's connectors and never sees their credentials.
 - **DirectQuery tables** hold no data in the file, so they're listed as needing data.
 - **Live-connection reports** (a report on a model in the Power BI service) are explained instead of imported.
 
-**Export:** on a dataset, choose **⋯ → Download for Power BI**. You get a `.pbip` project in a zip:
-
-- the model in TMDL, with measures written as DAX
-- relationships, and the Date table marked as a date table
-- each table's clean data as Parquet
-
-Unzip it, open the `.pbip` in Power BI Desktop, set the `DataFolder` parameter if you unzipped it elsewhere, and click Refresh. For a `.pbix`, use **File → Save as**.
-
-Tested both ways with a real `.pbix` (60,000 sales rows): every measure gave the same result, by year, in datawazi and in Power BI Desktop.
+There is no export back to Power BI (removed 3 November 2026): once work is in datawazi it isn't limited to
+what Power BI can represent, so measures, charts and AI answers can go beyond it.
 
 ## Linked tables, certified datasets and lineage
 

@@ -11,7 +11,7 @@ from collections import OrderedDict
 from collections.abc import Callable
 from contextlib import contextmanager
 
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from . import (
@@ -26,8 +26,6 @@ from . import (
     mail,
     model,
     notices,
-    pbi_dax,
-    pbi_export,
     publishing,
     report,
     security,
@@ -364,25 +362,6 @@ def build_router(
             notices.notify(preferences, "shared", f"{dash['name']} was shared with you",
                            link=f"/dashboards/{dashboard_id}", to=people)
         return summary(dash, datasets)
-
-    @router.get("/{dashboard_id}/powerbi")
-    def export_powerbi(dashboard_id: str):
-        """The dashboard as a Power BI project: its dataset's published model and data, and its pages as report pages."""
-        if viewer():
-            raise HTTPException(403, "Only creators can download a dashboard for Power BI.")
-        dash = visible(dashboard_id)
-        with opened(dash) as (dataset, frozen, con):
-            if frozen is None:
-                raise HTTPException(400, "Publish the dataset first.")
-            pages = (dash.get("published") or dash["draft"])["pages"]
-            try:
-                name, files = pbi_export.build(con, frozen, pages, title=dash["name"])
-            except (model.ModelError, pbi_dax.Untranslatable) as exc:
-                raise HTTPException(400, str(exc)) from exc
-        return Response(pbi_export.zip_project(name, files), media_type="application/zip",
-                        headers={"Content-Disposition": f'attachment; filename="{name}.zip"'})
-
-    # Digests
 
     @router.get("/{dashboard_id}/digest")
     def get_digest(dashboard_id: str):

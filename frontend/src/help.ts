@@ -158,15 +158,14 @@ Relationships and measures come along, and the AI looks for links between the ta
   },
   {
     id: "powerbi",
-    title: "Working with Power BI",
-    summary: "Import .pbix files, export models and dashboards.",
+    title: "Bringing in Power BI work",
+    summary: "Import .pbix files and .pbip projects.",
     for: "creators",
     body: `
-- **Import**: on **Get Data**, import a .pbix (model and data) or a .pbip project. DAX measures are translated; the import report lists any that weren't.
-- **Export a dataset**: **More actions > Download for Power BI** gives a .pbip project with the model in TMDL, measures in DAX and the data as Parquet files.
-- **Export a dashboard**: on a dashboard, **More actions > Download for Power BI** adds its pages as Power BI report pages.
+- **Import**: on **Get Data**, import a .pbix (model and data) or a .pbip project as a .zip. Tables, relationships and measures come across; DAX measures are translated, and the import report lists any that weren't, with the reason.
+- **Refresh from a newer file**: upload a newer .pbix to replace the data and keep the model.
 
-Unzip the project, open the .pbip in Power BI Desktop, set the **DataFolder** parameter to the project's data folder if you moved it, and refresh.
+From there everything happens in datawazi, which isn't limited to what Power BI can do.
 `,
   },
   {

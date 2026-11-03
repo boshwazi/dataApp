@@ -390,7 +390,7 @@ def md_context(ctx: Ctx) -> dict:
         "modelling_rules": "Several fact tables are fine: relate each to the shared dimensions (Date, Product, "
                            "Customer...), never fact to fact. Measures from different facts combine when split by "
                            "a shared dimension's column.",
-        "measure_rules": "aggregate: aggregation (sum, average, count, count_distinct, min, max) over a [Column] "
+        "measure_rules": "aggregate: aggregation (sum, average, count, count_distinct, min, max, median, stddev, variance, mode) over a [Column] "
                          "expression of ONE table; formula: arithmetic over [Measure] names; Expressions may also use comparisons (= <> < > <= >=), IF(condition, then, else), SWITCH(value, match, result, ..., default), AND, OR and NOT; text only as something to compare with, e.g. IF([Region] = \"North\", [Amount], 0). a 'time' measure works out another measure over time: calc ytd, qtd, mtd (to date), prior_year (same period last year), prior_year_ytd, or rolling with months, e.g. {kind: time, base: Revenue, calc: prior_year}; it needs the date table. Year-on-year change is then a formula, e.g. ([Revenue] - [Revenue LY]) / [Revenue LY]. format.type: number, "
                          "integer, currency (currency: 'RM'), percent.",
     }
@@ -632,7 +632,7 @@ def system_prompt(stage: Stage, mode: str = "full") -> str:
         "Changes apply right after your reply unless the app refuses them, so say what you are doing. "
     )
     return timing + (
-        f"You are {stage.role}, inside an AI data analytics app like Power BI. You can only change this stage, "
+        f"You are {stage.role}, inside an AI data analytics app. You can only change this stage, "
         "using the listed actions; earlier stages are shown read-only for context. If the user asks a question, "
         "answer it from the state you are given (never invent numbers) and return no actions. If they ask for a "
         "change, return the actions and say briefly what you will do. If the request belongs to another stage, "

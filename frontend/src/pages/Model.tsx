@@ -36,7 +36,8 @@ type Draft = {
   useRelationship: string | null;
 };
 
-// The formula bar writes aggregates the Power BI way: SUM([Qty] * [Price]), COUNTROWS(), DISTINCTCOUNT([Customer]).
+// The formula bar writes aggregates as functions: SUM([Qty] * [Price]), COUNTROWS(), DISTINCTCOUNT([Customer]),
+// MEDIAN([Days to pay]), STDEV([Amount]), VAR([Amount]), MODE([Qty]).
 const FUNCTIONS: Record<Aggregation, string> = {
   sum: "SUM",
   average: "AVERAGE",
@@ -44,8 +45,12 @@ const FUNCTIONS: Record<Aggregation, string> = {
   count_distinct: "DISTINCTCOUNT",
   min: "MIN",
   max: "MAX",
+  median: "MEDIAN",
+  stddev: "STDEV",
+  variance: "VAR",
+  mode: "MODE",
 };
-const BY_FUNCTION: Record<string, Aggregation> = { SUM: "sum", AVERAGE: "average", AVG: "average", COUNT: "count", COUNTROWS: "count", DISTINCTCOUNT: "count_distinct", MIN: "min", MAX: "max" };
+const BY_FUNCTION: Record<string, Aggregation> = { SUM: "sum", AVERAGE: "average", AVG: "average", COUNT: "count", COUNTROWS: "count", DISTINCTCOUNT: "count_distinct", MIN: "min", MAX: "max", MEDIAN: "median", STDEV: "stddev", VAR: "variance", MODE: "mode" };
 
 // Time intelligence over another measure: YTD([Revenue]), LASTYEAR([Revenue]), ROLLING([Revenue], 3).
 const TIME_FUNCTIONS: Record<string, TimeCalc> = { YTD: "ytd", QTD: "qtd", MTD: "mtd", LASTYEAR: "prior_year", LASTYEARYTD: "prior_year_ytd", ROLLING: "rolling" };

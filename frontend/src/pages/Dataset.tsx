@@ -5,17 +5,16 @@ import {
   api,
   ApiError,
   datasetChat,
-  powerbiApi,
   type BrokenVisual,
   type Dataset as DatasetData,
   type DatasetStage,
 } from "../api";
-import { BadgeCheck, FileDown, ScrollText, GitBranch, History, Layers, MoreHorizontal, Pencil, RefreshCw, ShieldCheck, Sparkles } from "lucide-react";
+import { BadgeCheck, ScrollText, GitBranch, History, Layers, MoreHorizontal, Pencil, RefreshCw, ShieldCheck, Sparkles } from "lucide-react";
 import { ActivityDrawer } from "../components/ActivityDrawer";
 import { InstructionsDialog } from "../components/InstructionsDialog";
 import { ChatPanel, type ChatHandle } from "../components/ChatPanel";
 import { ErrorBoundary } from "../components/ErrorBoundary";
-import { Menu, PageLoading, TopbarActions, powerBISteps, useCrumbs, useDialogs, useShortcut, useToast } from "../components/ui";
+import { Menu, PageLoading, TopbarActions, useCrumbs, useDialogs, useShortcut, useToast } from "../components/ui";
 
 // The dataset half of the pipeline, in Power BI order. Dashboards build on what is published here.
 const STAGES: { path: string; key: DatasetStage; name: string; suggestions: string[] }[] = [
@@ -242,17 +241,6 @@ export function Dataset() {
             { label: "Lineage", icon: <GitBranch size={16} aria-hidden="true" />, onSelect: () => navigate("lineage") },
             { label: "Security (who sees which rows)", icon: <ShieldCheck size={16} aria-hidden="true" />, onSelect: () => navigate("security") },
             { label: "Activity", icon: <History size={16} aria-hidden="true" />, onSelect: () => setShowActivity(true) },
-            {
-              label: "Download for Power BI",
-              icon: <FileDown size={16} aria-hidden="true" />,
-              onSelect: () =>
-                void powerbiApi
-                  .download(dataset.id, dataset.name)
-                  .then(() =>
-                    dialogs.confirm({ title: "Unzip it before opening", body: powerBISteps(dataset.name), confirmLabel: "Got it", notice: true }),
-                  )
-                  .catch((e) => toast((e as Error).message, "error")),
-            },
             ...(status.published
               ? [{ label: "Extend this dataset", icon: <Layers size={16} aria-hidden="true" />, onSelect: () => void extendIt() }]
               : []),

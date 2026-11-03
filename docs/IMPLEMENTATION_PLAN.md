@@ -1,5 +1,8 @@
 # Implementation Plan — datawazi
 
+> **3 November 2026:** the Power BI export (dataset `.pbip` download and dashboard report pages) was removed so
+> datawazi isn't limited to what Power BI can represent. Import from `.pbix` and `.pbip` stays.
+
 **datawazi** is an AI-powered take on Power BI: the same Get Data → Transform → Model → Report flow,
 but the AI does every step. There are no manual tools. Users steer each stage in plain
 English through a chat panel whose powers are scoped to that stage (similar to Snowflake

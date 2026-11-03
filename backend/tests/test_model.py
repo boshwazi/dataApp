@@ -178,12 +178,24 @@ def test_measures_compute_and_format_is_kept(p):
     assert revenue["format"]["currency"] == "RM" and revenue["label"] == "sum of [qty] * [price] in sales"
 
 
+
+def test_statistics_beyond_sums_and_averages(p):
+    """Median, spread and the most common quantity, worked out on the four orders' quantities (2, 1, 5, 1)."""
+    for aggregation, expression in (("median", "[qty]"), ("stddev", "[qty]"), ("variance", "[qty]"), ("mode", "[qty]")):
+        ok(p.measure(name=aggregation.title(), kind="aggregate", table="sales", aggregation=aggregation, expression=expression))
+    values = {m["name"]: m["value"] for m in p.state()["measures"]}
+    assert values["Median"] == 1.5 and values["Mode"] == 1
+    assert round(values["Variance"], 4) == 3.5833 and round(values["Stddev"], 4) == 1.893
+    labels = {m["name"]: m["label"] for m in p.state()["measures"]}
+    assert labels["Stddev"].startswith("standard deviation of") and labels["Mode"].startswith("most common value of")
+
 @pytest.mark.parametrize(
     "body, message",
     [
         ({**REVENUE, "expression": "[customer] * 2"}, "number columns"),
         ({**REVENUE, "expression": "[missing]"}, "has no column"),
-        ({**REVENUE, "aggregation": "median"}, "Aggregation must be"),
+        ({**REVENUE, "aggregation": "percentile_99"}, "Aggregation must be"),
+        ({**REVENUE, "aggregation": "median", "expression": "[customer]"}, "number columns"),
         ({**REVENUE, "format": {"type": "money"}}, "Format type"),
         ({"name": "X", "kind": "formula", "expression": "[Nope] * 2"}, "not a measure"),
         ({"name": "X", "kind": "magic"}, "kind must be"),

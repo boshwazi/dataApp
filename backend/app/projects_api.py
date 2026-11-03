@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Response, UploadFile
+from fastapi import APIRouter, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
@@ -17,8 +17,6 @@ from . import (
     links,
     llm,
     model,
-    pbi_dax,
-    pbi_export,
     pbi_import,
     pbi_model,
     publishing,
@@ -30,12 +28,6 @@ from . import (
 from .dashboards import DashboardStore
 from .projects import NotFound, ProjectStore
 from .settings import ProviderSettings, SettingsStore
-
-
-def safe_filename(name: str) -> str:
-    """A name fit for a Content-Disposition header: no quotes, slashes or control characters."""
-    cleaned = "".join(c if c.isprintable() and c not in '"\\/;' else "_" for c in name).strip()
-    return cleaned[:120] or "dataset"
 
 MAX_UPLOAD_BYTES = 200 * 1024 * 1024
 PREVIEW_LIMIT = 500
@@ -522,20 +514,6 @@ def build_router(
             activity.changed(project, "model", f"Added the {pbi.name} model from Power BI: "
                              f"{len(report['measures'])} measures, {sum(r['added'] for r in report['relationships'])} relationships")
         return {"report": report, "waiting_for": waiting}
-
-    @router.get("/{project_id}/powerbi/export")
-    def export_powerbi(project_id: str):
-        """The dataset as a Power BI project (.pbip) in a zip: TMDL model, DAX measures and Parquet data."""
-        load(project_id)
-        try:
-            with store.connect(project_id) as con:
-                project = load(project_id)
-                name, files = pbi_export.build(con, project)
-        except (model.ModelError, pbi_dax.Untranslatable) as exc:
-            raise HTTPException(400, str(exc)) from exc
-        data = pbi_export.zip_project(name, files)
-        return Response(data, media_type="application/zip",
-                        headers={"Content-Disposition": f'attachment; filename="{safe_filename(name)}.zip"'})
 
     @router.get("/{project_id}/lineage")
     def get_lineage(project_id: str):

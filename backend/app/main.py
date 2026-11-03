@@ -17,9 +17,9 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from starlette.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
+from starlette.middleware.gzip import GZipMiddleware
 
 from . import (
     ai_report,
@@ -39,7 +39,6 @@ from . import (
     workspaces,
 )
 from .auth import AuthConfig, AuthGuard
-from .protect import SecurityHeaders
 from .autopilot import Autopilot
 from .autopilot import build_router as build_autopilot_router
 from .billing_api import build_router as build_billing_router
@@ -54,6 +53,7 @@ from .model_api import build_router as build_model_router
 from .payments import ChipProvider
 from .projects import LOCAL_WORKSPACE, NotFound, ProjectStore
 from .projects_api import build_router, project_view
+from .protect import SecurityHeaders
 from .semantic import build_router as build_semantic_router
 from .settings import ProviderSettings, SettingsStore, public_view
 from .supabase_admin import PublishedBackup, SupabaseAdmin, SupabaseError

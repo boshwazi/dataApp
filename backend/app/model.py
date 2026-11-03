@@ -25,7 +25,10 @@ DATE_ID = "date"
 DATE_NAME = "Date"
 HISTORY_LIMIT = 30
 MIN_MATCH_RATE = 0.5
-AGGREGATIONS = ("sum", "average", "count", "count_distinct", "min", "max")
+AGGREGATIONS = ("sum", "average", "count", "count_distinct", "min", "max", "median", "stddev", "variance", "mode")
+# Aggregations over numbers only (count and min/max also work on text and dates). Mode is kept to numbers too: a
+# measure's value is a number everywhere it is shown.
+NUMERIC_AGGREGATIONS = ("sum", "average", "median", "stddev", "variance", "mode")
 NUMERIC = ("integer", "decimal")
 FORMATS = ("number", "integer", "currency", "percent")
 FILTER_OPERATORS = (
@@ -364,7 +367,7 @@ def check_measure(found: dict[str, Table], measures: list[dict], measure: dict) 
             single = tree[0] == "ref"
             if not columns and measure["aggregation"] != "sum":
                 raise ModelError("The expression must use at least one column.")
-            if (not single or measure["aggregation"] in ("sum", "average")) and any(c.type not in NUMERIC for c in calculated):
+            if (not single or measure["aggregation"] in NUMERIC_AGGREGATIONS) and any(c.type not in NUMERIC for c in calculated):
                 raise ModelError(f"Measure '{measure['name']}': arithmetic needs number columns.")
         for item in measure.setdefault("filters", []):
             # A filter may name a related table: Revenue where customers[Segment] = Retail.
@@ -551,7 +554,8 @@ def describe_measure(measure: dict, names: dict[str, str]) -> str:
         return f"[{measure['base']}], {TIME_CALCS[measure['calc']]}"
     table = names.get(measure["table"], measure["table"])
     what = measure.get("expression") or "rows"
-    label = {"count_distinct": "distinct count", "average": "average"}.get(measure["aggregation"], measure["aggregation"])
+    label = {"count_distinct": "distinct count", "stddev": "standard deviation", "mode": "most common value"}.get(
+        measure["aggregation"], measure["aggregation"])
     text = f"{label} of {what} in {table}"
     if measure.get("filters"):
         parts = []
@@ -689,6 +693,10 @@ def aggregate_sql(found, relationships, measure: dict, group_by: list[dict], fil
         "max": f"max({expr})",
         "count": f"count({expr})" if expr else "count(*)",
         "count_distinct": f"count(DISTINCT {expr})",
+        "median": f"median({expr})",
+        "stddev": f"stddev_samp({expr})",
+        "variance": f"var_samp({expr})",
+        "mode": f"mode({expr})",
     }[aggregation]
     select = ", ".join(groups + [f"{value} AS v"])
     where = f" WHERE {' AND '.join(f'({c})' for c in conditions)}" if conditions else ""
@@ -765,6 +773,10 @@ def windowed_sql(found, relationships, measure: dict, group_by: list[dict], filt
         "max": f"max({expr})",
         "count": f"count({expr})" if expr else "count(a0.*)",
         "count_distinct": f"count(DISTINCT {expr})",
+        "median": f"median({expr})",
+        "stddev": f"stddev_samp({expr})",
+        "variance": f"var_samp({expr})",
+        "mode": f"mode({expr})",
     }[measure["aggregation"]]
     select = ", ".join(groups + [f"{value} AS v"])
     where = " WHERE " + " AND ".join(f"({c})" for c in conditions)

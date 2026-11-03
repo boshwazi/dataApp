@@ -485,13 +485,6 @@ def test_time_measures_need_the_date_table(p):
     assert "date table" in (broken["error"] or "")
 
 
-def test_time_measures_become_dax():
-    from app import pbi_dax
-    dax = pbi_dax.from_measure({"kind": "time", "base": "Revenue", "calc": "rolling", "months": 3}, None)
-    assert dax == "CALCULATE([Revenue], DATESINPERIOD('Date'[Date], MAX('Date'[Date]), -3, MONTH))"
-    assert pbi_dax.from_measure({"kind": "time", "base": "Revenue", "calc": "ytd"}, None) == "TOTALYTD([Revenue], 'Date'[Date])"
-
-
 REVENUE_PBI = {"name": "Revenue", "kind": "aggregate", "table": "Sales", "aggregation": "sum", "expression": "[Amount]", "filters": []}
 
 
@@ -538,14 +531,11 @@ def test_measures_filter_on_related_tables(p):
     assert bad.status_code == 400
 
 
-def test_power_bi_filters_on_related_tables_import_and_export():
+def test_power_bi_filters_on_related_tables_import():
     from app import pbi_dax
     ctx = pbi_dax.Context({"Sales": ["Amount"], "Customers": ["Segment"]}, {})
     proposal, _ = pbi_dax.to_measure("Retail", "CALCULATE(SUM(Sales[Amount]), Customers[Segment] IN {\"Retail\", \"SME\"})", ctx)
     assert proposal["filters"] == [{"column": "Segment", "operator": "in", "values": ["Retail", "SME"], "table": "Customers"}]
-    dax = pbi_dax.from_measure({**proposal, "table": "s1", "filters": [{**proposal["filters"][0], "table": "c1"}]},
-                               "Sales", {"s1": "Sales", "c1": "Customers"})
-    assert dax == "CALCULATE(SUM('Sales'[Amount]), KEEPFILTERS('Customers'[Segment] IN {\"Retail\", \"SME\"}))"
 
 
 # Conditions in measures (M12)
@@ -583,15 +573,13 @@ def test_bad_conditions_are_refused(p, expression, message):
     assert response.status_code == 400 and message in response.json()["detail"]
 
 
-def test_power_bi_conditions_import_and_export():
+def test_power_bi_conditions_import():
     from app import pbi_dax
     ctx = pbi_dax.Context({"Sales": ["Qty", "Price", "Region"]}, {"revenue": REVENUE_PBI})
     row, _ = pbi_dax.to_measure("Big", "SUMX(Sales, IF(Sales[Qty] >= 2 && Sales[Region] = \"North\", Sales[Qty] * Sales[Price], 0))", ctx)
     assert row["expression"] == 'IF(AND(([Qty] >= 2), ([Region] = "North")), ([Qty] * [Price]), 0)'
     tiers, _ = pbi_dax.to_measure("Tier", "SWITCH(TRUE(), [Revenue] > 100, 3, [Revenue] > 10, 2, 1)", ctx)
     assert tiers["expression"] == "IF(([Revenue] > 100), 3, IF(([Revenue] > 10), 2, 1))"
-    back = pbi_dax.from_measure({"kind": "formula", "expression": tiers["expression"]}, None)
-    assert back == "IF(([Revenue] > 100), 3, IF(([Revenue] > 10), 2, 1))"
     from app import model_expr
     assert model_expr.parse(row["expression"])  # what was imported parses
 
@@ -637,13 +625,11 @@ def test_a_measure_can_use_an_inactive_relationship(tmp_path):
     assert "was removed" in (broken["error"] or "")
 
 
-def test_power_bi_userelationship_imports_and_exports():
+def test_power_bi_userelationship_imports():
     from app import pbi_dax
     ctx = pbi_dax.Context({"Orders": ["Amount", "Shipped"], "Date": ["Date"]}, {})
     proposal, _ = pbi_dax.to_measure("Shipped", "CALCULATE(SUM(Orders[Amount]), USERELATIONSHIP(Orders[Shipped], 'Date'[Date]))", ctx)
     assert proposal["use_relationship"] == {"from": ["Orders", "Shipped"], "to": ["Date", "Date"]} and proposal["filters"] == []
-    dax = pbi_dax.from_measure({**proposal, "_uses": ("Orders", "Shipped", "Date", "Date")}, "Orders")
-    assert dax == "CALCULATE(SUM('Orders'[Amount]), USERELATIONSHIP('Orders'[Shipped], 'Date'[Date]))"
 
 
 @pytest.mark.parametrize("text, verified", [

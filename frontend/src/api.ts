@@ -358,7 +358,6 @@ export const powerbiApi = {
   },
   finish: (pid: string) =>
     request<{ report: PowerBIReport; waiting_for: string[] }>(`/api/datasets/${pid}/powerbi/apply`, { method: "POST" }),
-  download: (pid: string, name: string) => downloadFile(`/api/datasets/${pid}/powerbi/export`, `${name}.zip`),
 };
 
 export const api = {
@@ -550,7 +549,7 @@ export type Relationship = {
 
 export type MeasureFormat = { type: "number" | "integer" | "currency" | "percent"; decimals?: number; currency?: string };
 
-export type Aggregation = "sum" | "average" | "count" | "count_distinct" | "min" | "max";
+export type Aggregation = "sum" | "average" | "count" | "count_distinct" | "min" | "max" | "median" | "stddev" | "variance" | "mode";
 
 /** Only rows where…: on the measure's own table, or on a related `table`. */
 export type MeasureFilter = { table?: string; column: string; operator: string; value?: unknown; values?: unknown[] };
@@ -877,7 +876,6 @@ export const dashboardsApi = {
   remove: (id: string) => request<unknown>(rp(id), { method: "DELETE" }),
   publish: (id: string) => request<ReportState>(`${rp(id)}/publish`, { method: "POST" }),
   share: (id: string, sharing: Sharing) => request<DashboardSummary>(`${rp(id)}/sharing`, json("PUT", sharing)),
-  downloadPowerBI: (id: string, name: string) => downloadFile(`${rp(id)}/powerbi`, `${name}.zip`),
 };
 
 /** What the Report AI aims for: a template, the user's own words, or its pick of template. */

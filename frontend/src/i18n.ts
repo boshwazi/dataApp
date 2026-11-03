@@ -234,11 +234,6 @@ const MS: Record<string, string> = {
   "Email digest": "Ringkasan e-mel",
   Activity: "Aktiviti",
   "Export PDF": "Eksport PDF",
-  "Download for Power BI": "Muat turun untuk Power BI",
-  "Unzip it before opening": "Nyahzip dahulu sebelum dibuka",
-  "Got it": "Faham",
-  "Downloaded a Power BI project (.zip) with these pages. Unzip it and open the .pbip in Power BI Desktop.":
-    "Projek Power BI (.zip) dengan halaman ini dimuat turun. Nyahzip dan buka fail .pbip dalam Power BI Desktop.",
   "See all the data": "Lihat semua data",
   "See it as {name}": "Lihat sebagai {name}",
   "Nothing published yet.": "Belum ada yang diterbitkan.",

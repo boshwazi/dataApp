@@ -1,7 +1,8 @@
-"""Power BI import and export: DAX translation, .pbix and .pbip import, and a full round trip."""
+"""Power BI import: DAX translation, .pbix and .pbip import, refresh from a newer file."""
 
 import io
 import zipfile
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -73,13 +74,7 @@ def test_what_cannot_be_converted_says_why(dax, why):
         translate(dax, {"total": total})
 
 
-def test_catalogue_measures_become_dax():
-    measure = {"kind": "aggregate", "aggregation": "sum", "expression": "[Qty] * [Price]",
-               "filters": [{"column": "Status", "operator": "in", "values": ["Paid", "Open"]}]}
-    assert pbi_dax.from_measure(measure, "Sales") == \
-        "CALCULATE(SUMX('Sales', ('Sales'[Qty] * 'Sales'[Price])), KEEPFILTERS('Sales'[Status] IN {\"Paid\", \"Open\"}))"
-    assert pbi_dax.from_measure({"kind": "formula", "expression": "[A] / [B]"}, None) == "DIVIDE([A], [B])"
-    assert pbi_dax.format_string({"type": "currency", "decimals": 2, "currency": "RM"}) == '"RM "#,##0.00'
+def test_power_bi_formats_become_catalogue_formats():
     assert pbi_dax.format_from('"RM "#,##0.00') == {"type": "currency", "decimals": 2, "currency": "RM"}
     assert pbi_dax.format_from("0.0%") == {"type": "percent", "decimals": 1}
 
@@ -147,7 +142,7 @@ def test_bad_uploads_are_explained(api):
         assert response.status_code == 400 and message in response.json()["detail"], name
 
 
-# Export to .pbip, then back in: the same model and the same numbers
+# A .pbip project in: the same model and the same numbers as the dataset it was made from
 
 SALES_CSV = "order,day,customer,qty,price,status\n1,2024-01-05,C1,2,10,Paid\n2,2024-02-10,C2,1,10,Open\n3,2025-03-01,C1,4,2.5,Paid\n"
 CUSTOMERS_CSV = "customer,segment\nC1,Retail\nC2,Online\n"
@@ -183,27 +178,10 @@ def numbers(api, ds):
                              "group_by": [{"table": "Date", "column": "Year"}, {"table": "customers", "column": "segment"}]}))["rows"]
 
 
-def test_export_writes_a_power_bi_project(api):
-    ds = build_dataset(api)
-    response = api.get(f"/api/datasets/{ds}/powerbi/export")
-    assert response.status_code == 200 and response.headers["content-type"] == "application/zip"
-    files = zipfile.ZipFile(io.BytesIO(response.content)).namelist()
-    for path in ("Round trip/Round trip.pbip", "Round trip/Round trip.SemanticModel/definition.pbism",
-                 "Round trip/Round trip.SemanticModel/definition/tables/sales.tmdl",
-                 "Round trip/Round trip.SemanticModel/definition/relationships.tmdl",
-                 "Round trip/Round trip.Report/definition.pbir", "Round trip/data/sales.parquet", "Round trip/data/Date.parquet"):
-        assert path in files, path
-    sales = zipfile.ZipFile(io.BytesIO(response.content)).read("Round trip/Round trip.SemanticModel/definition/tables/sales.tmdl").decode()
-    assert "measure Revenue = SUMX('sales', ('sales'[qty] * 'sales'[price]))" in sales
-    assert "measure 'Average order' = DIVIDE([Revenue], [Orders])" in sales
-    assert 'Parquet.Document(File.Contents(DataFolder & "sales.parquet"))' in sales
-    date = zipfile.ZipFile(io.BytesIO(response.content)).read("Round trip/Round trip.SemanticModel/definition/tables/Date.tmdl").decode()
-    assert "dataCategory: Time" in date and "isKey" in date
-
-
-def test_round_trip_keeps_the_model_and_its_numbers(api):
+def test_a_pbip_project_brings_the_model_and_its_numbers(api):
+    """A .pbip project (saved in fixtures, made from the same dataset) brings the model; its data comes separately."""
     original = build_dataset(api)
-    project = api.get(f"/api/datasets/{original}/powerbi/export").content
+    project = (Path(__file__).parent / "fixtures" / "round_trip_pbip.zip").read_bytes()
 
     copy = ok(api.post("/api/datasets", json={"name": "Copy"}))["id"]
     body = ok(api.post(f"/api/datasets/{copy}/sources/powerbi", files=[("file", ("Round trip.zip", project))]))
@@ -285,55 +263,3 @@ def test_refresh_from_a_newer_pbix_replaces_data_and_keeps_the_model(api, monkey
     sales = next(s for s in ok(api.get(f"/api/datasets/{ds}"))["sources"] if s["table"] == "sales")
     assert sales["origin"]["snapshot"] == "2026-10-01T08:00"  # labelled with the newer file's refresh
     assert api.post(f"/api/datasets/{ds}/powerbi/refresh", files=[("file", ("x.zip", b"y"))]).status_code == 400
-
-
-def test_a_dashboard_exports_as_power_bi_report_pages(tmp_path):
-    import io
-    import json as _json
-    import zipfile
-
-    from test_report import SEGMENT, Project
-    from test_report import ok as ok_
-    p = Project(tmp_path)
-    page = p.page("Sales overview")
-    for body in ({"type": "kpi", "title": "Revenue", "measures": ["Revenue"]},
-                 {"type": "bar", "title": "Revenue by segment", "measures": ["Revenue"], "group_by": SEGMENT},
-                 {"type": "line", "title": "Revenue by month", "measures": ["Revenue"],
-                  "group_by": [{"table": "Date", "column": "Year Month"}]},
-                 {"type": "table", "title": "Detail", "measures": ["Revenue", "Orders"], "group_by": SEGMENT}):
-        ok_(p.visual(page, **body))
-    response = p.api.get(f"{p.base}/powerbi")
-    assert response.status_code == 200 and response.headers["content-type"] == "application/zip"
-    archive = zipfile.ZipFile(io.BytesIO(response.content))
-    files = {n.split("/", 1)[1]: archive.read(n) for n in archive.namelist()}
-    report = "Sales.Report/definition"
-    order = _json.loads(files[f"{report}/pages/pages.json"])["pageOrder"]
-    assert len(order) == 1
-    assert _json.loads(files[f"{report}/pages/{order[0]}/page.json"])["displayName"] == "Sales overview"
-    visuals = [_json.loads(v) for k, v in files.items() if k.startswith(f"{report}/pages/{order[0]}/visuals/")]
-    by_type = {v["visual"]["visualType"]: v["visual"] for v in visuals}
-    assert set(by_type) == {"cardVisual", "clusteredBarChart", "lineChart", "tableEx"}
-    bar = by_type["clusteredBarChart"]["query"]
-    assert bar["queryState"]["Y"]["projections"][0]["queryRef"] == "sales.Revenue"
-    assert bar["queryState"]["Category"]["projections"][0]["queryRef"] == "customers.segment"
-    assert bar["sortDefinition"]["sort"][0]["direction"] == "Descending"
-    assert [p_["queryRef"] for p_ in by_type["tableEx"]["query"]["queryState"]["Values"]["projections"]] == [
-        "customers.segment", "sales.Revenue", "sales.Orders"]
-    assert by_type["lineChart"]["query"]["queryState"]["Category"]["projections"][0]["queryRef"] == "Date.Year Month"
-    assert any(n.startswith("Sales.SemanticModel/definition/tables/") for n in files)  # the model comes along
-
-
-def test_exported_time_measures_stop_at_the_last_data_date(tmp_path):
-    import io
-    import zipfile
-
-    from test_report import Project, time_measure
-    from test_report import ok as ok_
-    p = Project(tmp_path)
-    ok_(time_measure(p, "Revenue LY YTD", "Revenue", "prior_year_ytd"))
-    ok_(time_measure(p, "Average order YTD", "Average order", "ytd"))  # a formula base reaches its fact through Revenue
-    archive = zipfile.ZipFile(io.BytesIO(p.api.get(f"{p.dataset}/powerbi/export").content))
-    tmdl = "".join(archive.read(n).decode() for n in archive.namelist() if n.endswith(".tmdl"))
-    cap = "KEEPFILTERS('Date'[Date] <= CALCULATE(MAX('sales'[day]), REMOVEFILTERS()))"
-    assert f"measure 'Revenue LY YTD' = CALCULATE(CALCULATE([Revenue], DATESYTD(SAMEPERIODLASTYEAR('Date'[Date]))), {cap})" in tmdl
-    assert f"measure 'Average order YTD' = CALCULATE(TOTALYTD([Average order], 'Date'[Date]), {cap})" in tmdl

@@ -12,7 +12,7 @@ import json
 from . import llm, model, report
 
 DESIGN_SYSTEM = (
-    "You are the Report agent in an AI data analytics app, like Power BI's Report view, designing for "
+    "You are the Report agent in an AI data analytics app, designing for "
     "non-technical business users. Rules: one page answers one question and its title says so; at most "
     "7 KPI cards per page (aim for 3 to 5), the most important first; every chart title describes the "
     "content in plain words (no conclusions in titles); compare categories with a horizontal 'bar' (it is "

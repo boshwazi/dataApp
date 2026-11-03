@@ -196,30 +196,6 @@ function DialogView({ request, onClose }: { request: Request; onClose: (value: b
   );
 }
 
-/** What to do with a Power BI download. Opening the .pbip from inside the zip fails in Power BI ("Required
-    artifact is missing"): Windows takes out only the file clicked, not the folders next to it. */
-export function powerBISteps(name: string): ReactNode {
-  return (
-    <>
-      <ol className="steps-list">
-        <li>
-          Find <strong>{name}.zip</strong> in your Downloads folder.
-        </li>
-        <li>
-          Right-click it and choose <strong>Extract All</strong>.
-        </li>
-        <li>
-          In the extracted folder, open <strong>{name}.pbip</strong> in Power BI Desktop.
-        </li>
-      </ol>
-      <p className="muted small">
-        Opening the .pbip straight from the zip gives a "Required artifact is missing" error, because Windows only takes
-        that one file out of the zip.
-      </p>
-    </>
-  );
-}
-
 // Breadcrumbs: pages say where they are; the top bar shows it.
 
 export type Crumb = { label: string; to?: string };

@@ -35,7 +35,7 @@ import { Chart, LIGHT_TOKENS as TOKENS, SERIES } from "../components/Chart";
 import { ChatPanel, type ChatHandle } from "../components/ChatPanel";
 import { COLUMNS, firstFit, layoutOf, MiniPage, overlaps } from "../components/miniPage";
 import { rememberOpened } from "../components/recent";
-import { EmptyState, Menu, PageLoading, PopMenu, TopbarActions, powerBISteps, type MenuItem, useCrumbs, useDialogs, useShortcut, useToast } from "../components/ui";
+import { EmptyState, Menu, PageLoading, PopMenu, TopbarActions, type MenuItem, useCrumbs, useDialogs, useShortcut, useToast } from "../components/ui";
 import { useAccount } from "../components/account";
 import { ShareDialog } from "../components/ShareDialog";
 import { DigestDialog } from "../components/DigestDialog";
@@ -238,19 +238,6 @@ export function Dashboard() {
     ...(creator ? [{ label: t("Share"), icon: <Users size={16} aria-hidden="true" />, onSelect: () => setShowShare(true) }] : []),
     ...(creator && state.published ? [{ label: t("Email digest"), icon: <Mail size={16} aria-hidden="true" />, onSelect: () => setShowDigest(true) }] : []),
     ...(creator ? [{ label: t("Activity"), icon: <History size={16} aria-hidden="true" />, onSelect: () => setShowActivity(true) }] : []),
-    ...(creator && dataset?.published
-      ? [{
-          label: t("Download for Power BI"),
-          icon: <FileDown size={16} aria-hidden="true" />,
-          onSelect: () =>
-            void dashboardsApi
-              .downloadPowerBI(dashboardId, state.name)
-              .then(() =>
-                dialogs.confirm({ title: t("Unzip it before opening"), body: powerBISteps(state.name), confirmLabel: t("Got it"), notice: true }),
-              )
-              .catch((e) => toast((e as Error).message, "error")),
-        }]
-      : []),
     ...(state.published ? [{ label: t("Export PDF"), icon: <FileDown size={16} aria-hidden="true" />, onSelect: () => navigate(`/dashboards/${dashboardId}/export`) }] : []),
   ];
 

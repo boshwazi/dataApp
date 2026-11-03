@@ -1,5 +1,8 @@
 # datawazi Phase 2: from working app to paid, secure SaaS
 
+> **3 November 2026:** the Power BI export (dataset `.pbip` download and dashboard report pages) was removed so
+> datawazi isn't limited to what Power BI can represent. Import from `.pbix` and `.pbip` stays.
+
 Phase 1 built the product: Get Data → Transform → Model → Report, with the AI doing each step,
 chats in every stage, publishing, refresh, PDF export, lineage, sign-in, workspaces, roles,
 invites and Postgres with row-level security.

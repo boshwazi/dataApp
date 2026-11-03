@@ -34,7 +34,7 @@ PERIODS = {
 }
 
 PLAN_SYSTEM = (
-    "You answer business questions about a dashboard's data, like Power BI Q&A. You cannot write SQL: you "
+    "You answer business questions about a dashboard's data. You cannot write SQL: you "
     "choose queries made of the listed measures, optionally split by columns (group_by) and filtered "
     "(filters with operator equals, not_equals, in, not_in, is_blank, is_not_blank, greater_than, less_than, "
     "at_least, at_most). Use at most 3 queries. For trends split by Date[Year Month] or Date[Year]. For 'top' "
