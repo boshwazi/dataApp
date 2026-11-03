@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Boxes, Building2, Check, CreditCard, UserRound, CircleHelp, Database, Monitor, Moon, ScrollText, Sun, House, LayoutDashboard, LogOut, Plus, Search, Settings as SettingsIcon, Users } from "lucide-react";
+import { Boxes, Building2, Check, CreditCard, UserRound, CircleHelp, Database, Monitor, Moon, ScrollText, Sun, House, LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings as SettingsIcon, Users } from "lucide-react";
 import { accountApi, api, dashboardsApi, type DashboardSummary, type Dataset, type Role } from "./api";
 import { useAccount } from "./components/account";
 import { InstructionsDialog } from "./components/InstructionsDialog";
@@ -45,6 +45,16 @@ export function Layout() {
   );
   useShortcut("k", () => setSearching(true));
   const rail = useWarmTips();
+  const [railOpen, setRailOpen] = useState(savedRail);
+  useLayoutEffect(() => {
+    document.documentElement.dataset.rail = railOpen ? "open" : "closed";
+    try {
+      localStorage.setItem(RAIL_KEY, railOpen ? "open" : "closed");
+    } catch {
+      // private mode: the choice lasts until reload
+    }
+  }, [railOpen]);
+  useShortcut("\\", () => setRailOpen((open) => !open));
 
   return (
     <div className="shell">
@@ -54,6 +64,7 @@ export function Layout() {
       <aside className="rail" ref={rail}>
         <Link to="/" className="rail-brand" aria-label="datawazi home" title="datawazi">
           <BrandMark size={26} />
+          <span className="rail-text rail-wordmark">datawazi</span>
         </Link>
         <nav aria-label="Main">
           {(["Workspace", "Admin"] as const).map((section) => {
@@ -61,6 +72,7 @@ export function Layout() {
             if (!items.length) return null;
             return (
               <div key={section} className="rail-section" role="group" aria-label={section}>
+                <span className="rail-text rail-heading" aria-hidden="true">{t(section)}</span>
                 {items.map(({ to, label, icon: Icon, end, more }) => (
                   <NavLink key={to} to={to} end={end} aria-label={t(label)} data-tip={t(label)} className={more ? "rail-more" : undefined}>
                     <Icon size={18} aria-hidden="true" />
@@ -71,6 +83,16 @@ export function Layout() {
             );
           })}
         </nav>
+        <button
+          className="rail-button rail-toggle"
+          onClick={() => setRailOpen(!railOpen)}
+          aria-expanded={railOpen}
+          aria-label={railOpen ? t("Collapse sidebar") : t("Expand sidebar")}
+          data-tip={`${railOpen ? t("Collapse sidebar") : t("Expand sidebar")} (Ctrl \\)`}
+        >
+          {railOpen ? <PanelLeftClose size={18} aria-hidden="true" /> : <PanelLeftOpen size={18} aria-hidden="true" />}
+          <span className="rail-text">{t("Collapse sidebar")}</span>
+        </button>
         <Notifications />
         <WorkspaceMenu more={nav.filter((n) => n.more)} />
       </aside>
@@ -103,6 +125,17 @@ export function Layout() {
       {searching && <QuickSearch onClose={() => setSearching(false)} />}
     </div>
   );
+}
+
+/** The rail shows icons only, or icons with names; the choice is kept in this browser. */
+const RAIL_KEY = "datawazi.rail";
+
+function savedRail(): boolean {
+  try {
+    return localStorage.getItem(RAIL_KEY) === "open";
+  } catch {
+    return false;
+  }
 }
 
 const TIP_DELAY_MS = 400; // matches the tip-in delay in styles.css
@@ -197,6 +230,7 @@ function WorkspaceMenu({ more }: { more: NavItem[] }) {
         data-tip={`${account.workspace?.name ?? ""}, ${hosted ? roleName : t("On this computer")}`}
       >
         <WorkspaceBadge workspace={account.workspace} />
+        <span className="rail-text">{account.workspace?.name}</span>
       </button>
       {open && (
         <div className="menu-list up rail-menu" role="menu">

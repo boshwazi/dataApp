@@ -68,6 +68,8 @@ const MS: Record<string, string> = {
   "or make a new one": "atau buat yang baharu",
   Settings: "Tetapan",
   Notifications: "Pemberitahuan",
+  "Expand sidebar": "Kembangkan bar sisi",
+  "Collapse sidebar": "Kecilkan bar sisi",
   Help: "Bantuan",
   "On this computer": "Di komputer ini",
   "New workspace": "Ruang kerja baharu",

@@ -79,6 +79,7 @@ export function Notifications() {
     <div className="notices" ref={root}>
       <button className="rail-button" onClick={toggle} aria-expanded={open} aria-label={unread ? t("Notifications, {n} new", { n: unread }) : t("Notifications")} data-tip={t("Notifications")}>
         <Bell size={18} aria-hidden="true" />
+        <span className="rail-text">{t("Notifications")}</span>
         {unread > 0 && <span className="notice-count">{unread > 9 ? "9+" : unread}</span>}
       </button>
       {open && (
