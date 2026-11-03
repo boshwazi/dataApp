@@ -1408,26 +1408,50 @@
   }
 }
 
+/* Reduced motion (Windows with animation effects off, for one): nothing moves, but changes still fade in, so the
+   page still shows what happens. The ambient motion (drift, tilt, the light, the marching lines) stops. */
 @media (prefers-reduced-motion: reduce) {
-  .landing *,
-  .landing *::before,
-  .landing *::after {
-    animation-duration: 1ms !important;
-    animation-delay: 0s !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 1ms !important;
-    transition-delay: 0s !important;
-  }
-
   .lp-lay,
-  .lp-float {
+  .lp-float,
+  .lp-beam,
+  .lp-pulse,
+  .lp-link {
     animation: none !important;
   }
 
-  .lp-flow-pane,
-  .lp-flow-pane.before {
-    transform: none;
+  .lp-fix .lp-old {
+    animation-name: lp-fade-out !important;
   }
+
+  .lp-fix .lp-new,
+  .lp-ai,
+  .lp-ai-step,
+  .lp-totals,
+  .lp-approve {
+    animation-name: lp-fade-in !important;
+  }
+
+  .lp-flow-pane,
+  .lp-flow-pane.before,
+  .lp-f-list > div,
+  .lp-f-note {
+    transform: none !important;
+  }
+
+  .lp-model.draw .lp-link,
+  .lp-f-kpi path {
+    stroke-dashoffset: 0 !important;
+    transition: none !important;
+  }
+}
+
+@keyframes lp-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes lp-fade-out {
+  to { opacity: 0; }
 }
 
 /* Floating, tilting window ------------------------------------------------------------------------------------- */
@@ -2296,18 +2320,28 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* The loop still plays: scenes and their parts fade in; nothing slides, grows or draws. */
   .apl-scene,
-  .apl-scene [style*="--k"],
+  .apl-scene [style*="--k"] {
+    animation-name: lp-fade-in !important;
+  }
+
+  .apl-cell s {
+    animation-name: lp-fade-out !important;
+  }
+
+  .apl-cell span {
+    animation-name: lp-fade-in !important;
+  }
+
   .apl-bar,
-  .apl-bar-row b,
-  .apl-cell s,
-  .apl-cell span,
-  .apl-cell::after {
+  .apl-bar-row b {
     animation: none !important;
   }
 
-  .apl-cell s { opacity: 0; }
-  .apl-link { stroke-dashoffset: 0; }
+  .apl-link {
+    stroke-dashoffset: 0 !important;
+  }
 }
 
 /* Light */

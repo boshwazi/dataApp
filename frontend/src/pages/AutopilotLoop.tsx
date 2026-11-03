@@ -5,7 +5,7 @@ import { Check, Pause, Play, Sparkles, UploadCloud } from "lucide-react";
  * Autopilot in action, as a short muted loop drawn in the page (sharper and far lighter than a video file).
  * Four scenes of 4 seconds: the file arrives, the AI cleans it, the tables are related, the dashboard is built and
  * checked. A clock and a timeline run underneath, compressing the real 3 min 41 s run on the sample files.
- * It pauses when scrolled away and with the pause button; with reduced motion it shows the finished state.
+ * It pauses when scrolled away and with the pause button. With reduced motion it still plays, as fades (see CSS).
  */
 
 const SCENES = ["Get data", "Clean", "Model", "Report"] as const;
@@ -77,9 +77,8 @@ function Scene({ index }: { index: number }) {
 }
 
 export function AutopilotLoop() {
-  const reduce = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const [scene, setScene] = useState(reduce ? 3 : 0);
-  const [playing, setPlaying] = useState(!reduce);
+  const [scene, setScene] = useState(0);
+  const [playing, setPlaying] = useState(true);
   const [visible, setVisible] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const clock = useRef<HTMLSpanElement>(null);
@@ -138,8 +137,8 @@ export function AutopilotLoop() {
             <li key={name} className={i === scene ? "on" : i < scene ? "done" : ""}>{name}</li>
           ))}
         </ol>
-        <span className="apl-clock" ref={clock}>{reduce ? "03:41" : "00:00"}</span>
-        <div className="apl-track"><div className="apl-fill" ref={fill} style={reduce ? { transform: "scaleX(1)" } : undefined} /></div>
+        <span className="apl-clock" ref={clock}>00:00</span>
+        <div className="apl-track"><div className="apl-fill" ref={fill} /></div>
       </div>
     </figure>
   );
