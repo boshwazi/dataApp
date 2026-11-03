@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 
 import jwt
 
-from . import workspaces
+from . import protect, workspaces
 from .projects import LOCAL_WORKSPACE
 from .workspaces import LOCAL_USER, Access, User, WorkspaceStore
 
@@ -90,7 +90,11 @@ class AuthConfig:
         return User(id=claims["sub"], email=email, aal=str(claims.get("aal") or "aal1"), provider=provider)
 
     def is_platform_admin(self, user: User) -> bool:
-        return self.mode == "local" or user.email in self.platform_admins
+        # Only sign-ins that verify the email address count: a Microsoft tenant can put any address in its token,
+        # and platform admins control the AI key and where AI requests go.
+        if self.mode == "local":
+            return True
+        return user.email in self.platform_admins and user.provider in workspaces.VERIFIED_PROVIDERS
 
 
 def allowed(role: str, method: str, path: str) -> bool:
@@ -114,9 +118,19 @@ class AuthGuard:
         if scope["type"] != "http" or not scope["path"].startswith("/api/") or scope["path"] in PUBLIC:
             await self.app(scope, receive, send)
             return
+        if self.config.mode == "local" and not protect.is_loopback(scope):
+            # Without sign-in everyone is admin, so this copy only answers the computer it runs on.
+            await respond(send, 403, {"detail": "This copy of datawazi runs without sign-in, so it only answers the "
+                                                "computer it runs on. Set up sign-in to share it."})
+            return
         headers = {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in scope["headers"]}
         try:
             user, access = self.resolve(scope["method"], scope["path"], headers)
+            if self.config.mode != "local" and scope["method"] not in ("GET", "HEAD", "OPTIONS"):
+                protect.WRITES.hit(user.id)
+        except protect.HTTPException as exc:
+            await respond(send, exc.status_code, {"detail": exc.detail})
+            return
         except (AuthError, workspaces.WorkspaceError) as exc:
             code = getattr(exc, "code", None)
             body = {"detail": {"message": str(exc), "code": code} if code else str(exc)}

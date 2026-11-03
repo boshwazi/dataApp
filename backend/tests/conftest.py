@@ -28,3 +28,13 @@ def close_clients():
     yield
     while open_clients:
         open_clients.pop().__exit__(None, None, None)
+
+
+@pytest.fixture(autouse=True)
+def fresh_rate_limits():
+    """Every test starts with empty rate-limit counters (the tests act as one person, many times over)."""
+    from app import protect
+
+    protect.WRITES.reset()
+    protect.AI_CALLS.reset()
+    yield

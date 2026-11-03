@@ -16,6 +16,8 @@ from dataclasses import dataclass, field
 
 import pandas as pd
 
+from . import protect
+
 MAX_DOWNLOAD_BYTES = 50 * 1024 * 1024
 CSV_DELIMITERS = ",;\t|"
 EXCEL_SUFFIXES = (".xlsx", ".xlsm")
@@ -180,9 +182,13 @@ def gsheet_csv_url(link: str) -> str:
 def http_get(url: str) -> tuple[bytes, str, str]:
     """Returns (body, content type, filename from Content-Disposition)."""
     host = urllib.parse.urlparse(url).hostname or "the server"
+    try:
+        protect.public_https_url(url)
+    except ValueError as exc:
+        raise IngestError(str(exc)) from exc
     request = urllib.request.Request(url, headers={"User-Agent": "dataApp/0.1"})
     try:
-        with urllib.request.urlopen(request, timeout=30) as response:
+        with urllib.request.build_opener(CheckedRedirects).open(request, timeout=30) as response:
             body = response.read(MAX_DOWNLOAD_BYTES + 1)
             content_type = response.headers.get_content_type()
             filename = response.headers.get_filename() or ""
@@ -195,6 +201,17 @@ def http_get(url: str) -> tuple[bytes, str, str]:
     if len(body) > MAX_DOWNLOAD_BYTES:
         raise IngestError("The file is larger than 50 MB.")
     return body, content_type, filename
+
+
+class CheckedRedirects(urllib.request.HTTPRedirectHandler):
+    """Follow a redirect only to another public https address (the shared-file hosts redirect to their CDNs)."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        try:
+            protect.public_https_url(newurl)
+        except ValueError as exc:
+            raise IngestError(f"The link redirected somewhere that can't be fetched: {exc}") from exc
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
 class NotShared(IngestError):

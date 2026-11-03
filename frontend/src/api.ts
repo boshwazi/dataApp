@@ -284,8 +284,15 @@ export const billingApi = {
   usage: (month?: string) => request<Usage>(`/api/workspaces/current/usage${month ? `?month=${month}` : ""}`),
 };
 
+// The sign-in settings don't change while the app is open: ask once (and again only if that failed).
+let authConfig: Promise<AuthConfig> | null = null;
+
 export const accountApi = {
-  config: () => request<AuthConfig>("/api/auth/config"),
+  config: () =>
+    (authConfig ??= request<AuthConfig>("/api/auth/config").catch((error) => {
+      authConfig = null;
+      throw error;
+    })),
   me: () => request<Me>("/api/me"),
   deleteAccount: () => request<{ deleted: boolean }>("/api/me", { method: "DELETE" }),
   setSignInRules: (require_mfa: boolean) =>

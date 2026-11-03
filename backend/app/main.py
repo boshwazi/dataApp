@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
 
@@ -38,6 +39,7 @@ from . import (
     workspaces,
 )
 from .auth import AuthConfig, AuthGuard
+from .protect import SecurityHeaders
 from .autopilot import Autopilot
 from .autopilot import build_router as build_autopilot_router
 from .billing_api import build_router as build_billing_router
@@ -234,6 +236,7 @@ def create_app(
     app.add_middleware(AuthGuard, config=auth, store=members)
     app.add_middleware(LanguageMiddleware)
     app.add_middleware(usage.PathMiddleware)
+    app.add_middleware(SecurityHeaders, supabase_url=auth.supabase_url)
     app.include_router(build_workspaces_router(members, auth, admin,
                                                audit=lambda action, detail: security.audit(preferences, action, detail),
                                                plans=plans))
@@ -387,7 +390,11 @@ def create_app(
 
     @app.get("/api/settings")
     def get_settings():
-        return public_view(store.load())
+        view = public_view(store.load())
+        if auth.is_platform_admin(workspaces.current_user()):
+            return view
+        # Everyone needs to know whether AI is set up; only the operators see which provider and key.
+        return {"has_api_key": view["has_api_key"], "capabilities": view["capabilities"]}
 
     def platform_admin():
         # The AI provider is set up once for the whole service, by its operators.
@@ -415,7 +422,8 @@ def create_app(
         return report.as_dict()
 
     if FRONTEND_DIST.exists():
-        app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
+        app.mount("/assets", AssetFiles(directory=FRONTEND_DIST / "assets"), name="assets")
+        app.add_middleware(CompressAppFiles)
 
         # Client-side routes (/settings, /projects/...) all load the single-page app.
         @app.get("/{path:path}", include_in_schema=False)
@@ -429,6 +437,31 @@ def create_app(
             return FileResponse(FRONTEND_DIST / "index.html", headers={"Cache-Control": "no-cache"})
 
     return app
+
+
+class AssetFiles(StaticFiles):
+    """The built app's scripts, styles and fonts. Their names carry a hash of their content, so a browser may keep
+    them for a year: a new build has new names."""
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        if response.status_code == 200:
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
+
+
+class CompressAppFiles:
+    """Compresses the app's own files (the page, scripts, styles). API responses are left as they are, so no
+    response ever compresses a secret alongside text a visitor chose (the BREACH attack)."""
+
+    def __init__(self, app):
+        self.app = app
+        self.gzip = GZipMiddleware(app, minimum_size=1024)
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and not scope["path"].startswith("/api/"):
+            return await self.gzip(scope, receive, send)
+        return await self.app(scope, receive, send)
 
 
 def hosted_services(auth: AuthConfig) -> dict:

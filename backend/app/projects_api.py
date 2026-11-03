@@ -31,6 +31,12 @@ from .dashboards import DashboardStore
 from .projects import NotFound, ProjectStore
 from .settings import ProviderSettings, SettingsStore
 
+
+def safe_filename(name: str) -> str:
+    """A name fit for a Content-Disposition header: no quotes, slashes or control characters."""
+    cleaned = "".join(c if c.isprintable() and c not in '"\\/;' else "_" for c in name).strip()
+    return cleaned[:120] or "dataset"
+
 MAX_UPLOAD_BYTES = 200 * 1024 * 1024
 PREVIEW_LIMIT = 500
 
@@ -529,7 +535,7 @@ def build_router(
             raise HTTPException(400, str(exc)) from exc
         data = pbi_export.zip_project(name, files)
         return Response(data, media_type="application/zip",
-                        headers={"Content-Disposition": f'attachment; filename="{name}.zip"'})
+                        headers={"Content-Disposition": f'attachment; filename="{safe_filename(name)}.zip"'})
 
     @router.get("/{project_id}/lineage")
     def get_lineage(project_id: str):

@@ -15,7 +15,7 @@ from contextvars import ContextVar
 from datetime import UTC, datetime
 from pathlib import Path
 
-from . import workspaces
+from . import protect, workspaces
 
 log = logging.getLogger(__name__)
 
@@ -176,6 +176,8 @@ class MeteredClient:
 
     def _create(self, *args, **kwargs):
         access = workspaces._access.get()
+        if access is not None and access.user.id != workspaces.LOCAL_USER.id:  # a local copy is one person
+            protect.AI_CALLS.hit(access.user.id)
         if access is not None and self._before is not None:
             self._before(access.workspace_id)
         started = time.perf_counter()
