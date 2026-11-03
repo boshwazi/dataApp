@@ -9633,3 +9633,23 @@ button:disabled {
     opacity: 0.45;
   }
 }
+
+/* A page that failed: a clear message and a way on, never a blank screen. */
+.page-error {
+  max-width: 520px;
+  margin: 12vh auto 0;
+  padding: 0 var(--gutter);
+  display: grid;
+  gap: 10px;
+  text-align: center;
+  justify-items: center;
+}
+
+.page-error h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.page-error .actions {
+  margin-top: 8px;
+}

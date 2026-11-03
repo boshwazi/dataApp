@@ -14,6 +14,7 @@ import { BadgeCheck, FileDown, ScrollText, GitBranch, History, Layers, MoreHoriz
 import { ActivityDrawer } from "../components/ActivityDrawer";
 import { InstructionsDialog } from "../components/InstructionsDialog";
 import { ChatPanel, type ChatHandle } from "../components/ChatPanel";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 import { Menu, PageLoading, TopbarActions, powerBISteps, useCrumbs, useDialogs, useShortcut, useToast } from "../components/ui";
 
 // The dataset half of the pipeline, in Power BI order. Dashboards build on what is published here.
@@ -328,7 +329,9 @@ export function Dataset() {
       )}
 
       <div className="workbench-body">
-        <Outlet key={version} context={{ project: dataset, refresh, askAI } satisfies DatasetContext} />
+        <ErrorBoundary resetKey={location.pathname}>
+          <Outlet key={version} context={{ project: dataset, refresh, askAI } satisfies DatasetContext} />
+        </ErrorBoundary>
       </div>
         {showChat && (
           <div className="ai-dock" role="dialog" aria-label={`${stage.name} AI`}>

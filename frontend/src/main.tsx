@@ -14,12 +14,18 @@ import type { Role } from "./api";
 import "./styles.css";
 import { applyTheme } from "./components/theme";
 import { applyDensity } from "./components/density";
+import { ErrorBoundary, isChunkError, reloadForUpdate } from "./components/ErrorBoundary";
 
 /** A page loaded when it's first opened, so the first screen downloads only what it shows. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function page<K extends string>(load: () => Promise<{ [key in K]: ComponentType<any> }>, name: K) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const Lazy = lazy<ComponentType<any>>(() => load().then((module) => ({ default: module[name] })));
+  const Lazy = lazy<ComponentType<any>>(() =>
+    load()
+      .then((module) => ({ default: module[name] }))
+      // After an update, an open tab asks for page files that are gone: reload once for the new version.
+      .catch((error: unknown) => (isChunkError(error) && reloadForUpdate() ? new Promise<never>(() => {}) : Promise.reject(error))),
+  );
   return function Page(props: Record<string, unknown>) {
     return (
       <Suspense fallback={<PageLoading />}>
@@ -66,12 +72,18 @@ function PlatformAdmin({ children }: { children: ReactNode }) {
   return useAccount().me.platform_admin ? children : <Navigate to="/" replace />;
 }
 
+// Vite reports files it couldn't preload for a page the same way; handle it like a page file that's gone.
+window.addEventListener("vite:preloadError", (event) => {
+  if (reloadForUpdate()) event.preventDefault();
+});
+
 applyTheme(); // before the first paint, so a dark screen never flashes white
 applyDensity();
 
 /** The landing page at /welcome needs no account, so it shows at once, signed in or not. */
 function Root() {
-  return useLocation().pathname === "/welcome" ? <Landing /> : <App />;
+  const { pathname } = useLocation();
+  return <ErrorBoundary resetKey={pathname}>{pathname === "/welcome" ? <Landing /> : <App />}</ErrorBoundary>;
 }
 
 function App() {

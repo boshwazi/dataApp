@@ -1,8 +1,9 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Boxes, Building2, Check, CreditCard, UserRound, CircleHelp, Database, Monitor, Moon, ScrollText, Sun, House, LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings as SettingsIcon, Users } from "lucide-react";
 import { accountApi, api, dashboardsApi, type DashboardSummary, type Dataset, type Role } from "./api";
 import { useAccount } from "./components/account";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { InstructionsDialog } from "./components/InstructionsDialog";
 import { Notifications } from "./components/Notifications";
 import { savedTheme, setTheme, type ThemeChoice } from "./components/theme";
@@ -39,6 +40,7 @@ export function Layout() {
   const [searching, setSearching] = useState(false);
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   const crumbs = useCurrentCrumbs();
+  const { pathname } = useLocation();
   const account = useAccount();
   const nav = NAV.filter(
     (n) => (!n.role || account.can(n.role)) && (!n.platform || account.me.platform_admin) && (!n.hosted || account.me.mode !== "local"),
@@ -118,7 +120,9 @@ export function Layout() {
         </header>
         <TopbarContext.Provider value={slot}>
           <main className="content" id="main" tabIndex={-1}>
-            <Outlet />
+            <ErrorBoundary resetKey={pathname}>
+              <Outlet />
+            </ErrorBoundary>
           </main>
         </TopbarContext.Provider>
       </div>
