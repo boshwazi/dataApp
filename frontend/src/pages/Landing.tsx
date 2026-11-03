@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Check, Eye, FileDown, FileUp, Lock, ShieldCheck, Sparkles, Undo2 } from "lucide-react";
 import { BrandMark } from "../components/ui";
+import { AutopilotLoop } from "./AutopilotLoop";
 import "./landing.css";
 
 /**
@@ -564,7 +565,7 @@ export function Landing() {
         <section className="lp-hero">
           <div className="lp-beam" aria-hidden="true" />
           <div className="lp-wrap">
-            <a className="lp-note" href="#how"><b>Autopilot</b> Upload to checked dashboard in under four minutes</a>
+            <a className="lp-note" href="#autopilot"><b>Autopilot</b> Upload to checked dashboard in under four minutes</a>
             <h1>From messy data to checked dashboards.</h1>
             <p className="lp-lede">For teams without a data analyst. The AI cleans, models and charts your data, and shows every change for you to approve.</p>
             <div className="lp-ctas">
@@ -581,6 +582,22 @@ export function Landing() {
             <li>CSV</li><li>Excel</li><li>OneDrive</li><li>SharePoint</li><li>Google Drive</li><li>Power BI</li>
           </ul>
         </div>
+
+        <section id="autopilot" className="lp-section lp-ground-auto">
+          <div className="lp-wrap lp-auto">
+            <div className="lp-auto-copy">
+              <p className="lp-kicker">Autopilot</p>
+              <h2>Upload a file. Get a checked dashboard in under four minutes.</h2>
+              <p className="lp-sub">Autopilot cleans your data, relates the tables, writes the measures and builds the dashboard on its own. Then it stops, so you can review every change before anyone sees it.</p>
+              <ul className="lp-auto-facts">
+                <li><b>3:41</b><span>from upload to a checked dashboard on our messy sample files</span></li>
+                <li><b>8</b><span>cleaning steps, each with the AI's reason, for you to approve or undo</span></li>
+                <li><b>Every</b><span>number the AI writes is checked against the data; anything that doesn't match is flagged</span></li>
+              </ul>
+            </div>
+            <AutopilotLoop />
+          </div>
+        </section>
 
         <section id="product" className="lp-section lp-ground-grid">
           <div className="lp-wrap">
