@@ -1996,11 +1996,28 @@
   gap: 12px;
   padding: 24px;
   font-size: 13.5px;
-  animation: apl-scene-in 420ms var(--ease-out) both;
 }
 
-@keyframes apl-scene-in {
-  from { opacity: 0; transform: translateY(10px) scale(0.985); filter: blur(3px); }
+/* Scenes cross-fade: the outgoing one fades over the incoming one, so there is never a cut. Opacity and a small move
+   only (no filters), so it stays smooth. */
+.apl-layer {
+  position: absolute;
+  inset: 0;
+  animation: apl-layer-in 500ms var(--ease-out) both;
+}
+
+.apl-layer.leaving {
+  z-index: 1;
+  pointer-events: none;
+  animation: apl-layer-out 400ms var(--ease-out) both;
+}
+
+@keyframes apl-layer-in {
+  from { opacity: 0; transform: translateY(6px); }
+}
+
+@keyframes apl-layer-out {
+  to { opacity: 0; transform: translateY(-6px); }
 }
 
 /* everything inside a scene arrives one after another */
@@ -2179,8 +2196,12 @@
 }
 
 .apl-table rect { fill: var(--panel-2); stroke: rgba(148, 170, 214, 0.3); }
-.apl-table.fact rect { stroke: var(--blue); }
-.apl-table text { font: 12px var(--mono); fill: var(--text); }
+.apl-table.fact rect { stroke: var(--blue); stroke-width: 1.5; }
+.apl-table text { font: 12px var(--mono); fill: var(--text); text-anchor: middle; }
+
+.apl-scene .apl-table[style*="--k"] {
+  animation-name: lp-fade-in;
+}
 
 .apl-link {
   fill: none;
@@ -2314,10 +2335,14 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  /* The loop still plays: scenes and their parts fade in; nothing slides, grows or draws. */
-  .apl-scene,
+  /* The loop still plays: scenes cross-fade and their parts fade in; nothing slides, grows or draws. */
+  .apl-layer,
   .apl-scene [style*="--k"] {
     animation-name: lp-fade-in !important;
+  }
+
+  .apl-layer.leaving {
+    animation-name: lp-fade-out !important;
   }
 
   .apl-cell s {
@@ -2352,6 +2377,7 @@
   border-color: rgba(202, 138, 4, 0.4);
 }
 .landing[data-look="light"] .apl-table rect { stroke: rgba(16, 24, 40, 0.2); }
+.landing[data-look="light"] .apl-table.fact rect { stroke: var(--blue); }
 .landing[data-look="light"] .apl-screen { background-image: radial-gradient(rgba(16, 24, 40, 0.1) 1px, transparent 1px); }
 .landing[data-look="light"] .apl-toggle { background: #f3f5f9; }
 .landing[data-look="light"] .lp-ground-auto {

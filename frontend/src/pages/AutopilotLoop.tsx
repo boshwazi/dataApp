@@ -48,11 +48,11 @@ function Scene({ index }: { index: number }) {
         <svg viewBox="0 0 340 170" aria-hidden="true">
           <path className="apl-link" style={k(0)} d="M104 46 C150 46 150 85 196 85" />
           <path className="apl-link" style={k(1)} d="M104 124 C150 124 150 85 196 85" />
-          <path className="apl-link" style={k(2)} d="M284 85 L300 85" />
-          <g className="apl-table" style={k(0)}><rect x="14" y="26" width="90" height="40" rx="8" /><text x="30" y="51">Customers</text></g>
-          <g className="apl-table" style={k(1)}><rect x="14" y="104" width="90" height="40" rx="8" /><text x="34" y="129">Products</text></g>
-          <g className="apl-table fact" style={k(0)}><rect x="196" y="62" width="88" height="46" rx="8" /><text x="222" y="90">Sales</text></g>
-          <g className="apl-table" style={k(2)}><rect x="300" y="68" width="34" height="34" rx="8" /><text x="306" y="89">Date</text></g>
+          <path className="apl-link" style={k(2)} d="M276 85 L290 85" />
+          <g className="apl-table" style={k(0)}><rect x="6" y="26" width="98" height="40" rx="8" /><text x="55" y="50">Customers</text></g>
+          <g className="apl-table" style={k(1)}><rect x="6" y="104" width="98" height="40" rx="8" /><text x="55" y="128">Products</text></g>
+          <g className="apl-table fact" style={k(0)}><rect x="196" y="62" width="80" height="46" rx="8" /><text x="236" y="89">Sales</text></g>
+          <g className="apl-table" style={k(2)}><rect x="290" y="65" width="48" height="40" rx="8" /><text x="314" y="89">Date</text></g>
         </svg>
         <p className="apl-note" style={k(3)}>4 tables, 3 relationships, 11 measures</p>
       </div>
@@ -78,6 +78,8 @@ function Scene({ index }: { index: number }) {
 
 export function AutopilotLoop() {
   const [scene, setScene] = useState(0);
+  const [leaving, setLeaving] = useState<number | null>(null);
+  const current = useRef(0);
   const [playing, setPlaying] = useState(true);
   const [visible, setVisible] = useState(false);
   const box = useRef<HTMLDivElement>(null);
@@ -106,7 +108,11 @@ export function AutopilotLoop() {
       held = now;
       const t = (now - started.current) % loop;
       const index = Math.floor(t / SCENE_MS);
-      setScene((s) => (s === index ? s : index));
+      if (index !== current.current) {
+        setLeaving(current.current);
+        current.current = index;
+        setScene(index);
+      }
       const seconds = Math.round((t / loop) * RUN_SECONDS);
       if (clock.current) clock.current.textContent = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
       if (fill.current) fill.current.style.transform = `scaleX(${t / loop})`;
@@ -129,7 +135,16 @@ export function AutopilotLoop() {
         </button>
       </div>
       <div className="apl-screen" aria-hidden="true">
-        <Scene key={scene} index={scene} />
+        {/* the outgoing scene keeps its element (so it doesn't replay) and fades out over the incoming one */}
+        {(leaving === null || leaving === scene ? [scene] : [leaving, scene]).map((i) => (
+          <div
+            key={i}
+            className={i === scene ? "apl-layer" : "apl-layer leaving"}
+            onAnimationEnd={(e) => e.target === e.currentTarget && i !== scene && setLeaving(null)}
+          >
+            <Scene index={i} />
+          </div>
+        ))}
       </div>
       <div className="apl-foot" aria-hidden="true">
         <ol className="apl-stages">
