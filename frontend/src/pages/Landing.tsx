@@ -209,8 +209,8 @@ const FEATURES = [
     ),
   },
   {
-    title: "Power BI",
-    text: "Import a .pbix, or export a Power BI project that opens in Desktop.",
+    title: "Power BI",
+    text: "Import a .pbix, or export a Power BI project that opens in Desktop.",
     visual: (
       <div className="lp-v-pbi">
         <div><span>✓</span> Sales.SemanticModel</div>
@@ -238,7 +238,7 @@ function ModelDiagram({ draw = false }: { draw?: boolean }) {
 }
 
 const HOW = [
-  { title: "Get data", text: "Upload CSV or Excel, link a folder in OneDrive, SharePoint or Google Drive, or bring a Power BI file. Bring it as it is; cleaning comes next." },
+  { title: "Get data", text: "Upload CSV or Excel, link a folder in OneDrive, SharePoint or Google Drive, or bring a Power BI file. Bring it as it is; cleaning comes next." },
   { title: "Clean", text: "The AI reads dates day first, takes RM out of prices, marks blanks and removes repeats. Each fix is listed with its reason for you to approve." },
   { title: "Model", text: "Tables are related, a date table is added and measures are written. Every formula is shown before anything uses it." },
   { title: "Report", text: "A dashboard you can edit and ask questions of, with each number checked against the data. Share it, or get it by email each week." },
@@ -521,8 +521,8 @@ const FAQ = [
     a: "Column summaries, up to 5 sample rows per table and the results of the queries it runs. Your full data stays in your workspace, and the AI never sees rows a viewer isn't allowed to.",
   },
   {
-    q: "Do I need Power BI?",
-    a: "No. datawazi does the whole job in the browser. If your team uses Power BI, you can import a .pbix file or export a Power BI project.",
+    q: "Do I need Power BI?",
+    a: "No. datawazi does the whole job in the browser. If your team uses Power BI, you can import a .pbix file or export a Power BI project.",
   },
   {
     q: "Where is my data kept?",
@@ -551,7 +551,7 @@ export function Landing() {
           <nav aria-label="Main" className="lp-nav">
             <a href="#how">How it works</a>
             <a href="#product">Product</a>
-            <a href="#powerbi">Power BI</a>
+            <a href="#powerbi">Power BI</a>
             <a href="#pricing">Pricing</a>
           </nav>
           <div className="lp-header-actions">
@@ -579,7 +579,7 @@ export function Landing() {
         <div className="lp-wrap lp-sources">
           <p>Bring data from where it already lives</p>
           <ul>
-            <li>CSV</li><li>Excel</li><li>OneDrive</li><li>SharePoint</li><li>Google Drive</li><li>Power BI</li>
+            <li>CSV</li><li>Excel</li><li>OneDrive</li><li>SharePoint</li><li>Google Drive</li><li>Power BI</li>
           </ul>
         </div>
 
@@ -676,18 +676,18 @@ export function Landing() {
 
         <section id="powerbi" className="lp-section lp-ground-warm">
           <div className="lp-wrap">
-            <p className="lp-kicker">Power BI</p>
-            <h2>Works with Power BI, in both directions.</h2>
+            <p className="lp-kicker">Power BI</p>
+            <h2>Works with Power BI, in both directions.</h2>
             <div className="lp-pbi">
               <div className="lp-panel">
                 <FileUp size={20} aria-hidden="true" />
-                <h3>Bring a Power BI file</h3>
+                <h3>Bring a Power BI file</h3>
                 <p>Import a .pbix file or a .pbip project. Tables, relationships and measures come across, and the AI explains each one.</p>
               </div>
               <div className="lp-panel">
                 <FileDown size={20} aria-hidden="true" />
-                <h3>Take a Power BI project back</h3>
-                <p>Export any dashboard as a Power BI project, with its model, DAX measures and pages, ready to open in Desktop.</p>
+                <h3>Take a Power BI project back</h3>
+                <p>Export any dashboard as a Power BI project, with its model, DAX measures and pages, ready to open in Desktop.</p>
               </div>
             </div>
           </div>
