@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { Link } from "react-router-dom";
-import { Check, Eye, FileDown, FileUp, Lock, ShieldCheck, Undo2 } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
+import { Check, Eye, FileDown, FileUp, Lock, ShieldCheck, Sparkles, Undo2 } from "lucide-react";
 import { BrandMark } from "../components/ui";
 import "./landing.css";
 
@@ -27,12 +27,6 @@ const ROWS: { id: string; date: Cell; qty: number; price: Cell; region: Cell }[]
   { id: "SO-10030", date: "2024-06-07", qty: 1, price: "1,250.00", region: { from: "N/A", to: "Unknown", at: 2.4 } },
 ];
 
-const STEPS: [string, number][] = [
-  ["Dates read day first", 1.0],
-  ["RM taken out of prices", 1.9],
-  ["Blank regions marked Unknown", 2.7],
-  ["3 repeated rows removed", 3.1],
-];
 
 function delay(seconds: number): CSSProperties {
   return { "--d": `${seconds}s` } as CSSProperties;
@@ -48,63 +42,127 @@ function Value({ cell }: { cell: Cell }) {
   );
 }
 
-/** The product window: messy cells fix themselves while the AI's steps tick in beside them, waiting for approval. */
+const STEPS: { text: string; why: string; at: number }[] = [
+  { text: "Dates read day first", why: "3 date formats found, all day before month", at: 1.0 },
+  { text: "RM taken out of prices", why: "Prices like RM 79.90 kept as numbers", at: 1.9 },
+  { text: "Blank regions marked Unknown", why: "Blanks and N/A counted, not dropped", at: 2.7 },
+  { text: "3 repeated rows removed", why: "Kept the first of each order", at: 3.1 },
+];
+
+/**
+ * The product window, floating. Messy cells fix themselves, and the AI's suggestions arrive on their own card,
+ * which sits nearer to you than the window: it moves further as the window tilts towards the pointer, so it reads as
+ * the thing that matters. The tilt eases towards the pointer (no snapping) and only runs with a mouse.
+ */
 function CleaningDemo() {
   const [run, setRun] = useState(0);
+  const tilt = useRef<HTMLDivElement>(null);
+  const sheen = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = tilt.current;
+    const hero = el?.closest(".lp-hero") as HTMLElement | null;
+    if (!el || !hero) return;
+    if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let target = { x: 0, y: 0 };
+    let now = { x: 0, y: 0 };
+    let frame = 0;
+    const step = () => {
+      now = { x: now.x + (target.x - now.x) * 0.08, y: now.y + (target.y - now.y) * 0.08 };
+      el.style.transform = `rotateX(${(-now.y * 7).toFixed(2)}deg) rotateY(${(now.x * 9).toFixed(2)}deg)`;
+      if (sheen.current) sheen.current.style.transform = `translate(${(now.x * 30).toFixed(1)}%, ${(now.y * 30).toFixed(1)}%)`;
+      frame = Math.abs(target.x - now.x) + Math.abs(target.y - now.y) > 0.001 ? requestAnimationFrame(step) : 0;
+    };
+    const kick = () => {
+      if (!frame) frame = requestAnimationFrame(step);
+    };
+    const clamp = (v: number) => Math.max(-1, Math.min(1, v));
+    const move = (e: PointerEvent) => {
+      const r = el.getBoundingClientRect();
+      target = { x: clamp((e.clientX - (r.left + r.width / 2)) / (r.width / 1.2)), y: clamp((e.clientY - (r.top + r.height / 2)) / (r.height / 1.1)) };
+      kick();
+    };
+    const leave = () => {
+      target = { x: 0, y: 0 };
+      kick();
+    };
+    hero.addEventListener("pointermove", move);
+    hero.addEventListener("pointerleave", leave);
+    return () => {
+      cancelAnimationFrame(frame);
+      hero.removeEventListener("pointermove", move);
+      hero.removeEventListener("pointerleave", leave);
+    };
+  }, []);
+
   return (
-    <figure
-      className="lp-window"
-      aria-label="Demo: datawazi cleans a messy sales file. Dates are read day first, RM is taken out of prices, blank regions are marked Unknown and 3 repeated rows are removed, leaving 241 orders and RM 153,948.70 of revenue, checked against the file."
-    >
-      <div className="lp-chrome">
-        <i /><i /><i />
-        <span>Sales 2024 / Transform</span>
-        <button type="button" className="lp-replay" onClick={() => setRun((n) => n + 1)}>Play again</button>
-      </div>
-      <div className="lp-app" key={run} aria-hidden="true">
-        <div className="lp-side">
-          <small>Sales 2024</small>
-          <div>Get data</div>
-          <div className="on">Transform</div>
-          <div>Model</div>
-          <div>Report</div>
-          <small>Workspace</small>
-          <div>Dashboards</div>
-          <div>Members</div>
-        </div>
-        <div className="lp-main">
-          <h3>sales.csv <span>244 rows, 7 columns</span></h3>
-          <div className="lp-table-scroll">
-            <table className="lp-table">
-              <thead>
-                <tr><th>Order</th><th>Date</th><th>Qty</th><th>Price</th><th>Region</th></tr>
-              </thead>
-              <tbody>
-                {ROWS.map((r) => (
-                  <tr key={r.id}>
-                    <td>{r.id}</td>
-                    <td><Value cell={r.date} /></td>
-                    <td>{r.qty}</td>
-                    <td><Value cell={r.price} /></td>
-                    <td><Value cell={r.region} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+    <div className="lp-stage">
+      <div className="lp-lay">
+        <div className="lp-float">
+          <div className="lp-tilt" ref={tilt}>
+            <figure
+              className="lp-window"
+              aria-label="Demo: datawazi cleans a messy sales file. Dates are read day first, RM is taken out of prices, blank regions are marked Unknown and 3 repeated rows are removed, leaving 241 orders and RM 153,948.70 of revenue, checked against the file. Each fix waits for your approval."
+            >
+              <div className="lp-sheen" ref={sheen} aria-hidden="true" />
+              <div className="lp-chrome">
+                <i /><i /><i />
+                <span>Sales 2024 / Transform</span>
+                <button type="button" className="lp-replay" onClick={() => setRun((n) => n + 1)}>Play again</button>
+              </div>
+              <div className="lp-app" key={run} aria-hidden="true">
+                <div className="lp-side">
+                  <small>Sales 2024</small>
+                  <div>Get data</div>
+                  <div className="on">Transform</div>
+                  <div>Model</div>
+                  <div>Report</div>
+                  <small>Workspace</small>
+                  <div>Dashboards</div>
+                  <div>Members</div>
+                </div>
+                <div className="lp-main">
+                  <h3>sales.csv <span>244 rows, 7 columns</span></h3>
+                  <div className="lp-table-scroll">
+                    <table className="lp-table">
+                      <thead>
+                        <tr><th>Order</th><th>Date</th><th>Qty</th><th>Price</th><th>Region</th></tr>
+                      </thead>
+                      <tbody>
+                        {ROWS.map((r) => (
+                          <tr key={r.id}>
+                            <td>{r.id}</td>
+                            <td><Value cell={r.date} /></td>
+                            <td>{r.qty}</td>
+                            <td><Value cell={r.price} /></td>
+                            <td><Value cell={r.region} /></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="lp-totals"><span>After cleaning</span><b>241 orders</b><b>RM 153,948.70</b><span className="ok">Checked against the file</span></p>
+                </div>
+              </div>
+            </figure>
+            <aside className="lp-ai" key={run} aria-hidden="true">
+              <div className="lp-ai-head">
+                <Sparkles size={15} />
+                <strong>AI suggestions</strong>
+                <span className="lp-ai-count">4 to review</span>
+              </div>
+              {STEPS.map(({ text, why, at }) => (
+                <div key={text} className="lp-ai-step" style={delay(at)}>
+                  <Check size={14} strokeWidth={3} />
+                  <div><b>{text}</b><span>{why}</span></div>
+                </div>
+              ))}
+              <div className="lp-approve"><span>Approve all</span><span>Review</span></div>
+            </aside>
           </div>
-          <p className="lp-totals"><span>After cleaning</span><b>241 orders</b><b>RM 153,948.70</b><span className="ok">Checked against the file</span></p>
-        </div>
-        <div className="lp-ai">
-          <div className="lp-ai-head"><span className="lp-pulse" />AI suggestions</div>
-          {STEPS.map(([text, at]) => (
-            <div key={text} className="lp-ai-step" style={delay(at)}>
-              <Check size={14} strokeWidth={3} /> {text}
-            </div>
-          ))}
-          <div className="lp-approve"><span>Approve all</span><span>Review</span></div>
         </div>
       </div>
-    </figure>
+    </div>
   );
 }
 
@@ -303,7 +361,7 @@ function HowItWorks() {
   }
 
   return (
-    <section id="how" className="lp-section">
+    <section id="how" className="lp-section lp-ground-wash">
       <div className="lp-wrap">
         <p className="lp-kicker">How it works</p>
         <h2>Four steps, one dataset you can trust.</h2>
@@ -362,7 +420,7 @@ function Tour() {
   const [current, setCurrent] = useState(TOUR[0].id);
   const shown = TOUR.find((t) => t.id === current)!;
   return (
-    <section id="tour" className="lp-section">
+    <section id="tour" className="lp-section lp-ground-lift">
       <div className="lp-wrap">
         <div className="lp-head-row">
           <div>
@@ -412,7 +470,7 @@ const PLANS = [
 function Pricing() {
   const [currency, setCurrency] = useState<Currency>(defaultCurrency);
   return (
-    <section id="pricing" className="lp-section">
+    <section id="pricing" className="lp-section lp-ground-lift">
       <div className="lp-wrap">
         <div className="lp-head-row">
           <div>
@@ -478,8 +536,10 @@ const FAQ = [
 ];
 
 export function Landing() {
+  // Night by default; ?look=light shows the light version while the two are compared.
+  const look = new URLSearchParams(useLocation().search).get("look") === "light" ? "light" : "night";
   return (
-    <div className="landing">
+    <div className="landing" data-look={look}>
       <a className="skip-link" href="#lp-main">Skip to content</a>
       <header className="lp-header">
         <div className="lp-wrap lp-header-row">
@@ -511,9 +571,7 @@ export function Landing() {
               <Link to="/sign-in" className="lp-btn lp-btn-primary lp-btn-lg">Start free</Link>
               <a href="#how" className="lp-btn lp-btn-secondary lp-btn-lg">See how it works</a>
             </div>
-            <div className="lp-stage">
-              <CleaningDemo />
-            </div>
+            <CleaningDemo />
           </div>
         </section>
 
@@ -524,7 +582,7 @@ export function Landing() {
           </ul>
         </div>
 
-        <section id="product" className="lp-section">
+        <section id="product" className="lp-section lp-ground-grid">
           <div className="lp-wrap">
             <p className="lp-kicker">Product</p>
             <h2>Every step shown. Every number checked.</h2>
@@ -599,7 +657,7 @@ export function Landing() {
           </div>
         </section>
 
-        <section id="powerbi" className="lp-section">
+        <section id="powerbi" className="lp-section lp-ground-warm">
           <div className="lp-wrap">
             <p className="lp-kicker">Power BI</p>
             <h2>Works with Power BI, in both directions.</h2>

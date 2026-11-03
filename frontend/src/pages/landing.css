@@ -241,8 +241,7 @@
 
 .lp-window {
   position: relative;
-  margin: 0 auto;
-  max-width: 1080px;
+  margin: 0;
   border-radius: 14px;
   background: var(--panel);
   border: 1px solid var(--line-strong);
@@ -261,7 +260,7 @@
 }
 
 @supports (animation-timeline: view()) {
-  .lp-window {
+  .lp-lay {
     animation: lp-lay-flat linear both;
     animation-timeline: view();
     animation-range: entry 0% cover 42%;
@@ -315,7 +314,7 @@
 
 .lp-app {
   display: grid;
-  grid-template-columns: 180px minmax(0, 1fr) 260px;
+  grid-template-columns: 180px minmax(0, 1fr);
   min-height: 400px;
 }
 
@@ -346,7 +345,7 @@
 }
 
 .lp-main {
-  padding: 18px 20px;
+  padding: 18px 300px 18px 20px; /* the AI card floats over the right of the window */
   min-width: 0;
 }
 
@@ -460,21 +459,7 @@
   color: var(--good);
 }
 
-.lp-ai {
-  border-left: 1px solid var(--line);
-  padding: 16px;
-  display: grid;
-  align-content: start;
-  gap: 10px;
-  font-size: 13px;
-}
 
-.lp-ai-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--muted);
-}
 
 .lp-pulse {
   width: 8px;
@@ -489,46 +474,10 @@
   50% { opacity: 0.4; }
 }
 
-.lp-ai-step {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  opacity: 0;
-  animation: lp-in 0.5s var(--ease-out) forwards;
-  animation-delay: var(--d);
-}
 
-.lp-ai-step svg {
-  flex: none;
-  margin-top: 3px;
-  color: var(--good);
-}
 
-.lp-approve {
-  margin-top: 6px;
-  display: flex;
-  gap: 8px;
-  opacity: 0;
-  animation: lp-in 0.5s var(--ease-out) forwards 3.6s;
-}
 
-.lp-approve span {
-  flex: 1;
-  text-align: center;
-  padding: 7px;
-  border-radius: 7px;
-  font-size: 12.5px;
-  border: 1px solid var(--line-strong);
-}
 
-.lp-approve span:first-child {
-  background: var(--blue-deep);
-  border-color: transparent;
-}
 
 /* Sources */
 .lp-sources {
@@ -1372,8 +1321,7 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .lp-side,
-  .lp-ai {
+  .lp-side {
     display: none;
   }
 
@@ -1414,7 +1362,7 @@
     top: 60px;
     z-index: 3;
     padding-block: 12px 18px;
-    background: linear-gradient(var(--ink) 85%, transparent);
+    background: linear-gradient(var(--wash) 85%, transparent);
   }
 
   .lp-flow-frame {
@@ -1471,12 +1419,430 @@
     transition-delay: 0s !important;
   }
 
-  .lp-window {
+  .lp-lay,
+  .lp-float {
     animation: none !important;
   }
 
   .lp-flow-pane,
   .lp-flow-pane.before {
     transform: none;
+  }
+}
+
+/* Floating, tilting window ------------------------------------------------------------------------------------- */
+
+.lp-stage {
+  max-width: 1120px;
+  margin-inline: auto;
+}
+
+.lp-lay,
+.lp-float,
+.lp-tilt {
+  transform-style: preserve-3d;
+}
+
+.lp-lay {
+  transform-origin: 50% 0;
+}
+
+/* A slow drift, so it reads as floating even when the pointer is still */
+.lp-float {
+  animation: lp-drift 7s ease-in-out infinite alternate;
+}
+
+@keyframes lp-drift {
+  from { transform: translateY(0); }
+  to { transform: translateY(-10px); }
+}
+
+.lp-tilt {
+  position: relative;
+  will-change: transform;
+}
+
+/* Light that follows the pointer across the glass */
+.lp-sheen {
+  position: absolute;
+  inset: -40%;
+  z-index: 2;
+  pointer-events: none;
+  background: radial-gradient(closest-side, rgba(170, 200, 255, 0.10), transparent 70%);
+  mix-blend-mode: screen;
+}
+
+/* The AI's suggestions: their own card, nearer to you than the window */
+.lp-ai {
+  position: absolute;
+  top: 64px;
+  right: -28px;
+  width: 300px;
+  z-index: 3;
+  transform: translateZ(70px);
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 14px;
+  text-align: left;
+  font-size: 13px;
+  background: linear-gradient(180deg, rgba(250, 204, 21, 0.08), rgba(250, 204, 21, 0) 45%), #0d1322;
+  border: 1px solid rgba(250, 204, 21, 0.38);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 0 0 4px rgba(250, 204, 21, 0.06),
+    0 30px 70px -20px rgba(0, 0, 0, 0.85),
+    0 20px 60px -30px rgba(250, 204, 21, 0.45);
+  animation: lp-ai-in 600ms var(--ease-out) 250ms both;
+}
+
+@keyframes lp-ai-in {
+  from { opacity: 0; translate: 0 12px; }
+}
+
+.lp-ai-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 2px 6px;
+  color: var(--spark);
+}
+
+.lp-ai-head strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.lp-ai-count {
+  margin-left: auto;
+  font: 11.5px var(--mono);
+  color: #0a0f1c;
+  background: var(--spark);
+  border-radius: 4px;
+  padding: 1px 7px;
+}
+
+.lp-ai-step {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 9px 11px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--line);
+  box-shadow: inset 2px 0 0 var(--spark);
+  opacity: 0;
+  animation: lp-in 0.5s var(--ease-out) forwards;
+  animation-delay: var(--d);
+}
+
+.lp-ai-step svg {
+  flex: none;
+  margin-top: 3px;
+  color: var(--good);
+}
+
+.lp-ai-step b {
+  display: block;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.lp-ai-step span {
+  display: block;
+  margin-top: 1px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.lp-approve {
+  margin-top: 4px;
+  display: flex;
+  gap: 8px;
+  opacity: 0;
+  animation: lp-in 0.5s var(--ease-out) forwards 3.6s;
+}
+
+.lp-approve span {
+  flex: 1;
+  text-align: center;
+  padding: 7px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 500;
+  border: 1px solid var(--line-strong);
+}
+
+.lp-approve span:first-child {
+  color: #0a0f1c;
+  background: linear-gradient(#fde047, var(--spark));
+  border-color: rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+@media (max-width: 900px) {
+  .lp-main {
+    padding-right: 20px;
+  }
+
+  .lp-ai {
+    position: relative;
+    top: auto;
+    right: auto;
+    width: auto;
+    margin: -28px 14px 0;
+    transform: none;
+  }
+}
+
+/* Section grounds: each part of the page sits on its own ground ------------------------------------------------ */
+
+.lp-section {
+  position: relative;
+  padding-block: 112px;
+  isolation: isolate;
+}
+
+/* A thin line of light where a new ground starts */
+.lp-ground-grid::before,
+.lp-ground-lift::before,
+.lp-ground-warm::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--edge, rgba(120, 160, 255, 0.45)), transparent);
+}
+
+.lp-ground-grid {
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 0%, rgba(61, 123, 255, 0.10), transparent 70%),
+    var(--ink);
+}
+
+.lp-ground-grid::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 80% 70% at 50% 30%, #000, transparent 75%);
+}
+
+.lp-ground-wash {
+  background: linear-gradient(180deg, var(--ink), var(--wash) 30%, var(--wash) 70%, var(--ink));
+}
+
+.lp-ground-lift {
+  background: var(--lift);
+  border-bottom: 1px solid var(--line);
+}
+
+.lp-ground-warm {
+  --edge: rgba(250, 204, 21, 0.45);
+  background:
+    radial-gradient(ellipse 50% 70% at 85% 20%, rgba(250, 204, 21, 0.08), transparent 70%),
+    var(--lift);
+  border-bottom: 1px solid var(--line);
+}
+
+.landing {
+  --grid: rgba(148, 170, 214, 0.06);
+  --wash: #0a1226;
+  --lift: #0a0f1b;
+}
+
+/* Light ------------------------------------------------------------------------------------------------------ */
+
+.landing[data-look="light"] {
+  --ink: #f5f7fb;
+  --panel: #ffffff;
+  --panel-2: #f3f5f9;
+  --line: rgba(16, 24, 40, 0.08);
+  --line-strong: rgba(16, 24, 40, 0.14);
+  --text: #0f172a;
+  --muted: #536072;
+  --faint: #8a94a6;
+  --blue: #1b5fd1;
+  --spark: #eab308;
+  --good: #047857;
+  --fix: #c2410c;
+  --grid: rgba(27, 95, 209, 0.07);
+  --wash: #eaf0fb;
+  --lift: #ffffff;
+  color-scheme: light;
+}
+
+.landing[data-look="light"]::after {
+  opacity: 0.025;
+}
+
+.landing[data-look="light"] .lp-header {
+  background: rgba(245, 247, 251, 0.8);
+}
+
+.landing[data-look="light"] .lp-beam {
+  background:
+    radial-gradient(ellipse 40% 50% at 50% 0%, rgba(27, 95, 209, 0.16), transparent 70%),
+    conic-gradient(from 180deg at 50% -8%, transparent 164deg, rgba(27, 95, 209, 0.07) 176deg, rgba(27, 95, 209, 0.1) 180deg, rgba(27, 95, 209, 0.07) 184deg, transparent 196deg);
+}
+
+.landing[data-look="light"] .lp-hero h1 {
+  background: linear-gradient(180deg, #0b1222 35%, #4b5a75 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+.landing[data-look="light"] .lp-btn-primary {
+  color: #fff;
+  background: linear-gradient(#2a3550, #0f172a);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 1px 2px rgba(15, 23, 42, 0.3), 0 0 0 1px #0b1222;
+}
+
+.landing[data-look="light"] .lp-btn-primary:hover {
+  background: linear-gradient(#36425f, #1b2539);
+}
+
+.landing[data-look="light"] .lp-btn-secondary {
+  color: var(--text);
+  background: linear-gradient(#ffffff, #f4f6fa);
+  box-shadow: inset 0 1px 0 #fff, 0 0 0 1px rgba(16, 24, 40, 0.12), 0 1px 2px rgba(16, 24, 40, 0.08);
+}
+
+.landing[data-look="light"] .lp-btn-secondary:hover {
+  background: #fff;
+}
+
+.landing[data-look="light"] .lp-window {
+  box-shadow: 0 0 0 1px rgba(16, 24, 40, 0.06), 0 50px 100px -40px rgba(27, 95, 209, 0.35), 0 30px 60px -40px rgba(15, 23, 42, 0.3);
+}
+
+.landing[data-look="light"] .lp-window::before {
+  background: linear-gradient(90deg, transparent, rgba(27, 95, 209, 0.4), transparent);
+}
+
+.landing[data-look="light"] .lp-sheen {
+  background: radial-gradient(closest-side, rgba(27, 95, 209, 0.06), transparent 70%);
+  mix-blend-mode: multiply;
+}
+
+.landing[data-look="light"] .lp-chrome i {
+  background: #e2e8f0;
+}
+
+.landing[data-look="light"] .lp-side .on {
+  background: #e9f0fc;
+  color: var(--blue);
+}
+
+.landing[data-look="light"] .lp-table td,
+.landing[data-look="light"] .lp-v-ask .a,
+.landing[data-look="light"] .lp-plan ul {
+  color: #334155;
+}
+
+.landing[data-look="light"] .lp-fix::after {
+  background: rgba(234, 179, 8, 0.22);
+}
+
+.landing[data-look="light"] .lp-ai {
+  background: linear-gradient(180deg, rgba(250, 204, 21, 0.14), rgba(250, 204, 21, 0) 45%), #ffffff;
+  border-color: rgba(202, 138, 4, 0.45);
+  box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.12), 0 30px 60px -24px rgba(15, 23, 42, 0.3), 0 20px 50px -28px rgba(202, 138, 4, 0.45);
+}
+
+.landing[data-look="light"] .lp-ai-head {
+  color: #a16207;
+}
+
+.landing[data-look="light"] .lp-ai-step {
+  background: #fffdf5;
+}
+
+.landing[data-look="light"] .lp-ai-count,
+.landing[data-look="light"] .lp-note b,
+.landing[data-look="light"] .lp-tag.ai {
+  background: #facc15;
+  color: #422006;
+}
+
+.landing[data-look="light"] .lp-approve span:first-child {
+  background: linear-gradient(#fde047, #facc15);
+  color: #422006;
+}
+
+.landing[data-look="light"] .lp-panel {
+  border-color: rgba(16, 24, 40, 0.08);
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 16px 32px -24px rgba(15, 23, 42, 0.25);
+}
+
+.landing[data-look="light"] .lp-ground-lift .lp-panel,
+.landing[data-look="light"] .lp-ground-warm .lp-panel {
+  background: #f8fafd;
+}
+
+.landing[data-look="light"] .lp-model rect {
+  fill: #f3f5f9;
+  stroke: rgba(16, 24, 40, 0.16);
+}
+
+.landing[data-look="light"] .lp-model text {
+  fill: #334155;
+}
+
+.landing[data-look="light"] .lp-sources ul {
+  color: #6b7689;
+}
+
+.landing[data-look="light"] .lp-flow-frame {
+  background:
+    radial-gradient(rgba(16, 24, 40, 0.1) 1px, transparent 1px) 0 0 / 16px 16px,
+    #ffffff;
+  box-shadow: 0 30px 60px -36px rgba(15, 23, 42, 0.35);
+  border-color: rgba(16, 24, 40, 0.08);
+}
+
+.landing[data-look="light"] .lp-flow-stage {
+  background: none;
+}
+
+.landing[data-look="light"] .lp-tabs {
+  background: rgba(16, 24, 40, 0.04);
+}
+
+.landing[data-look="light"] .lp-tabs button[aria-selected="true"],
+.landing[data-look="light"] .lp-tabs button[aria-pressed="true"] {
+  color: #fff;
+  background: linear-gradient(#2a3550, #0f172a);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 1px 2px rgba(15, 23, 42, 0.3);
+}
+
+.landing[data-look="light"] .lp-tour img {
+  box-shadow: 0 40px 80px -40px rgba(15, 23, 42, 0.35);
+}
+
+.landing[data-look="light"] .lp-final::before {
+  background: radial-gradient(ellipse 40% 50% at 50% 50%, rgba(27, 95, 209, 0.16), transparent 70%);
+}
+
+.landing[data-look="light"] .lp-ground-grid {
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 0%, rgba(27, 95, 209, 0.07), transparent 70%),
+    var(--ink);
+}
+
+.landing[data-look="light"] .lp-ground-warm {
+  background:
+    radial-gradient(ellipse 50% 70% at 85% 20%, rgba(250, 204, 21, 0.16), transparent 70%),
+    var(--lift);
+}
+
+@media (max-width: 900px) {
+  .landing[data-look="light"] .lp-flow-stage {
+    background: linear-gradient(var(--wash) 85%, transparent);
   }
 }
