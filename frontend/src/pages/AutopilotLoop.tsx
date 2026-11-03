@@ -4,13 +4,13 @@ import { Check, Pause, Play, Sparkles, UploadCloud } from "lucide-react";
 /**
  * Autopilot in action, as a short muted loop drawn in the page (sharper and far lighter than a video file).
  * Four scenes of 4 seconds: the file arrives, the AI cleans it, the tables are related, the dashboard is built and
- * checked. A clock and a timeline run underneath, compressing the real 3 min 41 s run on the sample files.
+ * checked. A clock and a timeline run underneath, compressing a run of under three minutes.
  * It pauses when scrolled away and with the pause button. With reduced motion it still plays, as fades (see CSS).
  */
 
 const SCENES = ["Get data", "Clean", "Model", "Report"] as const;
 const SCENE_MS = 4000;
-const RUN_SECONDS = 221; // 03:41, the sample run
+const RUN_SECONDS = 170; // the clock stops at 02:50: under three minutes, as the page says
 
 const k = (n: number) => ({ "--k": n }) as CSSProperties;
 
@@ -126,7 +126,7 @@ export function AutopilotLoop() {
   }, [playing, visible]);
 
   return (
-    <figure className="apl-player" ref={box} aria-label="Autopilot on the sample files: sales.csv and customers.xlsx are uploaded, the AI fixes dates, prices, blanks and repeated rows, relates the tables and adds 11 measures, then builds a dashboard of revenue by region with every number checked. 3 minutes 41 seconds in all.">
+    <figure className="apl-player" ref={box} aria-label="Autopilot on the sample files: sales.csv and customers.xlsx are uploaded, the AI fixes dates, prices, blanks and repeated rows, relates the tables and adds 11 measures, then builds a dashboard of revenue by region with every number checked, in under three minutes.">
       <div className="apl-head">
         <span className="apl-badge"><Sparkles size={13} aria-hidden="true" /> Autopilot</span>
         <span className="apl-title">Sales 2024</span>

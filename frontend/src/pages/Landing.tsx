@@ -510,7 +510,7 @@ function Pricing() {
 const FAQ = [
   {
     q: "How long does it take?",
-    a: "In our tests with a messy sales file, Autopilot went from upload to a checked dashboard in under four minutes. You can also go step by step and approve each change.",
+    a: "In our tests with a messy sales file, Autopilot went from upload to a checked dashboard in under three minutes. How long it takes depends on how large and complex your source data is. You can also go step by step and approve each change.",
   },
   {
     q: "What if the AI gets something wrong?",
@@ -565,7 +565,7 @@ export function Landing() {
         <section className="lp-hero">
           <div className="lp-beam" aria-hidden="true" />
           <div className="lp-wrap">
-            <a className="lp-note" href="#autopilot"><b>Autopilot</b> Upload to checked dashboard in under four minutes</a>
+            <a className="lp-note" href="#autopilot"><b>Autopilot</b> Upload to checked dashboard in under three minutes</a>
             <h1>From messy data to checked dashboards.</h1>
             <p className="lp-lede">For teams without a data analyst. The AI cleans, models and charts your data, and shows every change for you to approve.</p>
             <div className="lp-ctas">
@@ -587,13 +587,14 @@ export function Landing() {
           <div className="lp-wrap lp-auto">
             <div className="lp-auto-copy">
               <p className="lp-kicker">Autopilot</p>
-              <h2>Upload a file. Get a checked dashboard in under four minutes.</h2>
+              <h2>Upload a file. Get a checked dashboard in under three minutes.</h2>
               <p className="lp-sub">Autopilot cleans your data, relates the tables, writes the measures and builds the dashboard on its own. Then it stops, so you can review every change before anyone sees it.</p>
               <ul className="lp-auto-facts">
-                <li><b>3:41</b><span>from upload to a checked dashboard on our messy sample files</span></li>
+                <li><b>&lt;3 min</b><span>from upload to a checked dashboard on our messy sample files</span></li>
                 <li><b>8</b><span>cleaning steps, each with the AI's reason, for you to approve or undo</span></li>
                 <li><b>Every</b><span>number the AI writes is checked against the data; anything that doesn't match is flagged</span></li>
               </ul>
+              <p className="lp-auto-note">Times depend on how large and complex your source data is.</p>
             </div>
             <AutopilotLoop />
           </div>
