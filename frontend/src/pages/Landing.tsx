@@ -51,9 +51,8 @@ const STEPS: { text: string; why: string; at: number }[] = [
 ];
 
 /**
- * The product window, floating. Messy cells fix themselves, and the AI's suggestions arrive on their own card,
- * which sits nearer to you than the window: it moves further as the window tilts towards the pointer, so it reads as
- * the thing that matters. The tilt eases towards the pointer (no snapping) and only runs with a mouse.
+ * The product window, floating. Messy cells fix themselves, and the window tilts towards the pointer (eased, mouse
+ * only). The AI's suggestions sit on their own card above it, outside the tilt, so they stay still and sharp.
  */
 function CleaningDemo() {
   const [run, setRun] = useState(0);
@@ -64,7 +63,9 @@ function CleaningDemo() {
     const el = tilt.current;
     const hero = el?.closest(".lp-hero") as HTMLElement | null;
     if (!el || !hero) return;
-    if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    // The tilt follows the pointer, so it runs for everyone with a mouse (reduced motion only stops the drift,
+    // which moves on its own).
+    if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
     let target = { x: 0, y: 0 };
     let now = { x: 0, y: 0 };
     let frame = 0;
@@ -146,23 +147,24 @@ function CleaningDemo() {
                 </div>
               </div>
             </figure>
-            <aside className="lp-ai" key={run} aria-hidden="true">
-              <div className="lp-ai-head">
-                <Sparkles size={15} />
-                <strong>AI suggestions</strong>
-                <span className="lp-ai-count">4 to review</span>
-              </div>
-              {STEPS.map(({ text, why, at }) => (
-                <div key={text} className="lp-ai-step" style={delay(at)}>
-                  <Check size={14} strokeWidth={3} />
-                  <div><b>{text}</b><span>{why}</span></div>
-                </div>
-              ))}
-              <div className="lp-approve"><span>Approve all</span><span>Review</span></div>
-            </aside>
+
           </div>
         </div>
       </div>
+      <aside className="lp-ai" aria-hidden="true">
+        <div className="lp-ai-head">
+          <Sparkles size={15} />
+          <strong>AI suggestions</strong>
+          <span className="lp-ai-count">4 to review</span>
+        </div>
+        {STEPS.map(({ text, why, at }) => (
+          <div key={text} className="lp-ai-step" style={delay(at)}>
+            <Check size={14} strokeWidth={3} />
+            <div><b>{text}</b><span>{why}</span></div>
+          </div>
+        ))}
+        <div className="lp-approve"><span>Approve all</span><span>Review</span></div>
+      </aside>
     </div>
   );
 }
