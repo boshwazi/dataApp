@@ -8,7 +8,7 @@ import "@fontsource/host-grotesk/500.css";
 import "@fontsource/host-grotesk/600.css";
 import "@fontsource/host-grotesk/700.css";
 import "@fontsource/fragment-mono/400.css";
-import { CrumbProvider, DialogProvider, ToastProvider } from "./components/ui";
+import { CrumbProvider, DialogProvider, PageLoading, ToastProvider } from "./components/ui";
 import { AccountProvider, WorkspaceGate, useAccount } from "./components/account";
 import type { Role } from "./api";
 import "./styles.css";
@@ -22,7 +22,7 @@ function page<K extends string>(load: () => Promise<{ [key in K]: ComponentType<
   const Lazy = lazy<ComponentType<any>>(() => load().then((module) => ({ default: module[name] })));
   return function Page(props: Record<string, unknown>) {
     return (
-      <Suspense fallback={<p className="muted page-loading">Loading…</p>}>
+      <Suspense fallback={<PageLoading />}>
         <Lazy {...props} />
       </Suspense>
     );

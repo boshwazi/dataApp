@@ -17,7 +17,7 @@ import {
   type Relationship,
   type RelationshipCheck,
 } from "../api";
-import { useToast } from "../components/ui";
+import { PageLoading, useToast } from "../components/ui";
 import { useDataset } from "./Dataset";
 import { TypeTag } from "./Transform";
 
@@ -166,7 +166,7 @@ export function Model() {
     }
   }
 
-  if (!state) return <p className={error ? "bad pad" : "muted pad"}>{error ?? "Loading…"}</p>;
+  if (!state) return (error ? <p className="bad pad">{error}</p> : <PageLoading />);
 
   if (state.tables.length === 0) {
     return (

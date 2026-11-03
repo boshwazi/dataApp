@@ -12,8 +12,24 @@ import {
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { handledErrors, type WorkspaceRef } from "../api";
+import { t } from "../i18n";
 
 // Logo
+
+/** A page still loading: the datawazi mark, its yellow AI slice sweeping round the "d" while the bar fills. It fades in
+    after a short pause, so quick loads don't flash it. */
+export function PageLoading({ label = "Loading…" }: { label?: string }) {
+  return (
+    <div className="page-loading" role="status" aria-live="polite">
+      <svg viewBox="8 6 34 38" width="46" height="52" aria-hidden="true" className="loading-mark">
+        <circle className="loading-ring" cx="22.5" cy="28" r="9" />
+        <circle className="loading-slice" cx="22.5" cy="28" r="9" pathLength={100} />
+        <rect className="loading-bar" x="31.5" y="9" width="5.5" height="30.75" rx="2.75" />
+      </svg>
+      <span>{t(label)}</span>
+    </div>
+  );
+}
 
 export function BrandMark({ size = 22 }: { size?: number }) {
   // The datawazi mark: a "d" drawn as a donut and a bar, with the AI's yellow slice. Same as public/favicon.svg.

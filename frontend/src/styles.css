@@ -9538,3 +9538,98 @@ button:disabled {
     display: none !important;
   }
 }
+
+/* Report page tabs: hovering lifts the text and hints the underline (they had no hover of their own, so the
+   general blue button hover showed through). No press scale on tabs. */
+.page-tabs button:hover:not(:disabled) {
+  background: none;
+  color: var(--text);
+  border-color: transparent;
+  border-bottom-color: var(--border-strong);
+}
+
+.page-tabs button.on:hover:not(:disabled) {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.page-tabs button:active:not(:disabled) {
+  transform: none;
+}
+
+/* Loading: the datawazi mark at work. The yellow AI slice sweeps round the "d" while the bar fills. */
+.page-loading {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 14px;
+  min-height: min(60vh, 460px);
+  color: var(--muted);
+  font-size: 13px;
+  animation: loading-in 240ms var(--ease-out) 300ms both;
+}
+
+.loading-mark {
+  overflow: visible;
+}
+
+.loading-ring,
+.loading-slice {
+  fill: none;
+  stroke-width: 5.5;
+}
+
+.loading-ring {
+  stroke: var(--accent);
+  opacity: 0.22;
+}
+
+.loading-slice {
+  stroke: var(--highlight);
+  stroke-linecap: round;
+  stroke-dasharray: 26 74;
+  transform-origin: 22.5px 28px;
+  animation: loading-sweep 1.1s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+.loading-bar {
+  fill: var(--accent);
+  transform-box: fill-box;
+  transform-origin: bottom;
+  animation: loading-fill 1.1s cubic-bezier(0.65, 0, 0.35, 1) infinite alternate;
+}
+
+@keyframes loading-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@keyframes loading-sweep {
+  from {
+    transform: rotate(-90deg);
+  }
+  to {
+    transform: rotate(270deg);
+  }
+}
+
+@keyframes loading-fill {
+  from {
+    transform: scaleY(0.35);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-slice,
+  .loading-bar {
+    animation: loading-breathe 1.6s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes loading-breathe {
+  from {
+    opacity: 0.45;
+  }
+}

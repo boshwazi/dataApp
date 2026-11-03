@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ApiError, refreshApi, type LoadMode, type RefreshEntry, type RefreshState } from "../api";
-import { useDialogs } from "../components/ui";
+import { PageLoading, useDialogs } from "../components/ui";
 import { useDataset } from "./Dataset";
 
 const SCHEDULE_LABELS: Record<string, string> = {
@@ -83,7 +83,7 @@ export function Refresh() {
     });
   }
 
-  if (!state) return <p className={error ? "bad" : "muted"}>{error ?? "Loading…"}</p>;
+  if (!state) return (error ? <p className="bad">{error}</p> : <PageLoading />);
 
   const pullable = state.sources.filter((s) => s.pullable);
   const linked = state.sources.some((s) => s.kind === "dataset");

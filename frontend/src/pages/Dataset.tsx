@@ -14,7 +14,7 @@ import { BadgeCheck, FileDown, ScrollText, GitBranch, History, Layers, MoreHoriz
 import { ActivityDrawer } from "../components/ActivityDrawer";
 import { InstructionsDialog } from "../components/InstructionsDialog";
 import { ChatPanel, type ChatHandle } from "../components/ChatPanel";
-import { Menu, TopbarActions, powerBISteps, useCrumbs, useDialogs, useShortcut, useToast } from "../components/ui";
+import { Menu, PageLoading, TopbarActions, powerBISteps, useCrumbs, useDialogs, useShortcut, useToast } from "../components/ui";
 
 // The dataset half of the pipeline, in Power BI order. Dashboards build on what is published here.
 const STAGES: { path: string; key: DatasetStage; name: string; suggestions: string[] }[] = [
@@ -197,7 +197,7 @@ export function Dataset() {
   useShortcut("i", () => !onRefresh && toggleChat());
 
   if (error && !dataset) return <p className="bad">{error}</p>;
-  if (!dataset) return <p className="muted">Loading…</p>;
+  if (!dataset) return <PageLoading />;
 
   const { status, progress, stale } = dataset;
   // Coming from "Bring new data": once published, go back to the dashboard waiting for it.

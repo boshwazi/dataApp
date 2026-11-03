@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api, type Lineage as LineageData, type LineageNode } from "../api";
 import { useDataset } from "./Dataset";
+import { PageLoading } from "../components/ui";
 
 const COLUMNS = ["Sources", "Tables", "Measures", "Dashboard visuals"];
 
@@ -71,7 +72,7 @@ export function Lineage() {
     return () => observer.disconnect();
   }, [graph]);
 
-  if (!graph) return <p className={error ? "bad" : "muted"}>{error ?? "Loading…"}</p>;
+  if (!graph) return (error ? <p className="bad">{error}</p> : <PageLoading />);
   if (graph.nodes.length === 0) return <p className="muted">Load some data to see its lineage.</p>;
 
   const byColumn = COLUMNS.map((_, i) => graph.nodes.filter((n) => n.column === i));

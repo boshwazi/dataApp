@@ -5,7 +5,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Mail } from "lucide-react";
 import { accountApi, ApiError, configureSession, downloadFile, type Me, type Role, type WorkspaceRef } from "../api";
-import { BrandMark } from "./ui";
+import { BrandMark, PageLoading } from "./ui";
 import { SignInChart } from "./SignInChart";
 import { OnboardingShell } from "./OnboardingSteps";
 import { t } from "../i18n";
@@ -274,10 +274,14 @@ function WorkspaceClosed() {
 function Splash({ message }: { message?: string }) {
   return (
     <div className="auth-page">
-      <div className="auth-card center">
-        <BrandMark size={32} />
-        <p className={message ? "bad" : "muted"}>{message ?? "Loading…"}</p>
-      </div>
+      {message ? (
+        <div className="auth-card center">
+          <BrandMark size={32} />
+          <p className="bad">{message}</p>
+        </div>
+      ) : (
+        <PageLoading />
+      )}
     </div>
   );
 }
@@ -598,7 +602,7 @@ function TwoStepSetup({ client, note }: { client: SupabaseClient; note: string }
           </div>
           <h1>Set up two-step sign-in</h1>
           <p className="notice">{note}</p>
-          <Suspense fallback={<p className="muted">Loading…</p>}>
+          <Suspense fallback={<PageLoading />}>
             <TwoStep client={client} onDone={() => window.location.reload()} />
           </Suspense>
           <button className="link" onClick={() => void client.auth.signOut()}>

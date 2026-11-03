@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, type ConnectionReport, type ProviderSettings } from "../api";
-import { useCrumbs } from "../components/ui";
+import { PageLoading, useCrumbs } from "../components/ui";
 
 function YesNo({ value }: { value: boolean | null }) {
   if (value === null) return <span className="muted">not checked</span>;
@@ -58,7 +58,7 @@ export function Settings() {
     }
   }
 
-  if (!settings) return <p className="muted">{message ?? "Loading…"}</p>;
+  if (!settings) return message ? <p className="muted">{message}</p> : <PageLoading />;
 
   // Where the connection stands: no key, a key that hasn't been tested, or tested (with what it supports).
   const tested = settings.capabilities.tools !== undefined;

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Boxes, Plus, Sparkles } from "lucide-react";
 import { api, modelApi, semanticApi, type Dataset, type LinkCatalogue, type SemanticResult } from "../api";
-import { useCrumbs, useToast } from "../components/ui";
+import { PageLoading, useCrumbs, useToast } from "../components/ui";
 
 type Mode = "merge" | "tables";
 type Built = SemanticResult & { ai: "running" | "done" | "skipped" | string; added: number };
@@ -150,7 +150,7 @@ export function SemanticModels() {
         </p>
 
         {catalogue === null ? (
-          <p className="muted">Loading…</p>
+          <PageLoading />
         ) : catalogue.length < (mode === "merge" ? 2 : 1) ? (
           <p className="muted">
             {mode === "merge" ? "Merging needs at least two published datasets." : "Publish a dataset first; its clean tables show up here."}

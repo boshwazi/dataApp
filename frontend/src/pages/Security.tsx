@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Plus, ShieldCheck, Trash2, X } from "lucide-react";
 import { securityApi, type RoleDef, type SecurityState } from "../api";
-import { EmptyState, useToast } from "../components/ui";
+import { EmptyState, PageLoading, useToast } from "../components/ui";
 import { useDataset } from "./Dataset";
 
 type Draft = RoleDef & { valuesText: string[] };
@@ -30,7 +30,7 @@ export function Security() {
     securityApi.get(project.id).then(loaded).catch((e) => setError(e.message));
   }, [project.id]);
 
-  if (!state) return <p className={error ? "bad" : "muted"}>{error ?? "Loading…"}</p>;
+  if (!state) return (error ? <p className="bad">{error}</p> : <PageLoading />);
 
   const tables = state.fields;
   const textColumns = (tableId: string) => tables.find((t) => t.id === tableId)?.columns.filter((c) => c.type === "text") ?? [];

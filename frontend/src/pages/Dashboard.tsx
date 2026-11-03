@@ -35,7 +35,7 @@ import { Chart, LIGHT_TOKENS as TOKENS, SERIES } from "../components/Chart";
 import { ChatPanel, type ChatHandle } from "../components/ChatPanel";
 import { COLUMNS, firstFit, layoutOf, MiniPage, overlaps } from "../components/miniPage";
 import { rememberOpened } from "../components/recent";
-import { EmptyState, Menu, PopMenu, TopbarActions, powerBISteps, type MenuItem, useCrumbs, useDialogs, useShortcut, useToast } from "../components/ui";
+import { EmptyState, Menu, PageLoading, PopMenu, TopbarActions, powerBISteps, type MenuItem, useCrumbs, useDialogs, useShortcut, useToast } from "../components/ui";
 import { useAccount } from "../components/account";
 import { ShareDialog } from "../components/ShareDialog";
 import { DigestDialog } from "../components/DigestDialog";
@@ -221,7 +221,7 @@ export function Dashboard() {
     if (added) go({ page: added.id });
   }
 
-  if (!state) return <p className={error ? "bad pad" : "muted pad"}>{error ?? "Loading…"}</p>;
+  if (!state) return (error ? <p className="bad pad">{error}</p> : <PageLoading />);
 
   const editing = side === "draft";
   const page = state.pages.find((p) => p.id === params.get("page")) ?? state.pages[0];

@@ -12,7 +12,7 @@ import {
   type StepRows,
   type TransformState,
 } from "../api";
-import { Menu, PopMenu, useDialogs } from "../components/ui";
+import { Menu, PageLoading, PopMenu, useDialogs } from "../components/ui";
 import { useDataset } from "./Dataset";
 
 type Change = (action: () => Promise<TransformState>) => Promise<boolean>;
@@ -91,7 +91,7 @@ export function Transform() {
     }
   }
 
-  if (!state) return <p className={error ? "bad pad" : "muted pad"}>{error ?? "Loading…"}</p>;
+  if (!state) return (error ? <p className="bad pad">{error}</p> : <PageLoading />);
 
   if (state.queries.length === 0) {
     return (
