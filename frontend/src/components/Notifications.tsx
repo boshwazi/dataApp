@@ -3,6 +3,7 @@ import { Bell } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { notificationsApi, type Notice } from "../api";
 import { useAccount } from "./account";
+import { Skeleton } from "./ui";
 import { t } from "../i18n";
 
 const POLL_MS = 60_000;
@@ -33,7 +34,7 @@ export function Notifications() {
   const account = useAccount();
   const navigate = useNavigate();
   const key = seenKey(account.workspace?.id);
-  const [items, setItems] = useState<Notice[]>([]);
+  const [items, setItems] = useState<Notice[] | null>(null);
   const [seen, setSeen] = useState(() => readSeen(key));
   // What was seen before this opening: items newer than it stay marked new while the panel is open.
   const [before, setBefore] = useState(seen);
@@ -57,14 +58,14 @@ export function Notifications() {
     return () => document.removeEventListener("mousedown", away);
   }, [open]);
 
-  const unread = items.filter((n) => n.at > seen).length;
-  const fresh = items.filter((n) => n.at > before).length;
+  const unread = (items ?? []).filter((n) => n.at > seen).length;
+  const fresh = (items ?? []).filter((n) => n.at > before).length;
 
   function toggle() {
     const next = !open;
     setOpen(next);
     if (next) setBefore(seen);
-    if (next && items.length) {
+    if (next && items?.length) {
       const newest = items[0].at;
       try {
         localStorage.setItem(key, newest);
@@ -88,7 +89,9 @@ export function Notifications() {
             <h2>{t("Notifications")}</h2>
             {fresh > 0 && <span className="notices-new">{t("{n} new", { n: fresh })}</span>}
           </div>
-          {items.length === 0 ? (
+          {items === null ? (
+            <Skeleton lines={3} height={36} />
+          ) : items.length === 0 ? (
             <p className="muted small">{t("Nothing yet. Failed refreshes, finished Autopilot runs and dashboards shared with you show up here.")}</p>
           ) : (
             <ul>

@@ -195,3 +195,15 @@ Each step is one commit to `main` and is checked in the browser in light, dark a
   - Get Data's selected source has a cyan hairline and rule. Its facts and profile headers use mono labels, and
     column types are neutral.
   - Tabs underline the current one in ink.
+- **Step 5, Model: done.**
+  - Table cards are flat with 6px corners. A chosen card has a cyan ring, and the fact and date tables no longer
+    have coloured headers (their kind is written in mono).
+  - Relationship lines are grey, cyan when chosen, and amber dashed while the AI waits on them.
+  - The AI card is neutral, carried by its small amber tag and button.
+  - "Waiting for you" is a compact review queue. Each change is one line (a mono REL/MEASURE/DATE tag, its name,
+    a tick and a cross), and its reason is cut to one line until you hover or focus it.
+- **Loading, standardised.** A whole page that is still loading shows the datawazi mark. A list or section inside a
+  page shows the shimmer placeholder (`<Skeleton>`). This fixed Semantic models, which showed nothing while it
+  loaded, plus Get Data's preview, the Transform grid, the activity drawer, groups, the audit log and
+  notifications. Notifications had said "Nothing yet" before loading. The shimmer now visibly sweeps; before,
+  all three stops of its gradient were the same colour.

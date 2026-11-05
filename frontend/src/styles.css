@@ -10939,3 +10939,284 @@ button.tree-row:hover,
 .table-wrap {
   border-radius: 6px;
 }
+
+/* ==========================================================================================================
+   Model (UI overhaul step 5): flat table cards with a cyan ring when chosen, neutral headers (the kind is
+   written, not coloured), grey relationship lines (cyan when chosen, amber while the AI waits on them),
+   a quiet AI card and a compact review queue.
+   ========================================================================================================== */
+
+.diagram-canvas {
+  background-color: var(--bg);
+  background-size: 16px 16px;
+}
+
+.table-card {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.table-card:hover {
+  border-color: var(--border-hover);
+}
+
+.table-card.on {
+  border-color: var(--highlight);
+  box-shadow: 0 0 0 1px var(--highlight), 0 0 0 4px rgba(0, 169, 226, 0.12);
+}
+
+.table-card.moving {
+  box-shadow: var(--elevation);
+}
+
+.table-card header {
+  height: 36px;
+  border-radius: 6px 6px 0 0;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.table-card.kind-fact header,
+.table-card.kind-date header {
+  background: var(--panel-2);
+}
+
+.card-meta {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.table-card li {
+  height: 24px;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+
+.table-card li:hover {
+  background: var(--hover);
+}
+
+.table-card li.is-key {
+  color: var(--text);
+}
+
+.table-card li.dragging {
+  background: var(--selected);
+  color: var(--text);
+}
+
+.card-measures {
+  color: var(--text-2);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.rel .rel-line {
+  stroke: var(--border-hover);
+  stroke-width: 1.5;
+}
+
+.rel.suggested .rel-line {
+  stroke: var(--ai-line);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
+.rel.on .rel-line {
+  stroke: var(--highlight);
+  stroke-width: 2.2;
+  stroke-dasharray: none;
+}
+
+.rel text {
+  font-family: var(--mono);
+  font-size: 10.5px;
+}
+
+.rel-drag {
+  stroke: var(--highlight);
+}
+
+/* The AI card: neutral, with the small amber tag and the amber button carrying the AI */
+.suggest-card {
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+  font-size: 13px;
+}
+
+.suggest-card .ai-tag {
+  align-self: flex-start;
+}
+
+/* Review queue: one line per change, its reason on a second line cut short until you hover or focus it */
+.pending-list {
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.pending-head {
+  padding: 8px 8px 8px 12px;
+  background: var(--panel-2);
+  font: 500 10.5px/16px var(--mono);
+  letter-spacing: 0.071em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.pending-head .link {
+  font-family: var(--font);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.pending-count {
+  margin-left: 4px;
+  padding: 0 6px;
+  border: 1px solid var(--ai-border);
+  border-radius: 999px;
+  background: var(--ai-bg);
+  color: var(--ai);
+}
+
+.pending-item {
+  gap: 2px;
+  padding: 6px 6px 6px 12px;
+  outline: none;
+}
+
+.pending-item:hover,
+.pending-item:focus-within {
+  background: var(--panel-2);
+}
+
+.pending-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pending-kind {
+  flex-shrink: 0;
+  min-width: 52px;
+  font: 500 9.5px/16px var(--mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ai);
+}
+
+.pending-item > .pending-line > button.pending-label {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 400;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pending-item > .pending-line > button.pending-label:hover {
+  color: var(--accent);
+}
+
+.pending-line .tool {
+  min-width: 26px;
+  min-height: 26px;
+  padding: 0;
+  justify-content: center;
+}
+
+.pending-line .pending-accept {
+  color: var(--ok);
+}
+
+.pending-reason {
+  display: -webkit-box;
+  padding-left: 60px;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+
+.pending-item:hover .pending-reason,
+.pending-item:focus-within .pending-reason {
+  -webkit-line-clamp: unset;
+}
+
+/* Model facts and properties */
+.facts dt {
+  font: 500 10.5px/18px var(--mono);
+  letter-spacing: 0.071em;
+  text-transform: uppercase;
+}
+
+.facts dd {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.formula-bar {
+  min-height: 42px;
+}
+
+.formula-name input:hover,
+.formula-name input:focus {
+  border-color: var(--border);
+}
+
+.props code {
+  color: var(--text);
+}
+
+.tree-row.measure-row {
+  color: var(--text-2);
+}
+
+/* Loading placeholders: one standard shimmer for any list or section that is still loading (whole pages use the
+   datawazi mark instead). A lighter band sweeps across a grey bar, in both themes. */
+.skeleton span {
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--hover) 25%, var(--panel-2) 50%, var(--hover) 75%);
+  background-size: 200% 100%;
+}
+
+:root[data-theme="dark"] .skeleton span {
+  background: linear-gradient(90deg, var(--hover) 25%, #2a2a2a 50%, var(--hover) 75%);
+  background-size: 200% 100%;
+}
+
+/* Review queue buttons are ghost icons: green tick, a cross that turns red on hover */
+.pending-line .tool,
+.pending-line .tool.danger {
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.pending-line .tool.danger {
+  color: var(--muted) !important;
+}
+
+.pending-line .tool:hover:not(:disabled) {
+  background: var(--hover) !important;
+}
+
+.pending-line .tool.danger:hover:not(:disabled) {
+  color: var(--bad) !important;
+}

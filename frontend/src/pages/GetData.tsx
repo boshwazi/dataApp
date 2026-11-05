@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type DragEvent, type FormEvent, type React
 import { Link, useSearchParams } from "react-router-dom";
 import { ArrowRight, MoreHorizontal, Pencil, Plus, RefreshCw, Sparkles, Table2, Trash2, Upload, X } from "lucide-react";
 import { api, powerbiApi, type AddResult, type ColumnProfile, type LinkCatalogue, type Preview, type Source, type SourceSummary } from "../api";
-import { Menu, PageLoading, useDialogs } from "../components/ui";
+import { Menu, PageLoading, Skeleton, useDialogs } from "../components/ui";
 import { PowerBIPanel } from "../components/PowerBIPanel";
 import { useDataset } from "./Dataset";
 
@@ -637,7 +637,7 @@ function PreviewTable({ projectId, sourceId }: { projectId: string; sourceId: st
   }, [projectId, sourceId, offset]);
 
   if (error) return <p className="bad">{error}</p>;
-  if (!preview) return <p className="muted">Loading…</p>;
+  if (!preview) return <Skeleton lines={8} height={28} />;
 
   const last = Math.min(offset + PAGE_SIZE, preview.total);
   return (

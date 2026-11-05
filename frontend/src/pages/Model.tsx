@@ -1212,32 +1212,37 @@ function Properties(props: {
         {pending.length > 0 && (
           <div className="pending-list">
             <div className="pending-head">
-              <strong>Waiting for you ({pending.length})</strong>
+              <span>
+                Waiting for you <span className="pending-count">{pending.length}</span>
+              </span>
               <button className="link small" onClick={() => onChange(() => modelApi.approve(projectId))}>
                 Accept all
               </button>
             </div>
             {pending.map((p) => (
               <div key={p.kind + p.id} className="pending-item">
-                <button className="link" onClick={() => p.kind !== "date" && props.onSelect(p.kind === "rel" ? { kind: "rel", id: p.id } : { kind: "measure", id: p.id })}>
-                  {p.label}
-                </button>
-                {p.reason && <span className="muted small">{p.reason}</span>}
-                <span className="actions">
-                  <button className="small-button" onClick={() => onChange(() => modelApi.approve(projectId, p.id))}>
-                    Accept
+                <span className="pending-line">
+                  <span className="pending-kind">{p.kind === "rel" ? "Rel" : p.kind === "measure" ? "Measure" : "Date"}</span>
+                  <button className="link pending-label" title={p.label} onClick={() => p.kind !== "date" && props.onSelect(p.kind === "rel" ? { kind: "rel", id: p.id } : { kind: "measure", id: p.id })}>
+                    {p.label}
+                  </button>
+                  <button className="tool pending-accept" title="Accept" aria-label={`Accept ${p.label}`} onClick={() => onChange(() => modelApi.approve(projectId, p.id))}>
+                    <Check size={14} aria-hidden="true" />
                   </button>
                   <button
-                    className="secondary small-button"
+                    className="tool danger"
+                    title="Reject"
+                    aria-label={`Reject ${p.label}`}
                     onClick={() =>
                       onChange(() =>
                         p.kind === "rel" ? modelApi.removeRelationship(projectId, p.id) : p.kind === "measure" ? modelApi.removeMeasure(projectId, p.id) : modelApi.removeDateTable(projectId),
                       )
                     }
                   >
-                    Reject
+                    <X size={14} aria-hidden="true" />
                   </button>
                 </span>
+                {p.reason && <span className="pending-reason">{p.reason}</span>}
               </div>
             ))}
           </div>

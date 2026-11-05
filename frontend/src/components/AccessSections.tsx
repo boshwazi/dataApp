@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { securityApi, type AuditEntry, type Group } from "../api";
-import { useToast } from "./ui";
+import { Skeleton, useToast } from "./ui";
 
 /** Named groups of people, for sharing dashboards and giving security roles to several people at once. */
 export function GroupsSection() {
@@ -45,6 +45,7 @@ export function GroupsSection() {
     <section className="access-section">
       <h2 className="section-title">Groups</h2>
       <p className="muted small">Share a dashboard with a group, or give a whole group a security role, instead of naming each person.</p>
+      {groups === null && <Skeleton lines={2} height={36} />}
       {groups?.map((g, i) => (
         <div key={g.id || i} className="group-row">
           <input aria-label="Group name" value={g.name} onChange={(e) => update(i, { name: e.target.value })} placeholder="Field sales" />
@@ -86,6 +87,7 @@ export function AuditSection() {
     <section className="access-section">
       <h2 className="section-title">Audit log</h2>
       {error && <p className="bad small">{error}</p>}
+      {entries === null && !error && <Skeleton lines={4} height={32} />}
       {entries && entries.length === 0 && <p className="muted small">Nothing yet.</p>}
       {entries && entries.length > 0 && (
         <div className="table-wrap">

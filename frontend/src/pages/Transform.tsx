@@ -12,7 +12,7 @@ import {
   type StepRows,
   type TransformState,
 } from "../api";
-import { Menu, PageLoading, PopMenu, useDialogs } from "../components/ui";
+import { Menu, PageLoading, PopMenu, Skeleton, useDialogs } from "../components/ui";
 import { useDataset } from "./Dataset";
 
 type Change = (action: () => Promise<TransformState>) => Promise<boolean>;
@@ -375,7 +375,11 @@ function QueryWorkspace({ projectId, query, others, canUndo, hasKey, cleaning, r
           {side === "removed" && removed && !removed.comparable && (
             <p className="muted small pad">This step also changed values, so its removed rows can't be told apart from changed ones.</p>
           )}
-          {!rows && !previewError && !query.error && <p className="muted pad">Loading…</p>}
+          {!rows && !previewError && !query.error && (
+            <div className="pad">
+              <Skeleton lines={10} height={24} />
+            </div>
+          )}
           {rows && (
             <table className={`data-grid ${side === "removed" ? "removed-rows" : ""}`}>
               <thead>

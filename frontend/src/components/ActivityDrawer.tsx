@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ActivityEntry } from "../api";
+import { Skeleton } from "./ui";
 
 const STAGE_NAMES: Record<string, string> = {
   get_data: "Get Data",
@@ -28,6 +29,7 @@ export function ActivityDrawer(props: { load: () => Promise<{ entries: ActivityE
           </button>
         </header>
         {error && <p className="bad small">{error}</p>}
+        {entries === null && !error && <Skeleton lines={5} height={40} />}
         {entries?.length === 0 && <p className="muted small">No changes yet.</p>}
         <ol className="activity">
           {entries?.map((e, i) => (
