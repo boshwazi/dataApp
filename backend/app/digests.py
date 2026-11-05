@@ -143,12 +143,12 @@ def compose(con, project: dict, dashboard: dict, dataset: dict, link: str) -> di
     lines.append(f"Open it: {link}")
     body = "".join(
         f"<h3 style='margin:18px 0 4px'>{html.escape(s['title'])}</h3>"
-        + (f"<p style='margin:0 0 6px;color:#444'>{html.escape(s['summary'])}</p>" if s["summary"] else "")
+        + (f"<p style='margin:0 0 6px;color:#4d4d4d'>{html.escape(s['summary'])}</p>" if s["summary"] else "")
         + ("<ul>" + "".join(f"<li>{html.escape(k)}</li>" for k in s["kpis"]) + "</ul>" if s["kpis"] else "")
         for s in sections)
     note = "<p>Open the dashboard to see your numbers.</p>" if restricted else ""
     page = mail.branded(
         f"<h2 style='margin:0'>{html.escape(dashboard['name'])}</h2>{body}{note}"
-        f"<p style='margin-top:20px'><a href='{html.escape(link)}' style='background:#1b5fd1;color:#fff;padding:8px 14px;"
+        f"<p style='margin-top:20px'><a href='{html.escape(link)}' style='background:#171717;color:#fff;padding:9px 16px;"
         f"border-radius:6px;text-decoration:none'>Open the dashboard</a></p>")
     return {"subject": subject, "text": "\n".join(lines), "html": page, "restricted": restricted}

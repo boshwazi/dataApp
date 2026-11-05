@@ -29,13 +29,13 @@ class MailError(Exception):
 def branded(content: str) -> str:
     """An email's HTML body under the datawazi header: the mark and the wordmark."""
     return (
-        "<div style='font-family:Segoe UI,Arial,sans-serif;max-width:600px;color:#16202e'>"
+        "<div style='font-family:Segoe UI,Arial,sans-serif;max-width:600px;color:#171717'>"
         "<table role='presentation' cellpadding='0' cellspacing='0' style='border-collapse:collapse;margin:0 0 18px'><tr>"
         f"<td style='padding:0 8px 0 0;vertical-align:middle'><img src='cid:{MARK_CID}' width='28' height='28' alt='' "
         "style='display:block;border:0'></td>"
-        "<td style='vertical-align:middle;font-size:20px;font-weight:700;letter-spacing:-0.04em'>datawazi</td>"
+        "<td style='vertical-align:middle;font-size:20px;font-weight:600;letter-spacing:-0.03em'>datawazi</td>"
         "</tr></table>"
-        f"<div style='border-top:1px solid #e3e7ee;padding-top:18px'>{content}</div></div>"
+        f"<div style='border-top:1px solid #ebebeb;padding-top:18px'>{content}</div></div>"
     )
 
 

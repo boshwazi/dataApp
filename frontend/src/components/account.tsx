@@ -6,7 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { Mail } from "lucide-react";
 import { accountApi, ApiError, configureSession, downloadFile, type Me, type Role, type WorkspaceRef } from "../api";
 import { BrandMark, PageLoading } from "./ui";
-import { SignInChart } from "./SignInChart";
+import { SignInInsight } from "./SignInInsight";
 import { OnboardingShell } from "./OnboardingSteps";
 import { t } from "../i18n";
 
@@ -346,15 +346,17 @@ function MicrosoftIcon() {
   );
 }
 
-/** The right half of the sign-in screen: a short line over a chart that answers the pointer. */
+/** The right half of the sign-in screens: the landing's line over the insight it ends on. */
 function SignInAside() {
   return (
     <aside className="signin-aside">
       <div className="signin-aside-text">
-        <h2>Clean data. Checked numbers.</h2>
+        <h2>
+          From raw data to <em>real insights</em>.
+        </h2>
         <p>Your data becomes dashboards your team can trust.</p>
       </div>
-      <SignInChart />
+      <SignInInsight />
     </aside>
   );
 }
@@ -578,13 +580,7 @@ function SecondStep({ client, note }: { client: SupabaseClient; note?: string })
           </button>
         </div>
       </main>
-      <aside className="signin-aside">
-        <div className="signin-aside-text">
-          <h2>Clean data. Checked numbers.</h2>
-          <p>Your data becomes dashboards your team can trust.</p>
-        </div>
-        <SignInChart />
-      </aside>
+      <SignInAside />
     </div>
   );
 }
@@ -610,13 +606,7 @@ function TwoStepSetup({ client, note }: { client: SupabaseClient; note: string }
           </button>
         </div>
       </main>
-      <aside className="signin-aside">
-        <div className="signin-aside-text">
-          <h2>Clean data. Checked numbers.</h2>
-          <p>Your data becomes dashboards your team can trust.</p>
-        </div>
-        <SignInChart />
-      </aside>
+      <SignInAside />
     </div>
   );
 }
