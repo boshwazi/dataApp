@@ -3,6 +3,12 @@ import { Link } from "react-router-dom";
 import { Check, Eye, FileDown, FileUp, Lock, ShieldCheck, Sparkles, Undo2 } from "lucide-react";
 import { BrandMark } from "../components/ui";
 import { AutopilotLoop } from "./AutopilotLoop";
+// The landing keeps its own type until it is brought in line with the app's Geist look.
+import "@fontsource/host-grotesk/400.css";
+import "@fontsource/host-grotesk/500.css";
+import "@fontsource/host-grotesk/600.css";
+import "@fontsource/host-grotesk/700.css";
+import "@fontsource/fragment-mono/400.css";
 import "./landing.css";
 
 /**

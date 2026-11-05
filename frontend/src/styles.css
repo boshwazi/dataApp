@@ -91,12 +91,12 @@ body {
 
 .ok {
   color: var(--ok);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .bad {
   color: var(--bad);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .card {
@@ -116,7 +116,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-weight: 600;
+  font-weight: 500;
   font-size: 14px;
 }
 
@@ -185,7 +185,7 @@ button.secondary {
 .stages li::before {
   content: counter(stage);
   color: var(--muted);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .stages span {
@@ -296,7 +296,7 @@ input {
 .template-picker legend {
   padding: 0 0 6px;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .template-grid {
@@ -417,7 +417,7 @@ input {
 }
 
 .source-name {
-  font-weight: 600;
+  font-weight: 500;
   font-size: 14px;
 }
 
@@ -552,7 +552,7 @@ input {
 .tabs button[aria-selected="true"] {
   color: var(--accent);
   border-bottom-color: var(--accent);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .table-wrap {
@@ -590,7 +590,7 @@ input {
 
 .role {
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--ai);
 }
 
@@ -761,7 +761,7 @@ button.icon.danger:hover:not(:disabled) {
 
 .diagram .link text {
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   fill: var(--accent);
 }
 
@@ -814,7 +814,7 @@ tr.inactive td {
 .page-tabs button.on {
   color: var(--accent);
   border-bottom-color: var(--accent);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .kpi-strip:empty {
@@ -854,14 +854,14 @@ tr.inactive td {
 
 .kpi-value {
   font-size: 32px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
   line-height: 1.15;
 }
 
 .kpi-change {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .kpi-spark {
@@ -880,7 +880,7 @@ tr.inactive td {
 
 .unverified {
   color: var(--warn);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .visual-foot {
@@ -895,7 +895,7 @@ tr.inactive td {
 
 .check-bad {
   color: var(--warn);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .report-table {
@@ -1019,7 +1019,7 @@ tr.inactive td {
 
 .chat-change-head {
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--ai);
 }
 
@@ -1210,7 +1210,7 @@ tr.inactive td {
   flex-direction: column;
   gap: 4px;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .refresh-controls label.check {
@@ -1294,7 +1294,7 @@ tr.inactive td {
 }
 
 .version-name {
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .refresh-history {
@@ -1399,7 +1399,7 @@ a.button.secondary {
   display: flex;
   align-items: center;
   gap: 7px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.045em;
   color: var(--text);
 }
@@ -1617,7 +1617,7 @@ a.button.secondary {
 }
 
 .lineage-label {
-  font-weight: 600;
+  font-weight: 500;
   overflow-wrap: anywhere;
 }
 
@@ -1828,7 +1828,7 @@ button.link {
 
 .crumb [aria-current="page"] {
   color: var(--text);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .search-button {
@@ -1928,7 +1928,7 @@ kbd {
   flex-direction: column;
   gap: 5px;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .field.grow {
@@ -2053,7 +2053,7 @@ button.danger-solid:hover:not(:disabled) {
 }
 
 .search-label {
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .search-empty {
@@ -2322,7 +2322,7 @@ button.danger-solid:hover:not(:disabled) {
 }
 
 .segmented button.on {
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .icon-button {
@@ -2333,7 +2333,7 @@ button.danger-solid:hover:not(:disabled) {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text);
 }
 
@@ -2446,7 +2446,7 @@ button.danger-solid:hover:not(:disabled) {
   height: 20px;
   border-radius: 6px;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   background: var(--panel);
   border: 1px solid var(--border-strong);
   color: var(--muted);
@@ -2578,7 +2578,7 @@ button.danger-solid:hover:not(:disabled) {
 .visual-head h3 {
   margin: 0;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text);
   flex: 1 1 120px;
   min-width: 0;
@@ -2687,7 +2687,7 @@ button.secondary.danger:hover:not(:disabled) {
   align-items: center;
   gap: 9px;
   font-size: 22px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.045em; /* the wordmark: Host Grotesk Bold, set tight */
 }
 
@@ -2728,7 +2728,7 @@ button.secondary.danger:hover:not(:disabled) {
 .onboard-count {
   margin: 8px 0 -8px !important;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--muted);
 }
 
@@ -2810,7 +2810,7 @@ button.secondary.danger:hover:not(:disabled) {
 
 .onboard-stepper li.current {
   color: #ffffff;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .onboard-stepper li.done {
@@ -2826,7 +2826,7 @@ button.secondary.danger:hover:not(:disabled) {
   border-radius: 50%;
   border: 2px solid rgba(255, 255, 255, 0.2);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
@@ -2859,7 +2859,7 @@ button.secondary.danger:hover:not(:disabled) {
 
 .onboard-invite-labels {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--muted);
 }
 
@@ -3003,7 +3003,7 @@ button.secondary.danger:hover:not(:disabled) {
 
 .onboard-tag {
   font-size: 11.5px;
-  font-weight: 600;
+  font-weight: 500;
   padding: 2px 8px;
   border-radius: 999px;
   background: var(--selected);
@@ -3245,7 +3245,7 @@ button.secondary.danger:hover:not(:disabled) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
+  font-weight: 600;
   font-size: 14px;
   color: var(--accent);
   background: var(--selected);
@@ -3401,7 +3401,7 @@ h3 {
 
 h1 {
   font-size: 20px;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: -0.01em;
   margin: 0;
 }
@@ -3410,13 +3410,13 @@ h2 {
   margin: 0 0 12px;
   font-size: 18px;
   letter-spacing: -0.01em;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 button,
 a.button {
   font-size: 13px;
-  font-weight: 550;
+  font-weight: 500;
   padding: 6px 12px;
   min-height: 32px;
   border-radius: var(--radius);
@@ -3470,7 +3470,7 @@ button.icon {
 .sidebar nav a.active {
   background: rgba(255, 255, 255, 0.09);
   color: var(--sidebar-strong);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 /* Yellow marks where you are. */
@@ -3540,7 +3540,7 @@ button.workspace:hover {
 
 .kind-label {
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   padding: 1px 6px;
   border-radius: 4px;
   background: var(--bg);
@@ -3577,7 +3577,7 @@ button.workspace:hover {
 /* Section headings: a real step down from the page title, in the text colour (not small grey labels). */
 .section-title {
   font-size: 16px;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--text);
   margin: 0 0 10px;
@@ -3606,7 +3606,7 @@ button.workspace:hover {
 .catalog th {
   text-align: left;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--muted);
   background: var(--panel-2);
   padding: 8px 14px;
@@ -3640,7 +3640,7 @@ button.workspace:hover {
 
 /* A table cell stays a table cell (display: flex here broke the row's border); the icon sits inline. */
 .catalog-name {
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .catalog-name > svg {
@@ -3715,7 +3715,7 @@ button.workspace:hover {
 }
 
 .badge {
-  font-weight: 600;
+  font-weight: 500;
   padding: 2px 7px;
   background: var(--bg);
   color: var(--muted);
@@ -3738,7 +3738,7 @@ button.workspace:hover {
   white-space: nowrap;
   z-index: 1;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   background: var(--panel-2);
   color: var(--muted);
 }
@@ -3844,7 +3844,7 @@ button.workspace:hover {
 
 .powerbi-panel details summary {
   cursor: pointer;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .powerbi-panel details ul {
@@ -4183,7 +4183,7 @@ button.workspace:hover {
   display: grid;
   place-items: center;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   background: #2a3a55;
   color: #fff;
 }
@@ -4360,7 +4360,7 @@ button.workspace:hover {
   background: none;
   color: var(--muted);
   font-size: 13px;
-  font-weight: 550;
+  font-weight: 500;
   text-decoration: none;
 }
 
@@ -4374,7 +4374,7 @@ button.workspace:hover {
 .stage-tabs button.active {
   background: var(--selected);
   color: var(--accent);
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .stage-dot {
@@ -4439,7 +4439,7 @@ button.ai-button {
   border: 1px solid var(--ai-border);
   background: var(--ai-soft);
   color: var(--ai);
-  font-weight: 600;
+  font-weight: 500;
   white-space: nowrap;
 }
 
@@ -4475,7 +4475,7 @@ button.tool {
   background: none;
   color: var(--muted);
   font-size: 12.5px;
-  font-weight: 550;
+  font-weight: 500;
 }
 
 button.tool:hover:not(:disabled) {
@@ -4576,7 +4576,7 @@ button.small-button {
   padding: 0 8px 0 12px;
   border-bottom: 1px solid var(--border);
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--muted);
 }
 
@@ -4621,7 +4621,7 @@ button.small-button {
   background: none;
   color: var(--muted);
   font-size: 12.5px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .pane-tabs [role="tab"][aria-selected="true"] {
@@ -4669,7 +4669,7 @@ button.tree-row:hover {
 }
 
 .tree-row.table-row {
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text);
   margin-top: 2px;
 }
@@ -4842,7 +4842,7 @@ button.tree-row:hover {
 .ai-tag {
   display: inline-block;
   font-size: 10.5px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--ai);
   white-space: nowrap;
 }
@@ -4944,7 +4944,7 @@ button.tree-row:hover {
   background: none !important;
   color: var(--text) !important;
   font-size: 12px !important;
-  font-weight: 650 !important;
+  font-weight: 600 !important;
   text-align: left;
 }
 
@@ -5096,7 +5096,7 @@ button.tree-row:hover {
 
 .applied-steps li.on .step-title {
   color: var(--accent);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .step-detail {
@@ -5158,7 +5158,7 @@ button.tree-row:hover {
 .suggest-card h3 {
   margin: 0 0 8px;
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--muted);
 }
 
@@ -5180,7 +5180,7 @@ button.tree-row:hover {
 .facts dd {
   margin: 0;
   text-align: right;
-  font-weight: 600;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
@@ -5247,7 +5247,7 @@ button.tree-row:hover {
   gap: 8px;
   padding: 6px 9px 7px;
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--muted);
   border-bottom: 1px solid var(--border);
   margin-bottom: 4px;
@@ -5521,7 +5521,7 @@ button.tree-row:hover {
   padding: 0 10px;
   border-bottom: 1px solid var(--border);
   border-radius: 8px 8px 0 0;
-  font-weight: 650;
+  font-weight: 600;
   cursor: grab;
   touch-action: none;
 }
@@ -5575,7 +5575,7 @@ button.tree-row:hover {
 }
 
 .table-card li.is-key {
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .table-card li.is-hidden {
@@ -5669,7 +5669,7 @@ button.tree-row:hover {
 
 .prop > span {
   font-size: 11.5px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--muted);
 }
 
@@ -5840,7 +5840,7 @@ button.tree-row:hover {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .report-stage {
@@ -5933,7 +5933,7 @@ button.tree-row:hover {
 .canvas-visual .visual-head h3 {
   margin: 0;
   font-size: 12.5px;
-  font-weight: 650;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -6041,7 +6041,7 @@ button.tree-row:hover {
   border-color: var(--accent);
   background: var(--selected);
   color: var(--accent);
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .well {
@@ -6052,7 +6052,7 @@ button.tree-row:hover {
 
 .well-label {
   font-size: 11.5px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--muted);
 }
 
@@ -6314,7 +6314,7 @@ button.pill-x:hover {
   }
 
   .crumbs {
-    font-weight: 600;
+    font-weight: 500;
     color: var(--text);
   }
 
@@ -6463,12 +6463,12 @@ button.slicer-button:hover:not(:disabled) {
 
 .slicer-label {
   color: var(--muted);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .slicer.on .slicer-value {
   color: var(--accent);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .filter-chip {
@@ -6763,7 +6763,7 @@ button.chip-button:hover:not(:disabled) {
 /* Ask: periods, change breakdowns, add to the page */
 
 .ask-title {
-  font-weight: 600;
+  font-weight: 500;
   font-size: 13px;
   margin-bottom: 4px;
   display: flex;
@@ -6783,7 +6783,7 @@ button.chip-button:hover:not(:disabled) {
 }
 
 .change-table .total-row td {
-  font-weight: 650;
+  font-weight: 600;
   border-bottom: 1px solid var(--border-strong);
 }
 
@@ -6865,7 +6865,7 @@ button.chip-button:hover:not(:disabled) {
   display: flex;
   justify-content: space-between;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .ap-clock {
@@ -6929,7 +6929,7 @@ button.chip-button:hover:not(:disabled) {
 .ap-card h2 {
   margin: 0;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--muted);
 }
 
@@ -6994,7 +6994,7 @@ button.chip-button:hover:not(:disabled) {
 
 .ap-result h2 {
   font-size: 20px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
   letter-spacing: -0.01em;
 }
@@ -7116,7 +7116,7 @@ button.chip-button:hover:not(:disabled) {
   border: 2px solid var(--border-strong);
   background: var(--panel);
   color: var(--muted);
-  font-weight: 600;
+  font-weight: 500;
   font-size: 14px;
   font-variant-numeric: tabular-nums;
 }
@@ -7168,7 +7168,7 @@ button.chip-button:hover:not(:disabled) {
 }
 
 .autopilot-step-label {
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .is-pending .autopilot-step-label {
@@ -7209,7 +7209,7 @@ button.chip-button:hover:not(:disabled) {
   align-items: center;
   padding: 7px 14px;
   border-radius: var(--radius);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .autopilot-offer {
@@ -7321,7 +7321,7 @@ button.chip-button:hover:not(:disabled) {
 
 .semantic-picks legend {
   padding: 0 4px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .semantic-picks label.check {
@@ -7332,7 +7332,7 @@ button.chip-button:hover:not(:disabled) {
 }
 
 .semantic-picks .pick-name {
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .semantic-actions {
@@ -7382,7 +7382,7 @@ button.chip-button:hover:not(:disabled) {
   display: inline-flex;
   padding: 6px 12px;
   border-radius: var(--radius);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .semantic > section + section {
@@ -7421,7 +7421,7 @@ button.chip-button:hover:not(:disabled) {
   flex: 1;
   max-width: 420px;
   font: inherit;
-  font-weight: 600;
+  font-weight: 500;
   padding: 6px 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -7555,7 +7555,7 @@ button.chip-button:hover:not(:disabled) {
   background: var(--highlight);
   color: #16202e;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 16px;
 }
 
@@ -7589,7 +7589,7 @@ button.chip-button:hover:not(:disabled) {
 
 .notices-new {
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--accent);
 }
 
@@ -7641,7 +7641,7 @@ button.chip-button:hover:not(:disabled) {
 }
 
 .notice-title {
-  font-weight: 600;
+  font-weight: 500;
   font-size: 13px;
 }
 
@@ -7812,7 +7812,7 @@ button.chip-button:hover:not(:disabled) {
 .search-results .search-group {
   padding: 10px 14px 4px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--muted);
   cursor: default;
 }
@@ -7948,7 +7948,7 @@ button.chip-button:hover:not(:disabled) {
   border-radius: 50%;
   background: var(--selected);
   color: var(--accent);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .account-status {
@@ -8088,7 +8088,7 @@ a.button:active {
 
 .join-offer p {
   margin: 0;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .join-button {
@@ -8300,7 +8300,7 @@ button,
 
 .credit-used {
   font-size: 32px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
@@ -8308,7 +8308,7 @@ button,
 
 .credit-percent {
   margin-left: auto;
-  font-weight: 650;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
@@ -8360,7 +8360,7 @@ button,
 
 .usage-table caption {
   text-align: left;
-  font-weight: 650;
+  font-weight: 600;
   font-size: 12.5px;
   color: var(--muted);
   padding-bottom: 6px;
@@ -8368,7 +8368,7 @@ button,
 
 .usage-table th {
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--muted);
   text-align: left;
   padding: 4px 0;
@@ -8413,7 +8413,7 @@ button,
 
 .plan-compare thead th {
   font-size: 13.5px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .plan-compare tbody th {
@@ -8437,7 +8437,7 @@ button,
   background: var(--accent);
   color: #fff;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   vertical-align: 1px;
 }
 
@@ -8483,7 +8483,7 @@ button,
 }
 
 .receipt-number {
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .receipt-lines {
@@ -8598,7 +8598,7 @@ button,
 .fact-row dd {
   margin: 2px 0 0;
   font-size: 15px;
-  font-weight: 650;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
@@ -8622,7 +8622,7 @@ button,
   margin-left: auto;
   gap: 5px;
   color: var(--accent);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .getdata-editor .source-list {
@@ -8662,7 +8662,7 @@ button,
   width: 100%;
   min-width: 0;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .source-line .source-name {
@@ -8754,7 +8754,7 @@ button,
 .add-data-label {
   margin: var(--space-4) 0 0;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text);
 }
 
@@ -8779,7 +8779,7 @@ button,
 
 .add-data .dropzone strong {
   color: var(--text);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .add-data > p {
@@ -8899,7 +8899,7 @@ button,
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text);
 }
 
@@ -8944,7 +8944,7 @@ button,
 .formula-help summary {
   cursor: pointer;
   font-size: 12.5px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--accent);
 }
 
@@ -8982,7 +8982,7 @@ button,
 }
 
 .md strong {
-  font-weight: 650;
+  font-weight: 600;
 }
 
 /* Dataset pages all start in the same place, under the same kind of header. */
@@ -9224,7 +9224,7 @@ button,
 
 .recent-name {
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -9298,7 +9298,7 @@ th.num .sort-th {
   display: inline-block;
   margin-top: var(--space-3);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .list-empty {
@@ -9455,7 +9455,7 @@ button:disabled {
     padding: 0 6px;
     color: #fff;
     font-size: 16px;
-    font-weight: 700;
+    font-weight: 600;
     letter-spacing: -0.03em;
     text-decoration: none;
   }
@@ -9652,4 +9652,222 @@ button:disabled {
 
 .page-error .actions {
   margin-top: 8px;
+}
+
+/* ==========================================================================================================
+   Geist foundations (UI overhaul step 1, 5 November 2026; see docs/design/UI_OVERHAUL.md).
+   DataHub's palette and navy-teal sidebar, built to Vercel's Geist rules: a neutral canvas, near-black primary
+   buttons, hairlines instead of shadows, 6px corners. One accent (cyan) means "you are here"; amber means AI.
+   This block sits last so it re-points every older token and button/card rule at once. The rules it overrides
+   are removed screen by screen in later steps.
+   ========================================================================================================== */
+
+:root,
+:root[data-theme="dark"] .light-surface {
+  --font: "Geist Variable", "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Geist Mono Variable", "Geist Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+
+  --bg: #fafafa;
+  --panel: #ffffff;
+  --panel-2: #fafafa;
+  --hover: #f4f4f5;
+  --grid-line: #f2f2f2;
+  --canvas: #f4f4f5;
+  --dots: #dcdcdc;
+  --border: #ebebeb;
+  --border-strong: #d9d9d9;
+  --border-hover: #c9c9c9;
+  --neutral-mark: #c9c9c9;
+  --text: #171717;
+  --text-2: #4d4d4d;
+  --muted: #666666;
+  --faint: #8f8f8f;
+
+  /* "You are here": cyan. --accent is the readable shade for text and lines; --highlight the bright mark. */
+  --accent: #0072a3;
+  --accent-hover: #005f88;
+  --highlight: #00a9e2;
+  --selected: #e8f7fd;
+  --selected-strong: #cdedf9;
+  --accent-line: #a9dff3;
+  --notice: #f3fafd;
+  --notice-line: #cdedf9;
+  --changed: #f0f9fd;
+
+  --ok: #0e7a41;
+  --ok-bg: #eaf7f0;
+  --ok-line: #bde5ce;
+  --bad: #c42127;
+  --bad-bg: #fff2f2;
+  --bad-line: #fbd0d1;
+  --warn: #9a5b00;
+  --warn-bg: #fff9eb;
+  --warn-dot: #f5a524;
+
+  /* AI: amber, only for AI work and the AI's own controls */
+  --ai: #9a4a07;
+  --ai-bg: #fff8eb;
+  --ai-soft: #fffbf3;
+  --ai-bg-strong: #fdedc9;
+  --ai-border: #f3d7a0;
+  --ai-line: #f0a830;
+
+  /* Column types are named in text, so their tags stay neutral */
+  --tag-date: #4d4d4d;
+  --tag-date-line: #d9d9d9;
+  --tag-num: #4d4d4d;
+  --tag-num-line: #d9d9d9;
+
+  --sidebar: #13262e;
+  --sidebar-text: #dce6e9;
+  --sidebar-strong: #ffffff;
+  --sidebar-hover: rgba(255, 255, 255, 0.06);
+  --sidebar-line: rgba(255, 255, 255, 0.1);
+
+  --radius: 6px;
+  --radius-lg: 6px;
+  --card-radius: 6px;
+  --shadow: none;
+  --ring: 0 0 0 1px var(--highlight), 0 0 0 4px rgba(0, 169, 226, 0.16);
+  --elevation: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 8px 30px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+
+  --primary-bg: #171717;
+  --primary-hover: #383838;
+  --primary-ink: #ffffff;
+  --brand-spark: #facc15;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0a0a0a;
+  --panel: #111111;
+  --panel-2: #161616;
+  --hover: #1f1f1f;
+  --grid-line: #1a1a1a;
+  --canvas: #0a0a0a;
+  --dots: #262626;
+  --border: #242424;
+  --border-strong: #333333;
+  --border-hover: #454545;
+  --neutral-mark: #3d3d3d;
+  --text: #ededed;
+  --text-2: #c7c7c7;
+  --muted: #a1a1a1;
+  --faint: #7a7a7a;
+
+  --accent: #3cc3f0;
+  --accent-hover: #6ad2f5;
+  --highlight: #00a9e2;
+  --selected: rgba(0, 169, 226, 0.14);
+  --selected-strong: rgba(0, 169, 226, 0.26);
+  --accent-line: #0e4d63;
+  --notice: #0b1d25;
+  --notice-line: #12384a;
+  --changed: rgba(0, 169, 226, 0.1);
+
+  --ok: #3dd68c;
+  --ok-bg: rgba(61, 214, 140, 0.12);
+  --ok-line: #1f5c3f;
+  --bad: #ff6b6b;
+  --bad-bg: rgba(255, 107, 107, 0.12);
+  --bad-line: #6b2b2b;
+  --warn: #f5b85a;
+  --warn-bg: rgba(245, 165, 36, 0.12);
+  --warn-dot: #f5a524;
+
+  --ai: #f5b85a;
+  --ai-bg: rgba(245, 165, 36, 0.1);
+  --ai-soft: rgba(245, 165, 36, 0.07);
+  --ai-bg-strong: rgba(245, 165, 36, 0.18);
+  --ai-border: #5a4012;
+  --ai-line: #d98f1c;
+
+  --tag-date: #c7c7c7;
+  --tag-date-line: #333333;
+  --tag-num: #c7c7c7;
+  --tag-num-line: #333333;
+
+  --sidebar: #13262e;
+  --shadow: none;
+  --elevation: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 8px 30px rgba(0, 0, 0, 0.5);
+
+  --primary-bg: #ededed;
+  --primary-hover: #ffffff;
+  --primary-ink: #0a0a0a;
+}
+
+body {
+  letter-spacing: -0.003em;
+  font-feature-settings: "ss01" off;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+
+/* Primary: near-black and flat. Same selectors as the Night rules above, so these win by order. */
+button:where(:not([class]):not([role]):not(:is(.tabs, .segmented, .menu-list, .page-tabs, .stage-tabs, .type-chips, .catalog-actions, .menu, .theme-picker, .slicer-bar, .chat-head, .topbar-slot) *), .primary-compact, .compact:not(.secondary):not(.link), .small-button:not(.secondary):not(.link):not(.danger), .confirm:not(.secondary), .save:not(.secondary), .join-button:not(.secondary)),
+a.button:not(.secondary) {
+  background: var(--primary-bg);
+  border-color: var(--primary-bg);
+  color: var(--primary-ink);
+  box-shadow: none;
+}
+button:where(:not([class]):not([role]):not(:is(.tabs, .segmented, .menu-list, .page-tabs, .stage-tabs, .type-chips, .catalog-actions, .menu, .theme-picker, .slicer-bar, .chat-head, .topbar-slot) *), .primary-compact, .compact:not(.secondary):not(.link), .small-button:not(.secondary):not(.link):not(.danger), .confirm:not(.secondary), .save:not(.secondary), .join-button:not(.secondary)):hover:not(:disabled),
+a.button:not(.secondary):hover {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+/* Secondary: white with a hairline */
+button.secondary,
+a.button.secondary {
+  background: var(--panel);
+  border-color: var(--border);
+  box-shadow: none;
+}
+button.secondary:hover:not(:disabled),
+a.button.secondary:hover {
+  background: var(--hover);
+  border-color: var(--border-strong);
+}
+
+button,
+a.button {
+  transition: transform 120ms var(--ease-out), background-color 120ms, border-color 120ms, box-shadow 120ms;
+}
+
+/* Cards: flat, a hairline, 6px. Floating things (dialogs) keep a lift. */
+.card,
+.empty-state,
+.visual,
+.chat-panel,
+.auth-card,
+.settings-section {
+  border-radius: var(--card-radius);
+  background: var(--panel);
+  box-shadow: none;
+}
+.dialog {
+  border-radius: var(--card-radius);
+  background: var(--panel);
+  box-shadow: var(--elevation);
+}
+
+/* Sidebar: the current item gets DataHub's cyan tint and rule */
+.rail-section a.active {
+  background: rgba(0, 169, 226, 0.14);
+  color: #fff;
+}
+.rail-section a.active svg {
+  color: var(--highlight);
+}
+.notice-count {
+  background: var(--highlight);
+  color: #0a0a0a;
+}
+
+/* The loading mark keeps the brand's yellow slice */
+.loading-slice {
+  stroke: var(--brand-spark);
 }

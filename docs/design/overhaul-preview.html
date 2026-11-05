@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>datawazi overhaul preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;450;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Proposed tokens: DataHub's palette and sidebar, Vercel/Geist's discipline. */
+:root {
+  --bg: #FAFAFA; --surface: #FFFFFF; --bg-3: #F4F4F5; --bg-4: #EDEDED;
+  --line: #EBEBEB; --line-strong: #D9D9D9;
+  --ink: #171717; --ink-2: #4D4D4D; --ink-3: #666666; --ink-4: #A3A3A3;
+  --accent: #00A9E2; --accent-t: #0072A3; --accent-bg: #E8F7FD; --accent-line: #A9DFF3;
+  --ai: #B45309; --ai-bg: #FFF8EB; --ai-line: #F5C46B;
+  --ok: #18A058; --bad: #E5484D; --warn: #F5A524;
+  --side: #13262E; --side-line: rgba(255,255,255,.10); --side-ink: #DCE6E9; --side-mute: #8EA3AA;
+  --ring: 0 0 0 1px rgba(0,0,0,.08);
+  --sans: 'Geist', system-ui, sans-serif; --mono: 'Geist Mono', ui-monospace, monospace;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: #E9E9E9; font: 14px/20px var(--sans); color: var(--ink); -webkit-font-smoothing: antialiased; letter-spacing: -0.003em; }
+.caption { max-width: 1440px; margin: 32px auto 12px; padding: 0 4px; font: 500 11px/16px var(--mono); text-transform: uppercase; letter-spacing: .071em; color: var(--ink-3); }
+.frame { width: 1440px; height: 860px; margin: 0 auto 40px; display: flex; background: var(--bg); border-radius: 8px; overflow: hidden; box-shadow: 0 0 0 1px rgba(0,0,0,.10); }
+.i { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.lbl { font: 500 11px/16px var(--mono); text-transform: uppercase; letter-spacing: .071em; color: var(--ink-3); }
+.mono { font-family: var(--mono); font-size: 12px; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* Sidebar */
+.side { width: 232px; flex: none; background: var(--side); color: var(--side-ink); padding: 12px 10px; display: flex; flex-direction: column; gap: 2px; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 6px 8px 14px; }
+.mark { width: 26px; height: 26px; border-radius: 6px; background: #fff; color: var(--side); display: grid; place-items: center; font-weight: 600; font-size: 15px; }
+.brand b { font-weight: 500; font-size: 14px; color: #fff; display: block; line-height: 16px; }
+.brand span { font-size: 12px; color: var(--side-mute); }
+.search { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 8px; border: 1px solid var(--side-line); border-radius: 6px; color: var(--side-mute); font-size: 13px; margin-bottom: 10px; }
+.search .k { margin-left: auto; font: 11px var(--mono); border: 1px solid var(--side-line); border-radius: 4px; padding: 0 4px; }
+.nav { display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: 6px; font-size: 13.5px; color: var(--side-ink); }
+.nav.on { background: rgba(0,169,226,.14); color: #fff; box-shadow: inset 2px 0 0 var(--accent); }
+.nav.on .i { color: var(--accent); }
+.nav .n { margin-left: auto; font: 11px var(--mono); color: var(--side-mute); }
+.side .sec { font: 500 10.5px/16px var(--mono); letter-spacing: .071em; text-transform: uppercase; color: var(--side-mute); padding: 14px 8px 4px; }
+.side .foot { margin-top: auto; border-top: 1px solid var(--side-line); padding: 12px 8px 2px; display: flex; gap: 10px; align-items: center; }
+.av { width: 28px; height: 28px; border-radius: 50%; background: #2A3F47; display: grid; place-items: center; font-size: 11px; color: #fff; }
+.foot small { display: block; color: var(--side-mute); font-size: 12px; line-height: 14px; }
+
+/* Main */
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.top { height: 52px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 24px; border-bottom: 1px solid var(--line); background: var(--surface); }
+.crumbs { display: flex; gap: 8px; align-items: center; font-size: 13.5px; color: var(--ink-3); }
+.crumbs b { color: var(--ink); font-weight: 500; }
+.top .sp { flex: 1; }
+.btn { height: 32px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 500 13.5px var(--sans); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.btn.primary { background: var(--ink); border-color: var(--ink); color: #fff; }
+.btn.ghost { border-color: transparent; background: transparent; color: var(--ink-2); }
+.btn.ai { border-color: var(--ai-line); background: var(--ai-bg); color: var(--ai); }
+.pill { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); font-size: 12px; font-weight: 500; color: var(--ink-2); white-space: nowrap; }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
+.dot.draft { background: var(--ink-4); }
+.aitag { display: inline-flex; align-items: center; gap: 4px; height: 18px; padding: 0 5px; border-radius: 4px; background: var(--ai-bg); color: var(--ai); font: 500 10.5px var(--mono); letter-spacing: .05em; box-shadow: inset 0 0 0 1px var(--ai-line); }
+.page { padding: 28px 32px; overflow: hidden; }
+.card { background: var(--surface); border-radius: 6px; box-shadow: var(--ring); }
+
+/* Home */
+.hero { display: flex; padding: 24px 28px; align-items: center; gap: 40px; }
+.hero h1 { margin: 0 0 18px; font-weight: 450; font-size: 30px; line-height: 1.1; letter-spacing: -0.05em; }
+.stats { display: flex; gap: 36px; }
+.stat b { display: block; font-weight: 450; font-size: 28px; line-height: 32px; letter-spacing: -0.03em; }
+.bars { margin-left: auto; display: flex; gap: 6px; align-items: flex-end; height: 112px; }
+.bars span { width: 26px; border-radius: 2px; background: repeating-linear-gradient(0deg, var(--accent) 0 5px, #33BBE8 5px 6px); }
+.bars span.g { background: var(--bg-4); }
+.secthead { display: flex; align-items: center; justify-content: space-between; margin: 28px 0 12px; }
+.secthead h2 { margin: 0; font-size: 15px; font-weight: 500; }
+.grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.dash { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.thumb { height: 92px; border-radius: 4px; background: var(--bg); box-shadow: inset 0 0 0 1px var(--line); padding: 10px; display: grid; grid-template-columns: repeat(4,1fr); grid-template-rows: 18px 1fr; gap: 6px; }
+.thumb i { background: var(--surface); border-radius: 2px; box-shadow: inset 0 0 0 1px var(--line); }
+.thumb i.w { grid-column: span 4; background: linear-gradient(transparent 60%, var(--accent-bg) 60%), var(--surface); }
+.dash h3 { margin: 0; font-size: 14px; font-weight: 500; }
+.dash .meta { display: flex; justify-content: space-between; align-items: center; }
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; padding: 9px 16px; border-bottom: 1px solid var(--line); }
+td { padding: 10px 16px; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+tr:last-child td { border-bottom: 0; }
+
+/* Transform */
+.steps { display: flex; gap: 2px; padding: 0 24px; height: 44px; align-items: center; border-bottom: 1px solid var(--line); background: var(--surface); }
+.step { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; border-radius: 6px; font-size: 13.5px; color: var(--ink-3); }
+.step .no { font: 500 11px var(--mono); color: var(--ink-4); }
+.step.done { color: var(--ink-2); }
+.step.done .no { color: var(--ok); }
+.step.on { color: var(--ink); background: var(--bg-3); }
+.step.on .no { color: var(--accent-t); }
+.step + .step::before { content: ''; width: 14px; height: 1px; background: var(--line-strong); margin: 0 6px 0 -6px; }
+.work { flex: 1; display: grid; grid-template-columns: 236px 1fr 300px; min-height: 0; }
+.pane { border-right: 1px solid var(--line); background: var(--surface); padding: 14px 12px; }
+.pane:last-child { border-right: 0; border-left: 1px solid var(--line); }
+.tbl { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border-radius: 6px; font-size: 13.5px; }
+.tbl.on { background: var(--accent-bg); color: var(--ink); box-shadow: inset 0 0 0 1px var(--accent-line); }
+.tbl .n { margin-left: auto; font: 11px var(--mono); color: var(--ink-3); }
+.col { padding-left: 32px; font-size: 13px; color: var(--ink-2); height: 26px; display: flex; align-items: center; gap: 8px; }
+.ty { font: 500 10px var(--mono); color: var(--ink-3); width: 30px; }
+.toolbar { display: flex; gap: 6px; padding: 10px 16px; border-bottom: 1px solid var(--line); align-items: center; }
+.toolbar .sep { width: 1px; height: 20px; background: var(--line); margin: 0 4px; }
+.seg { margin-left: auto; display: inline-flex; padding: 2px; border-radius: 8px; background: var(--bg-3); }
+.seg span { padding: 3px 10px; border-radius: 6px; font-size: 12.5px; color: var(--ink-3); }
+.seg span.on { background: var(--surface); color: var(--ink); box-shadow: var(--ring); }
+.dg { font-size: 13px; }
+.dg th { background: var(--bg); padding: 6px 12px; vertical-align: top; }
+.dg th .h { font: 500 12.5px var(--sans); color: var(--ink); text-transform: none; letter-spacing: 0; display: flex; gap: 6px; align-items: center; }
+.dg th .q { height: 2px; background: var(--ok); border-radius: 2px; margin-top: 6px; }
+.dg th .q.part { background: linear-gradient(90deg, var(--ok) 87%, var(--warn) 87%); }
+.dg th.chg { background: var(--accent-bg); box-shadow: inset 0 -2px 0 var(--accent); }
+.dg td { padding: 6px 12px; font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); }
+.dg td.chg { background: #F4FBFE; color: var(--ink); }
+.dg td.rn { color: var(--ink-4); width: 36px; }
+.ast { position: relative; padding: 10px 10px 10px 34px; border-radius: 6px; margin-bottom: 4px; }
+.ast .no { position: absolute; left: 10px; top: 11px; font: 500 11px var(--mono); color: var(--ink-4); }
+.ast b { font-weight: 500; font-size: 13.5px; display: flex; gap: 6px; align-items: center; }
+.ast p { margin: 2px 0 0; font-size: 12.5px; line-height: 17px; color: var(--ink-3); }
+.ast.on { background: var(--bg-3); box-shadow: inset 2px 0 0 var(--accent); }
+.ast.pending { box-shadow: inset 0 0 0 1px var(--ai-line); background: var(--ai-bg); }
+.acts { display: flex; gap: 6px; margin-top: 8px; }
+.acts .btn { height: 26px; font-size: 12.5px; padding: 0 9px; }
+.status { height: 30px; flex: none; border-top: 1px solid var(--line); background: var(--surface); display: flex; align-items: center; gap: 18px; padding: 0 16px; font: 11.5px var(--mono); color: var(--ink-3); }
+.status .okt { color: var(--ok); }
+</style>
+</head>
+<body>
+
+<div class="caption">01 / Home — DataHub layout, Geist type, mono labels, hairline rings instead of shadows</div>
+<div class="frame">
+  <aside class="side">
+    <div class="brand"><div class="mark">d</div><div><b>datawazi</b><span>YTL Construction</span></div></div>
+    <div class="search"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Search or jump to…<span class="k">Ctrl K</span></div>
+    <div class="nav on"><svg class="i" viewBox="0 0 24 24"><path d="M3 11 12 4l9 7v9h-6v-6H9v6H3z"/></svg>Home</div>
+    <div class="nav"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboards<span class="n">3</span></div>
+    <div class="nav"><svg class="i" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>Datasets<span class="n">4</span></div>
+    <div class="nav"><svg class="i" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M8 7.5l3 8M16 7.5l-3 8"/></svg>Semantic models</div>
+    <div class="sec">Workspace</div>
+    <div class="nav"><svg class="i" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c2 .6 3.2 2.5 3.6 5.5"/></svg>Members</div>
+    <div class="nav"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>Billing</div>
+    <div class="nav"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>Settings</div>
+    <div class="foot"><div class="av">AZ</div><div style="font-size:13px">Aina Zulkifli<small>Admin</small></div></div>
+  </aside>
+  <div class="main">
+    <div class="top"><div class="crumbs"><b>Home</b></div><div class="sp"></div>
+      <button class="btn"><svg class="i" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/></svg>New dataset</button>
+      <button class="btn primary"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New dashboard</button></div>
+    <div class="page">
+      <div class="card hero">
+        <div><h1>Good morning, Aina</h1>
+          <div class="stats">
+            <div class="stat"><b class="num">3</b><span class="lbl">Dashboards</span></div>
+            <div class="stat"><b class="num">4</b><span class="lbl">Datasets</span></div>
+            <div class="stat"><b class="num">2</b><span class="lbl">Refreshed today</span></div>
+            <div class="stat"><b class="num">12</b><span class="lbl">AI changes to review</span></div>
+          </div></div>
+        <div class="bars"><span class="g" style="height:40%"></span><span class="g" style="height:55%"></span><span style="height:48%"></span><span style="height:62%"></span><span style="height:58%"></span><span style="height:74%"></span><span style="height:70%"></span><span style="height:92%"></span><span style="height:86%"></span></div>
+      </div>
+
+      <div class="secthead"><h2>Recent dashboards</h2><span class="lbl">Sort · Updated</span></div>
+      <div class="grid4">
+        <div class="card dash"><div class="thumb"><i></i><i></i><i></i><i></i><i class="w"></i></div><h3>Sample sales review</h3><div class="meta"><span class="pill"><span class="dot"></span>Published</span><span class="mono" style="color:var(--ink-3)">20 OCT</span></div></div>
+        <div class="card dash"><div class="thumb"><i></i><i></i><i></i><i></i><i class="w"></i></div><h3>Uber Review Dashboard</h3><div class="meta"><span class="pill"><span class="dot"></span>Published</span><span class="mono" style="color:var(--ink-3)">20 OCT</span></div></div>
+        <div class="card dash"><div class="thumb"><i></i><i></i><i></i><i></i><i class="w"></i></div><h3>Regional sales</h3><div class="meta"><span class="pill"><span class="dot draft"></span>Draft</span><span class="mono" style="color:var(--ink-3)">20 OCT</span></div></div>
+        <div class="card dash" style="box-shadow:inset 0 0 0 1px var(--line-strong);background:transparent;border:1px dashed var(--line-strong);align-items:center;justify-content:center;color:var(--ink-3)"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New dashboard</div>
+      </div>
+
+      <div class="secthead"><h2>Datasets</h2><span class="lbl">4 datasets</span></div>
+      <div class="card"><table>
+        <tr><th class="lbl">Name</th><th class="lbl">Tables</th><th class="lbl">Measures</th><th class="lbl">Status</th><th class="lbl">Used by</th><th class="lbl">Updated</th></tr>
+        <tr><td>Sample sales review</td><td class="num">3</td><td class="num">9</td><td><span class="pill"><span class="dot"></span>v1 live</span> <span class="aitag">AI · 12</span></td><td>2 dashboards</td><td class="mono">20 OCT 2026</td></tr>
+        <tr><td>Uber Data</td><td class="num">1</td><td class="num">6</td><td><span class="pill"><span class="dot"></span>v2 live</span></td><td>1 dashboard</td><td class="mono">20 OCT 2026</td></tr>
+      </table></div>
+    </div>
+  </div>
+</div>
+
+<div class="caption">02 / Transform — cyan marks where you are, amber marks only AI work waiting for you</div>
+<div class="frame">
+  <aside class="side">
+    <div class="brand"><div class="mark">d</div><div><b>datawazi</b><span>YTL Construction</span></div></div>
+    <div class="search"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Search or jump to…<span class="k">Ctrl K</span></div>
+    <div class="nav"><svg class="i" viewBox="0 0 24 24"><path d="M3 11 12 4l9 7v9h-6v-6H9v6H3z"/></svg>Home</div>
+    <div class="nav"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboards<span class="n">3</span></div>
+    <div class="nav on"><svg class="i" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>Datasets<span class="n">4</span></div>
+    <div class="nav"><svg class="i" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M8 7.5l3 8M16 7.5l-3 8"/></svg>Semantic models</div>
+    <div class="foot"><div class="av">AZ</div><div style="font-size:13px">Aina Zulkifli<small>Admin</small></div></div>
+  </aside>
+  <div class="main">
+    <div class="top"><div class="crumbs">Datasets <span>/</span> <b>Sample sales review</b></div><span class="pill"><span class="dot draft"></span>Draft · v1 is live</span><div class="sp"></div>
+      <button class="btn ai">✦ Ask AI <span class="mono" style="opacity:.7">Ctrl I</span></button>
+      <button class="btn primary">Publish</button></div>
+    <div class="steps">
+      <div class="step done"><span class="no">01 ✓</span>Get data</div>
+      <div class="step on"><span class="no">02</span>Transform</div>
+      <div class="step"><span class="no">03</span>Model</div>
+      <div class="step"><span class="no">04</span>Publish</div>
+      <div class="step"><span class="no">05</span>Dashboard</div>
+    </div>
+    <div class="work">
+      <div class="pane">
+        <div class="lbl" style="padding:0 8px 8px">Tables</div>
+        <div class="tbl on"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></svg>customers<span class="n">40</span></div>
+        <div class="col"><span class="ty">ABC</span>Customer ID</div>
+        <div class="col"><span class="ty">ABC</span>Customer Name</div>
+        <div class="col"><span class="ty">ABC</span>Segment</div>
+        <div class="col"><span class="ty">ABC</span>State</div>
+        <div class="col"><span class="ty">DATE</span>Joined</div>
+        <div class="tbl"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></svg>products<span class="n">9</span></div>
+        <div class="tbl"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></svg>sales <span class="aitag">AI 1</span><span class="n">241</span></div>
+      </div>
+      <div style="display:flex;flex-direction:column;min-width:0;background:var(--surface)">
+        <div class="toolbar">
+          <button class="btn ai" style="height:28px">✦ Clean with AI</button><span class="sep"></span>
+          <button class="btn ghost" style="height:28px">Remove duplicates</button>
+          <button class="btn ghost" style="height:28px">Add column</button>
+          <button class="btn ghost" style="height:28px">Merge</button>
+          <button class="btn ghost" style="height:28px">Append</button>
+          <div class="seg"><span>Before</span><span class="on">After</span></div>
+        </div>
+        <table class="dg">
+          <tr><th></th><th><span class="lbl">ABC</span><div class="h">Customer ID</div><div class="q"></div></th><th><span class="lbl">ABC</span><div class="h">Customer Name</div><div class="q"></div></th><th><span class="lbl">ABC</span><div class="h">Segment</div><div class="q"></div></th><th><span class="lbl">ABC</span><div class="h">State</div><div class="q part"></div></th><th class="chg"><span class="lbl" style="color:var(--accent-t)">DATE · STEP 4</span><div class="h">Joined</div><div class="q"></div></th></tr>
+          <tr><td class="rn">1</td><td>C001</td><td>Customer 1</td><td>Wholesale</td><td>Pahang</td><td class="chg">2024-02-14</td></tr>
+          <tr><td class="rn">2</td><td>C002</td><td>Customer 2</td><td>Wholesale</td><td>Selangor</td><td class="chg">2024-02-27</td></tr>
+          <tr><td class="rn">3</td><td>C003</td><td>Customer 3</td><td>Retail</td><td>Pahang</td><td class="chg">2023-07-02</td></tr>
+          <tr><td class="rn">4</td><td>C004</td><td>Customer 4</td><td>Online</td><td>Selangor</td><td class="chg">2022-06-29</td></tr>
+          <tr><td class="rn">5</td><td>C005</td><td>Customer 5</td><td>Wholesale</td><td>Johor</td><td class="chg">2022-02-07</td></tr>
+          <tr><td class="rn">6</td><td>C006</td><td>Customer 6</td><td>Online</td><td>Johor</td><td class="chg">2024-02-06</td></tr>
+          <tr><td class="rn">7</td><td>C007</td><td>Customer 7</td><td>Wholesale</td><td>Selangor</td><td class="chg">2022-11-02</td></tr>
+          <tr><td class="rn">8</td><td>C008</td><td>Customer 8</td><td>Online</td><td>Sarawak</td><td class="chg">2022-10-19</td></tr>
+          <tr><td class="rn">9</td><td>C009</td><td>Customer 9</td><td>Wholesale</td><td>Unknown</td><td class="chg">2022-05-18</td></tr>
+          <tr><td class="rn">10</td><td>C010</td><td>Customer 10</td><td>Online</td><td>Pahang</td><td class="chg">2024-08-08</td></tr>
+          <tr><td class="rn">11</td><td>C011</td><td>Customer 11</td><td>Retail</td><td>Pahang</td><td class="chg">2023-10-26</td></tr>
+          <tr><td class="rn">12</td><td>C012</td><td>Customer 12</td><td>Wholesale</td><td>Selangor</td><td class="chg">2024-01-25</td></tr>
+          <tr><td class="rn">13</td><td>C013</td><td>Customer 13</td><td>Wholesale</td><td>Selangor</td><td class="chg">2022-06-29</td></tr>
+          <tr><td class="rn">14</td><td>C014</td><td>Customer 14</td><td>Online</td><td>Kuala Lumpur</td><td class="chg">2024-04-26</td></tr>
+          <tr><td class="rn">15</td><td>C015</td><td>Customer 15</td><td>Wholesale</td><td>Selangor</td><td class="chg">2023-02-15</td></tr>
+        </table>
+        <div style="flex:1"></div>
+        <div class="status"><span class="okt">● ALL STEPS VALID</span><span>40 OF 40 ROWS</span><span>QUALITY FROM WHOLE TABLE</span></div>
+      </div>
+      <div class="pane">
+        <div style="display:flex;justify-content:space-between;padding:0 4px 10px"><span class="lbl">Applied steps</span><span class="lbl">5</span></div>
+        <div class="ast"><span class="no">00</span><b>Source</b><p>customers</p></div>
+        <div class="ast"><span class="no">01</span><b>Trim spaces <span class="aitag">AI</span></b><p>Remove stray spaces so categories match up.</p></div>
+        <div class="ast"><span class="no">02</span><b>Make Segment title case</b><p>Unify 'online' and 'Online'.</p></div>
+        <div class="ast"><span class="no">03</span><b>Fill blanks in State</b><p>5 customers had no state; label them 'Unknown'.</p></div>
+        <div class="ast on"><span class="no">04</span><b>Change Joined to date</b><p>Store join dates as real dates so they sort and filter.</p></div>
+        <div class="ast pending"><span class="no" style="color:var(--ai)">05</span><b>Remove duplicate customers <span class="aitag">AI</span></b><p>2 rows repeat C017 and C031 exactly.</p>
+          <div class="acts"><button class="btn primary">Accept</button><button class="btn">Reject</button></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
