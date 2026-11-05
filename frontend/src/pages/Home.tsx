@@ -165,26 +165,37 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
   const shownDatasets = overview && !filter ? allDatasets.slice(0, HOME_ROWS) : allDatasets;
   const title = t(wanted === "all" ? "Home" : show === "datasets" ? "Datasets" : "Dashboards");
 
+  const head = (
+    <div className="home-head">
+      <h1>{overview ? greeting(account.me.mode === "local" ? null : account.me.user.email) : title}</h1>
+      <span className="spacer" />
+      <label className="filter-box">
+        <Search size={15} aria-hidden="true" />
+        <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={`${t("Filter by name")}…`} aria-label={t("Filter by name")} />
+      </label>
+      {creator && show !== "dashboards" && (
+        <button className="secondary" onClick={newDataset}>
+          <Database size={16} aria-hidden="true" /> {t("New dataset")}
+        </button>
+      )}
+      {creator && show !== "datasets" && (
+        <button onClick={() => setCreating(creating ? null : published.length ? "existing" : "new")} aria-expanded={!!creating}>
+          <Plus size={16} aria-hidden="true" /> {t("New dashboard")}
+        </button>
+      )}
+    </div>
+  );
+
   return (
     <div className="page wide">
-      <div className="home-head">
-        <h1>{title}</h1>
-        <span className="spacer" />
-        <label className="filter-box">
-          <Search size={15} aria-hidden="true" />
-          <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={`${t("Filter by name")}…`} aria-label={t("Filter by name")} />
-        </label>
-        {creator && show !== "dashboards" && (
-          <button className="secondary" onClick={newDataset}>
-            <Database size={16} aria-hidden="true" /> {t("New dataset")}
-          </button>
-        )}
-        {creator && show !== "datasets" && (
-          <button onClick={() => setCreating(creating ? null : published.length ? "existing" : "new")} aria-expanded={!!creating}>
-            <Plus size={16} aria-hidden="true" /> {t("New dashboard")}
-          </button>
-        )}
-      </div>
+      {overview ? (
+        <section className="home-overview" aria-label={t("Overview")}>
+          {head}
+          <Overview dashboards={dashboards} datasets={creator ? datasets : null} />
+        </section>
+      ) : (
+        head
+      )}
       {settings && !connected && creator && (
         <div className="notice">
           {account.me.platform_admin ? (
@@ -223,7 +234,7 @@ export function Home({ show: wanted = "all" }: { show?: Show }) {
         />
       )}
 
-      {wanted === "all" && dashboards && dashboards.length > 0 && !filter && <RecentDashboards dashboards={dashboards} creator={creator} />}
+      {wanted === "all" && dashboards && dashboards.length > 0 && !filter && <RecentDashboards dashboards={dashboards} creator={creator} onNew={() => setCreating(published.length ? "existing" : "new")} />}
 
       {show !== "datasets" && (
         <section className="home-section">
@@ -427,7 +438,7 @@ function StatusTabs(props: { value: StatusFilter; onChange: (v: StatusFilter) =>
 }
 
 /** Up to four dashboards to pick up again: the ones opened here lately first, then the ones changed lately. */
-function RecentDashboards({ dashboards, creator }: { dashboards: DashboardSummary[]; creator: boolean }) {
+function RecentDashboards({ dashboards, creator, onNew }: { dashboards: DashboardSummary[]; creator: boolean; onNew: () => void }) {
   const opened = new Map(recentlyOpened().map((o) => [o.id, o.at]));
   const recent = [...dashboards]
     .sort((a, b) => (opened.get(b.id) ?? "").localeCompare(opened.get(a.id) ?? "") || b.updated_at.localeCompare(a.updated_at))
@@ -469,8 +480,71 @@ function RecentDashboards({ dashboards, creator }: { dashboards: DashboardSummar
             </Link>
           );
         })}
+        {creator && recent.length < 4 && (
+          <button className="recent-new" onClick={onNew}>
+            <Plus size={18} aria-hidden="true" />
+            {t("New dashboard")}
+          </button>
+        )}
       </div>
     </section>
+  );
+}
+
+/** "Good morning, Aina": the time of day, and a first name taken from the email when there is one. */
+function greeting(email: string | null): string {
+  const hour = new Date().getHours();
+  const part = hour < 12 ? t("Good morning") : hour < 18 ? t("Good afternoon") : t("Good evening");
+  const first = email?.split("@")[0].split(/[._-]/)[0];
+  return first && /^[a-z]{2,}$/i.test(first) ? `${part}, ${first.charAt(0).toUpperCase()}${first.slice(1).toLowerCase()}` : part;
+}
+
+const WEEKS = 12;
+
+/** The overview under the greeting: a few counts, and how many datasets and dashboards were last changed in each of
+    the past twelve weeks. Viewers see only the dashboards they can open. */
+function Overview({ dashboards, datasets }: { dashboards: DashboardSummary[] | null; datasets: Dataset[] | null }) {
+  if (!dashboards) return <div className="overview-body" aria-busy="true" />;
+  const drafts = (datasets ?? []).filter((d) => !d.status.published || d.status.unpublished_changes).length +
+    dashboards.filter((d) => !d.published || d.unpublished_changes).length;
+  const stats: [number, string][] = datasets
+    ? [
+        [dashboards.length, t("Dashboards")],
+        [datasets.length, t("Datasets")],
+        [dashboards.filter((d) => d.published).length, t("Published")],
+        [drafts, t("Drafts to publish")],
+      ]
+    : [[dashboards.length, t("Dashboards")]];
+
+  const week = 7 * 86400 * 1000;
+  const now = Date.now();
+  const weeks = Array.from({ length: WEEKS }, () => 0);
+  for (const item of [...dashboards, ...(datasets ?? [])]) {
+    const back = Math.floor((now - new Date(item.updated_at).getTime()) / week);
+    if (back >= 0 && back < WEEKS) weeks[WEEKS - 1 - back] += 1;
+  }
+  const most = Math.max(1, ...weeks);
+  const total = weeks.reduce((a, b) => a + b, 0);
+
+  return (
+    <div className="overview-body">
+      <dl className="overview-stats">
+        {stats.map(([n, label]) => (
+          <div key={label}>
+            <dd>{n}</dd>
+            <dt>{label}</dt>
+          </div>
+        ))}
+      </dl>
+      <figure className="overview-activity">
+        <div className="overview-bars" role="img" aria-label={t("{n} changed in the last 12 weeks", { n: total })}>
+          {weeks.map((n, i) => (
+            <span key={i} className={n ? "on" : ""} style={{ height: `${n ? 18 + (82 * n) / most : 10}%` }} title={t("{n} changed", { n })} />
+          ))}
+        </div>
+        <figcaption>{t("Changed · last 12 weeks")}</figcaption>
+      </figure>
+    </div>
   );
 }
 

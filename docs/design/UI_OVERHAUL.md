@@ -174,4 +174,14 @@ Each step is one commit to `main` and is checked in the browser in light, dark a
   - Dataset steps are numbered in mono (`01 ✓ Get Data — 02 Transform — 03 Model`).
   - Menus, the Ctrl K palette and toasts are flat and use Geist.
   - Editor tools are ghost buttons; the AI tool keeps its amber outline.
-  - Known issue for step 3: Home's Datasets table is wider than a phone screen (424px on a 375px screen).
+- **Step 3, Home and lists: done.**
+  - Home opens with an overview card. It has a greeting (with the first name from the email when signed in),
+    four counts with mono labels (dashboards, datasets, published, drafts to publish) and striped cyan bars.
+    The bars show how many datasets and dashboards were last changed in each of the past 12 weeks. Viewers
+    see only their dashboard count. The filter and the New buttons sit in the card's header.
+  - Recent dashboards are flat thumbnail cards with a dashed "New dashboard" card when there's room.
+  - Tables have mono uppercase headers, mono numbers, status pills and a grey row on hover.
+  - Next steps is one slim strip.
+  - Segmented controls (All/Published, Before/After, theme) are a grey track with the chosen option raised
+    in white.
+  - Phones: table names wrap instead of pushing the table past the screen.
