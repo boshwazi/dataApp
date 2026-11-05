@@ -11444,3 +11444,171 @@ button.tree-row:hover,
 .page-summary {
   color: var(--muted);
 }
+
+/* ==========================================================================================================
+   Settings, Members, Billing, Account, Help and Onboarding (UI overhaul step 7): one page-title size, settings
+   cards with hairlines and 6px corners, people as one hairline list, mono table heads, the cyan steps on the
+   onboarding panel.
+   ========================================================================================================== */
+
+/* One page title everywhere in the app (editors keep their own smaller header) */
+.content h1,
+.content .page-header h1 {
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+}
+
+.workbench-body .page-header h1,
+.autopilot-head h1 {
+  font-size: 20px;
+}
+
+/* Settings cards */
+.settings-section {
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+}
+
+.settings-section .section-title {
+  font-size: 15px;
+}
+
+.settings-status {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+}
+
+.settings-dot {
+  width: 7px;
+  height: 7px;
+}
+
+/* People and invites: one hairline list instead of a stack of cards */
+.project-list {
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.project-list li {
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  padding: 10px 14px;
+}
+
+.project-list li:last-child {
+  border-bottom: none;
+}
+
+.project-list li:hover {
+  background: var(--panel-2);
+}
+
+.project-link strong {
+  font-weight: 500;
+}
+
+.avatar {
+  background: var(--hover) !important;
+  color: var(--text-2) !important;
+  font-weight: 500;
+}
+
+.project-list select {
+  min-height: 30px;
+  border-color: var(--border);
+  border-radius: 6px;
+}
+
+/* Billing */
+.plan-compare thead th {
+  font: 500 10.5px/16px var(--mono);
+  letter-spacing: 0.071em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.plan-compare tbody th {
+  font-weight: 400;
+}
+
+
+.plan-compare .current {
+  background: var(--selected);
+  box-shadow: inset 1px 0 0 var(--accent-line), inset -1px 0 0 var(--accent-line);
+}
+
+.plan-current {
+  background: transparent;
+  border: 1px solid var(--accent-line);
+  color: var(--accent);
+  font: 500 10px/16px var(--mono);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.credit-percent {
+  font-family: var(--mono);
+  font-weight: 500;
+}
+
+/* Help: the index reads like the sidebar of a docs site */
+.help-link {
+  border-radius: 6px;
+}
+
+.help-article {
+  border-radius: 6px;
+}
+
+/* Onboarding: DataHub's panel with cyan steps */
+.onboard-stepper li.done::after {
+  background: var(--highlight);
+}
+
+.onboard-stepper li.current .onboard-dot {
+  border-color: var(--highlight);
+  background: rgba(0, 169, 226, 0.16);
+}
+
+.onboard-stepper li.done .onboard-dot {
+  border-color: var(--highlight);
+  background: var(--highlight);
+  color: #0a0a0a;
+}
+
+.onboard-dot {
+  font-family: var(--mono);
+  font-weight: 500;
+}
+
+.onboard-choice {
+  border-radius: 6px;
+}
+
+.help-link:hover {
+  background: var(--hover);
+}
+
+.help-link.on {
+  border-color: transparent;
+  background: var(--hover);
+  box-shadow: inset 2px 0 0 var(--highlight);
+}
+
+/* Help on narrow screens: the index sits above the article (a later two-column rule had cancelled this, so the
+   article was squeezed into a sliver on phones). */
+@media (max-width: 800px) {
+  .help-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

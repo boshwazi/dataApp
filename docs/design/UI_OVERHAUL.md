@@ -218,6 +218,15 @@ Each step is one commit to `main` and is checked in the browser in light, dark a
   - Canvas visual headers stay on one line. When they wrapped, the AI tag overlapped the KPI period line.
   - Fixed: page summaries in the PDF printed in the sidebar's light text colour, almost invisible. They are now
     the muted grey.
+- **Step 7, Settings, Members, Billing, Account, Help and Onboarding: done.**
+  - One page-title size (24px, weight 500) on every app page. Editor headers keep 20px.
+  - Settings cards have hairlines and 6px corners. The connection status is a flat hairline strip.
+  - People and invites are one hairline list with grey avatars instead of a stack of cards.
+  - Billing's plan table has mono headers, the current plan is a cyan column, and the "Current" tag is a mono
+    outline.
+  - Help's index uses grey hover and a cyan rule on the current article.
+  - The onboarding panel's steps are cyan, with mono step numbers.
+  - Fixed: Help kept two columns on phones (a later rule cancelled the stacking), squeezing the article to 43px.
 - **Loading, standardised.** A whole page that is still loading shows the datawazi mark. A list or section inside a
   page shows the shimmer placeholder (`<Skeleton>`). This fixed Semantic models, which showed nothing while it
   loaded, plus Get Data's preview, the Transform grid, the activity drawer, groups, the audit log and
