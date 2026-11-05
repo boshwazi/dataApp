@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Landing mock-ups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;450;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #FAFAFA; --surface: #FFFFFF; --hover: #F4F4F5; --line: #EBEBEB; --line-2: #D9D9D9;
+  --ink: #171717; --ink-2: #4D4D4D; --ink-3: #666666; --ink-4: #737373;
+  --cyan: #00A9E2; --cyan-t: #0072A3; --cyan-bg: #E8F7FD; --cyan-line: #A9DFF3;
+  --ai: #9A4A07; --ai-bg: #FFF8EB; --ai-line: #F3D7A0; --ok: #0E7A41; --good: #18A058;
+  --teal: #13262E; --teal-2: #1A323C; --teal-line: rgba(255,255,255,.10); --teal-ink: #DCE6E9; --teal-mute: #8EA3AA;
+  --sans: 'Geist', system-ui, sans-serif; --mono: 'Geist Mono', ui-monospace, monospace;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: #E4E4E4; font: 16px/1.55 var(--sans); color: var(--ink); -webkit-font-smoothing: antialiased; letter-spacing: -0.003em; }
+.caption { width: 1440px; margin: 40px auto 12px; display: flex; justify-content: space-between; font: 500 12px/16px var(--mono); text-transform: uppercase; letter-spacing: .071em; color: var(--ink-3); }
+.caption b { color: var(--ink); font-weight: 500; }
+.frame { width: 1440px; margin: 0 auto 24px; background: var(--bg); border-radius: 8px; overflow: hidden; box-shadow: 0 0 0 1px rgba(0,0,0,.08); }
+.wrap { width: 1200px; margin: 0 auto; }
+.lbl { font: 500 11.5px/16px var(--mono); text-transform: uppercase; letter-spacing: .071em; color: var(--ink-3); }
+.mono { font-family: var(--mono); }
+.btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 18px; border-radius: 6px; font: 500 15px var(--sans); border: 1px solid var(--line); background: var(--surface); color: var(--ink); text-decoration: none; white-space: nowrap; }
+.btn.primary { background: var(--ink); border-color: var(--ink); color: #fff; }
+.btn.sm { height: 34px; padding: 0 14px; font-size: 14px; }
+.btn.on-dark { background: transparent; border-color: rgba(255,255,255,.22); color: #fff; }
+.btn.light { background: #fff; border-color: #fff; color: var(--ink); }
+h1, h2, h3 { margin: 0; font-weight: 450; }
+h2 { font-size: 40px; line-height: 1.1; letter-spacing: -0.045em; }
+h3 { font-size: 17px; font-weight: 500; letter-spacing: -0.01em; }
+p { margin: 0; }
+.sub { color: var(--ink-2); font-size: 17px; line-height: 1.55; }
+
+/* shared header */
+.nav { height: 64px; display: flex; align-items: center; gap: 32px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 500; font-size: 17px; letter-spacing: -0.02em; }
+.mark { width: 26px; height: 26px; border-radius: 6px; background: #1B5FD1; color: #fff; display: grid; place-items: center; font: 600 16px/1 var(--sans); position: relative; overflow: hidden; }
+.mark::after { content: ''; position: absolute; right: 4px; top: 5px; width: 5px; height: 5px; border-radius: 50%; background: #FACC15; }
+.nav .links { display: flex; gap: 26px; font-size: 14.5px; color: var(--ink-2); }
+.nav .sp { flex: 1; }
+.nav .signin { font-size: 14.5px; color: var(--ink-2); }
+
+/* product window */
+.window { border-radius: 10px; overflow: hidden; background: var(--surface); box-shadow: 0 0 0 1px rgba(0,0,0,.08), 0 24px 60px -24px rgba(0,0,0,.25); }
+.window .bar { height: 34px; display: flex; align-items: center; gap: 6px; padding: 0 12px; background: var(--hover); border-bottom: 1px solid var(--line); }
+.window .bar i { width: 10px; height: 10px; border-radius: 50%; background: #D9D9D9; }
+.window .bar span { margin-left: 12px; font: 11.5px var(--mono); color: var(--ink-3); }
+.window img { display: block; width: 100%; object-fit: cover; object-position: top left; }
+.window.dark { box-shadow: 0 0 0 1px rgba(255,255,255,.12), 0 40px 80px -30px rgba(0,0,0,.6); }
+
+/* ============ A: Console ============ */
+.a-hero { padding: 72px 0 0; display: grid; grid-template-columns: 440px 1fr; gap: 56px; align-items: start; }
+.a-hero h1 { font-size: 60px; line-height: 1.02; letter-spacing: -0.06em; margin: 18px 0 22px; }
+.a-hero .ctas { display: flex; gap: 10px; margin-top: 30px; }
+.a-hero .meta { margin-top: 34px; padding-top: 18px; border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.a-hero .meta b { display: block; font-size: 26px; font-weight: 450; letter-spacing: -0.03em; }
+.a-hero .window img { height: 440px; }
+.log .stop span:last-child { white-space: nowrap; margin-left: 12px; }
+.sources { margin-top: 64px; padding: 22px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 40px; }
+.sources ul { display: flex; gap: 36px; list-style: none; margin: 0; padding: 0; font: 500 14px var(--mono); color: var(--ink-2); }
+.a-how { padding: 96px 0 104px; }
+.a-how .head { display: flex; justify-content: space-between; align-items: end; margin-bottom: 40px; }
+.steps4 { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--ink); }
+.steps4 > div { padding: 22px 28px 0 0; }
+.steps4 > div + div { padding-left: 28px; border-left: 1px solid var(--line); }
+.steps4 .no { font: 500 13px var(--mono); color: var(--cyan-t); margin-bottom: 40px; display: block; }
+.steps4 p { color: var(--ink-2); font-size: 15px; margin-top: 10px; }
+.a-auto { background: var(--teal); color: var(--teal-ink); padding: 88px 0; }
+.a-auto .grid { display: grid; grid-template-columns: 1fr 560px; gap: 80px; align-items: center; }
+.a-auto h2 { color: #fff; margin: 16px 0 18px; }
+.a-auto .lbl { color: var(--cyan); }
+.a-auto .sub { color: var(--teal-ink); }
+
+/* run log (used by A and B) */
+.log { border-radius: 10px; background: #0E1D23; box-shadow: 0 0 0 1px rgba(255,255,255,.10); font: 13px/1.5 var(--mono); color: #C9D6DA; overflow: hidden; }
+.log .top { display: flex; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,.08); color: var(--teal-mute); font-size: 12px; }
+.log ol { list-style: none; margin: 0; padding: 14px 16px 16px; display: grid; gap: 9px; }
+.log li { display: grid; grid-template-columns: 54px 18px 1fr auto; gap: 8px; align-items: baseline; }
+.log .t { color: #5F7880; }
+.log .ok { color: #3DD68C; }
+.log .ai { color: #F5B85A; }
+.log .run { color: var(--cyan); }
+.log .r { color: #8EA3AA; }
+.log .stop { margin: 4px 16px 16px; padding: 12px 14px; border-radius: 6px; background: rgba(245,165,36,.10); box-shadow: inset 0 0 0 1px rgba(245,165,36,.35); color: #F5D9A8; font-size: 12.5px; display: flex; justify-content: space-between; align-items: center; }
+.log .stop b { color: #fff; font-weight: 500; }
+.log.light { background: var(--surface); color: var(--ink-2); box-shadow: 0 0 0 1px var(--line), 0 24px 60px -30px rgba(0,0,0,.25); }
+.log.light .top { border-bottom-color: var(--line); color: var(--ink-3); }
+.log.light .t { color: var(--ink-4); }
+.log.light .ok { color: var(--ok); }
+.log.light .ai { color: var(--ai); }
+.log.light .run { color: var(--cyan-t); }
+.log.light .r { color: var(--ink-3); }
+.log.light .stop { background: var(--ai-bg); box-shadow: inset 0 0 0 1px var(--ai-line); color: var(--ai); }
+.log.light .stop b { color: var(--ink); }
+
+/* ============ B: Run log ============ */
+.b-hero { padding: 88px 0 72px; display: grid; grid-template-columns: 1fr 520px; gap: 72px; align-items: center; }
+.b-hero h1 { font-size: 72px; line-height: 1; letter-spacing: -0.065em; margin: 20px 0 24px; }
+.b-hero .ctas { display: flex; gap: 10px; margin-top: 32px; align-items: center; }
+.b-hero .ctas .hint { font: 13px var(--mono); color: var(--ink-3); margin-left: 8px; }
+.b-shot { padding-bottom: 96px; }
+.b-shot .window img { height: 640px; }
+.b-shot .notes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-top: 22px; }
+.b-shot .notes div { padding: 0 24px; border-left: 1px solid var(--line); font-size: 14.5px; color: var(--ink-2); }
+.b-shot .notes div:first-child { border-left: none; padding-left: 0; }
+.b-shot .notes b { display: block; color: var(--ink); font-weight: 500; margin-bottom: 4px; }
+.b-trust { border-top: 1px solid var(--line); padding: 88px 0 100px; display: grid; grid-template-columns: 380px 1fr; gap: 72px; }
+.b-trust h2 { margin-top: 14px; }
+.rows { border-top: 1px solid var(--ink); }
+.rows > div { display: grid; grid-template-columns: 60px 260px 1fr; gap: 16px; padding: 18px 0; border-bottom: 1px solid var(--line); align-items: baseline; }
+.rows .no { font: 500 13px var(--mono); color: var(--cyan-t); }
+.rows p { color: var(--ink-2); font-size: 15px; }
+
+/* ============ C: Teal stage ============ */
+.c-top { background: var(--teal); color: var(--teal-ink); padding-bottom: 260px; }
+.c-top .nav .links, .c-top .nav .signin { color: var(--teal-ink); }
+.c-top .brand { color: #fff; }
+.c-hero { padding: 80px 0 56px; display: grid; grid-template-columns: 1fr 380px; gap: 64px; align-items: end; }
+.c-hero h1 { color: #fff; font-size: 68px; line-height: 1.02; letter-spacing: -0.06em; margin-top: 18px; }
+.c-hero h1 em { font-style: normal; color: var(--cyan); }
+.c-hero .lbl { color: var(--cyan); }
+.c-hero .sub { color: var(--teal-ink); }
+.c-hero .ctas { display: flex; gap: 10px; margin-top: 26px; }
+.c-stage { margin-top: -240px; }
+.c-stage .window img { height: 560px; }
+.c-stage .tabs { display: flex; gap: 2px; margin-bottom: 14px; }
+.c-stage .tabs span { padding: 7px 14px; border-radius: 6px; font-size: 14px; color: var(--teal-ink); }
+.c-stage .tabs span b { font: 500 11.5px var(--mono); color: var(--teal-mute); margin-right: 8px; }
+.c-stage .tabs span.on { background: rgba(0,169,226,.16); color: #fff; box-shadow: inset 0 -2px 0 var(--cyan); }
+.c-stage .tabs span.on b { color: var(--cyan); }
+.c-bento { padding: 96px 0 104px; }
+.c-bento .head { display: flex; justify-content: space-between; align-items: end; margin-bottom: 36px; }
+.bento { display: grid; grid-template-columns: 1.25fr 1fr 1fr; grid-template-rows: auto auto; gap: 16px; }
+.cell { background: var(--surface); border-radius: 8px; box-shadow: 0 0 0 1px var(--line); padding: 24px; display: flex; flex-direction: column; gap: 10px; }
+.cell.tall { grid-row: span 2; }
+.cell p { color: var(--ink-2); font-size: 14.5px; }
+.cell .demo { margin-top: auto; padding-top: 18px; }
+.mini-steps { display: grid; gap: 4px; }
+.mini-steps div { display: grid; grid-template-columns: 28px 1fr; gap: 6px; padding: 8px 10px; border-radius: 6px; font-size: 13.5px; }
+.mini-steps div i { font: 500 11px var(--mono); font-style: normal; color: var(--ink-4); padding-top: 1px; }
+.mini-steps div small { display: block; color: var(--ink-3); font-size: 12px; }
+.mini-steps .on { background: var(--hover); box-shadow: inset 2px 0 0 var(--cyan); }
+.mini-steps .pending { background: var(--ai-bg); box-shadow: inset 0 0 0 1px var(--ai-line); }
+.mini-steps .pending i { color: var(--ai); }
+.tag { display: inline-flex; height: 17px; padding: 0 5px; align-items: center; border-radius: 4px; background: var(--ai-bg); box-shadow: inset 0 0 0 1px var(--ai-line); color: var(--ai); font: 500 10px var(--mono); letter-spacing: .05em; margin-left: 6px; vertical-align: 1px; }
+.kpi { border-radius: 6px; box-shadow: 0 0 0 1px var(--line); padding: 14px; }
+.kpi .v { font-size: 30px; font-weight: 500; letter-spacing: -0.03em; color: #1F2937; }
+.kpi .ch { color: #B54A00; font-size: 13px; font-weight: 500; }
+.kpi .ch.g { color: #007A5E; }
+.kpi svg { display: block; margin-top: 8px; }
+.ask { display: grid; gap: 10px; font-size: 13.5px; }
+.ask .q { justify-self: end; background: var(--hover); padding: 8px 12px; border-radius: 10px 10px 2px 10px; }
+.ask .how { font: 500 10.5px var(--mono); text-transform: uppercase; letter-spacing: .071em; color: var(--ink-3); }
+.rel { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.rel span { padding: 6px 10px; border-radius: 6px; box-shadow: 0 0 0 1px var(--line); background: var(--surface); }
+.rel i { flex: 1; height: 0; border-top: 1.5px dashed var(--ai-line); position: relative; }
+.rel i.s { border-top: 1.5px solid var(--line-2); }
+.c-cta { background: var(--teal); padding: 72px 0; color: var(--teal-ink); }
+.c-cta .wrap { display: flex; justify-content: space-between; align-items: center; }
+.c-cta h2 { color: #fff; }
+</style>
+</head>
+<body>
+
+<!-- ======================================================= A ======================================================= -->
+<section data-dir="a"><div class="caption"><span><b>A · Console</b> — left-aligned headline beside the real product, numbered steps, a teal Autopilot band</span><span>1440 px</span></div>
+<div class="frame">
+  <div class="wrap">
+    <header class="nav">
+      <div class="brand"><div class="mark">d</div>datawazi</div>
+      <nav class="links"><span>How it works</span><span>Product</span><span>Power BI</span><span>Pricing</span></nav>
+      <div class="sp"></div><span class="signin">Sign in</span><a class="btn primary sm">Start free</a>
+    </header>
+    <section class="a-hero">
+      <div>
+        <span class="lbl">For teams without a data analyst</span>
+        <h1>From messy data to checked dashboards.</h1>
+        <p class="sub">The AI cleans, models and charts your data, and shows every change for you to approve. Nothing goes live until you do.</p>
+        <div class="ctas"><a class="btn primary">Start free</a><a class="btn">See how it works</a></div>
+        <div class="meta">
+          <div><b>3 min</b><span class="lbl">File to dashboard</span></div>
+          <div><b>0</b><span class="lbl">SQL to write</span></div>
+          <div><b>All</b><span class="lbl">Changes shown first</span></div>
+        </div>
+      </div>
+      <div class="window"><div class="bar"><i></i><i></i><i></i><span>datawazi · Sample sales review / Transform</span></div><img src="img/transform.png" alt=""></div>
+    </section>
+    <div class="sources"><span class="lbl">Bring data from where it lives</span><ul><li>CSV</li><li>Excel</li><li>OneDrive</li><li>SharePoint</li><li>Google Drive</li><li>Power BI</li></ul></div>
+    <section class="a-how">
+      <div class="head"><div><span class="lbl">How it works</span><h2 style="margin-top:14px">Four steps, one dataset you can trust.</h2></div><a class="btn">Read the guide</a></div>
+      <div class="steps4">
+        <div><span class="no">01 / GET DATA</span><h3>Bring it as it is</h3><p>Upload CSV or Excel, link a OneDrive, SharePoint or Google Drive folder, or bring a Power BI file. Cleaning comes next.</p></div>
+        <div><span class="no">02 / CLEAN</span><h3>Every fix, with its reason</h3><p>Dates read day first, RM taken out of prices, blanks marked, repeats removed. Each step listed for you to approve.</p></div>
+        <div><span class="no">03 / MODEL</span><h3>Related and measured</h3><p>Tables are related, a date table is added and measures are written. Every formula shown before anything uses it.</p></div>
+        <div><span class="no">04 / REPORT</span><h3>A dashboard you can ask</h3><p>KPI cards and charts with each number checked against the data. Share it, or get it by email each week.</p></div>
+      </div>
+    </section>
+  </div>
+  <section class="a-auto">
+    <div class="wrap grid">
+      <div>
+        <span class="lbl">Autopilot</span>
+        <h2>Upload a file. Get a checked dashboard in under three minutes.</h2>
+        <p class="sub">Autopilot cleans, relates, measures and builds on its own. Then it stops, so you review every change before anyone sees it.</p>
+        <div style="display:flex;gap:10px;margin-top:28px"><a class="btn light">Try it on sample data</a><a class="btn on-dark">Watch a run</a></div>
+      </div>
+      <div class="log">
+        <div class="top"><span>AUTOPILOT · sales.csv</span><span>02:41</span></div>
+        <ol>
+          <li><span class="t">00:02</span><span class="ok">✓</span><span>Read 3 files, 293 rows</span><span class="r">profiled</span></li>
+          <li><span class="t">00:19</span><span class="ok">✓</span><span>Change Order Date to date (dmy)</span><span class="r">241 rows</span></li>
+          <li><span class="t">00:31</span><span class="ok">✓</span><span>Take RM out of Unit Price</span><span class="r">decimal</span></li>
+          <li><span class="t">00:44</span><span class="ai">✦</span><span>Remove 3 repeated orders</span><span class="r">AI · review</span></li>
+          <li><span class="t">01:12</span><span class="ok">✓</span><span>Relate sales → customers, products</span><span class="r">100% match</span></li>
+          <li><span class="t">01:40</span><span class="ok">✓</span><span>Write 11 measures</span><span class="r">checked</span></li>
+          <li><span class="t">02:38</span><span class="run">●</span><span>Build dashboard · 3 pages</span><span class="r">totals add up</span></li>
+        </ol>
+        <div class="stop"><span><b>Stopped for your review.</b> 8 changes, nothing published.</span><span>Review →</span></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+</section>
+<!-- ======================================================= B ======================================================= -->
+<section data-dir="b"><div class="caption"><span><b>B · Run log</b> — the hero is an Autopilot run in mono; the product full width below; trust as a numbered ledger</span><span>1440 px</span></div>
+<div class="frame">
+  <div class="wrap">
+    <header class="nav">
+      <div class="brand"><div class="mark">d</div>datawazi</div>
+      <nav class="links"><span>How it works</span><span>Product</span><span>Power BI</span><span>Pricing</span></nav>
+      <div class="sp"></div><span class="signin">Sign in</span><a class="btn primary sm">Start free</a>
+    </header>
+    <section class="b-hero">
+      <div>
+        <span class="lbl">Autopilot · file to dashboard in under 3 min</span>
+        <h1>Messy data in. Checked dashboards out.</h1>
+        <p class="sub" style="max-width:520px">For teams without a data analyst. The AI does the cleaning, modelling and charting, writes down every change, and waits for your approval.</p>
+        <div class="ctas"><a class="btn primary">Start free</a><a class="btn">See a real run</a><span class="hint">No card · sample data included</span></div>
+      </div>
+      <div class="log light">
+        <div class="top"><span>AUTOPILOT · sales.csv · 244 rows</span><span>02:41</span></div>
+        <ol>
+          <li><span class="t">00:02</span><span class="ok">✓</span><span>Read sales, customers, products</span><span class="r">3 tables</span></li>
+          <li><span class="t">00:19</span><span class="ok">✓</span><span>Dates read day first</span><span class="r">241 rows</span></li>
+          <li><span class="t">00:31</span><span class="ok">✓</span><span>RM taken out of Unit Price</span><span class="r">decimal</span></li>
+          <li><span class="t">00:44</span><span class="ai">✦</span><span>Remove 3 repeated orders</span><span class="r">AI · review</span></li>
+          <li><span class="t">00:52</span><span class="ai">✦</span><span>Fill 16 blank regions</span><span class="r">AI · review</span></li>
+          <li><span class="t">01:12</span><span class="ok">✓</span><span>sales → customers, products</span><span class="r">100% match</span></li>
+          <li><span class="t">01:40</span><span class="ok">✓</span><span>Revenue = SUM(Qty × Unit Price)</span><span class="r">RM 153,948.70</span></li>
+          <li><span class="t">02:38</span><span class="ok">✓</span><span>Dashboard · 3 pages, 9 visuals</span><span class="r">totals add up</span></li>
+        </ol>
+        <div class="stop"><span><b>Stopped for your review.</b> 8 changes, nothing published.</span><span>Review →</span></div>
+      </div>
+    </section>
+    <section class="b-shot">
+      <div class="window"><div class="bar"><i></i><i></i><i></i><span>datawazi · Sample sales review / Dashboard</span></div><img src="img/dashboard.png" alt=""></div>
+      <div class="notes">
+        <div><b>Every number checked</b>Breakdowns must add up to the total; insights are matched to the data at the precision written.</div>
+        <div><b>Every change shown</b>Applied steps, relationships and measures, each with the AI's reason, undoable.</div>
+        <div><b>Not limited to Power BI</b>Bring a .pbix in; measures, charts and answers can go further here.</div>
+      </div>
+    </section>
+  </div>
+  <section class="wrap b-trust">
+    <div><span class="lbl">Trust</span><h2>Numbers you can stand behind.</h2><p class="sub" style="margin-top:16px">Built for the meeting where someone asks “where does this number come from?”</p></div>
+    <div class="rows">
+      <div><span class="no">01</span><h3>Nothing changes until you approve it</h3><p>AI work is marked amber and waits for you. Approve one change or all of them.</p></div>
+      <div><span class="no">02</span><h3>Checked on every refresh</h3><p>Row counts, missing columns, broken relationships and visuals: a failed refresh never goes live.</p></div>
+      <div><span class="no">03</span><h3>You know what the AI sees</h3><p>Column summaries by default; five sample rows only if you allow it. Never the whole table.</p></div>
+      <div><span class="no">04</span><h3>Each viewer sees their rows</h3><p>Row-level security by role or group, the same way Power BI does it.</p></div>
+    </div>
+  </section>
+</div>
+
+</section>
+<!-- ======================================================= C ======================================================= -->
+<section data-dir="c"><div class="caption"><span><b>C · Teal stage</b> — DataHub's teal as the stage, the product rising out of it, a feature grid with live fragments</span><span>1440 px</span></div>
+<div class="frame">
+  <div class="c-top">
+    <div class="wrap">
+      <header class="nav">
+        <div class="brand"><div class="mark">d</div>datawazi</div>
+        <nav class="links"><span>How it works</span><span>Product</span><span>Power BI</span><span>Pricing</span></nav>
+        <div class="sp"></div><span class="signin">Sign in</span><a class="btn light sm">Start free</a>
+      </header>
+      <section class="c-hero">
+        <div>
+          <span class="lbl">For teams without a data analyst</span>
+          <h1>From messy data to <em>checked</em> dashboards.</h1>
+        </div>
+        <div>
+          <p class="sub">The AI cleans, models and charts your data, and shows every change for you to approve.</p>
+          <div class="ctas"><a class="btn light">Start free</a><a class="btn on-dark">See how it works</a></div>
+        </div>
+      </section>
+    </div>
+  </div>
+  <div class="wrap c-stage">
+    <div class="tabs"><span><b>01</b>Get data</span><span class="on"><b>02</b>Clean</span><span><b>03</b>Model</span><span><b>04</b>Report</span></div>
+    <div class="window dark"><div class="bar"><i></i><i></i><i></i><span>datawazi · Sample sales review / Transform</span></div><img src="img/transform.png" alt=""></div>
+  </div>
+  <section class="wrap c-bento">
+    <div class="head"><div><span class="lbl">Product</span><h2 style="margin-top:14px">Every step shown. Every number checked.</h2></div><a class="btn">Explore the product</a></div>
+    <div class="bento">
+      <div class="cell tall">
+        <span class="lbl">Clean</span><h3>Each fix listed, with its reason</h3>
+        <p>The AI proposes steps from a fixed catalogue; the engine checks each one and refuses anything that breaks a table.</p>
+        <div class="demo mini-steps">
+          <div><i>01</i><span>Trim spaces in Region<small>Stray spaces split categories</small></span></div>
+          <div><i>02</i><span>Make Region title case<small>'CENTRAL' and 'central' become one</small></span></div>
+          <div class="on"><i>03</i><span>Order Date to date (dmy)<small>26/01/2024 is day first</small></span></div>
+          <div class="pending"><i>04</i><span>Remove repeated orders <span class="tag">AI</span><small>3 order IDs appear twice</small></span></div>
+        </div>
+      </div>
+      <div class="cell">
+        <span class="lbl">Model</span><h3>Related, with a date table</h3>
+        <div class="demo rel"><span>sales</span><i class="s"></i><span>customers</span></div>
+        <div class="rel" style="margin-top:8px"><span>sales</span><i></i><span>Date</span><span class="tag" style="margin:0">AI</span></div>
+      </div>
+      <div class="cell">
+        <span class="lbl">Report</span><h3>KPI cards that explain themselves</h3>
+        <div class="demo kpi"><span class="lbl" style="font-size:10px">Revenue · YTD</span><div class="v">RM 46.4K</div><div class="ch">▼ −RM 42.8K (−48.0%) vs PY</div>
+          <svg width="100%" height="26" viewBox="0 0 120 26" preserveAspectRatio="none"><polyline points="0,16 11,12 22,20 33,8 44,14 55,10 66,18 77,6 88,12 99,15 110,11 120,13" fill="none" stroke="#005A9C" stroke-width="1.6"/></svg></div>
+      </div>
+      <div class="cell">
+        <span class="lbl">Ask</span><h3>Answers with the working shown</h3>
+        <div class="demo ask"><div class="q">Which region fell most?</div><div>East Coast, down RM 9,140 (−52%) vs the same period last year.</div><div class="how">› How this was calculated</div></div>
+      </div>
+      <div class="cell">
+        <span class="lbl">Power BI</span><h3>Bring your .pbix</h3>
+        <p>Tables, relationships and measures come across; DAX it can't translate is kept, not guessed.</p>
+      </div>
+    </div>
+  </section>
+  <section class="c-cta"><div class="wrap"><h2>Your next report, checked and ready by lunch.</h2><div style="display:flex;gap:10px"><a class="btn light">Start free</a><a class="btn on-dark">Talk to us</a></div></div></section>
+</div>
+</section>
+<script>
+  // ?show=a|b|c shows one direction (for screenshots); no parameter shows all three.
+  const pick = new URLSearchParams(location.search).get("show");
+  if (pick) document.querySelectorAll("[data-dir]").forEach((el) => { el.hidden = el.dataset.dir !== pick; });
+</script>
+</body>
+</html>

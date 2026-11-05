@@ -249,3 +249,17 @@ Each step is one commit to `main` and is checked in the browser in light, dark a
   loaded, plus Get Data's preview, the Transform grid, the activity drawer, groups, the audit log and
   notifications. Notifications had said "Nothing yet" before loading. The shimmer now visibly sweeps; before,
   all three stops of its gradient were the same colour.
+
+## Landing page (5 November 2026)
+
+Built from direction C of [landing-mockups](landing-mockups/index.html), with the headline changed to
+**"From raw data to real insights."** (also in the page description, the manifest and the social card).
+- A teal hero and header, with the real product rising out of it under step tabs (01 Get data … 04 Report). Clicking a
+  tab swaps the screenshot; nothing moves on its own.
+- The screenshots in `public/landing/` are the redesigned app at 2x on the sample sales data.
+- The sections are product (a feature grid with small live-looking fragments), Autopilot (an example run log written
+  out once on scroll; all at once with reduced motion), how it works (four numbered columns), why it helps,
+  trust (a numbered ledger), Power BI, pricing, FAQ and a teal closing band.
+- Geist and Geist Mono throughout. Host Grotesk, Fragment Mono and the old `AutopilotLoop` animation are removed.
+- The scroll-driven "how it works" story and the separate product tour were dropped. The step tabs in the hero do
+  the tour.
