@@ -1,161 +1,414 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Check } from "lucide-react";
+import { Check, Eye, Play, RotateCcw, ShieldCheck, Undo2 } from "lucide-react";
 import { BrandMark } from "../components/ui";
 import "./landing.css";
 
 /**
- * The page for visitors who aren't signed in (at /, and at /welcome for anyone). Direction C of the landing mock-ups
- * (docs/design/landing-mockups): DataHub's teal as the stage, the real product rising out of it, then the app's own
- * look (Geist, hairlines, mono labels, cyan for "where you are", amber only for AI).
- * The screenshots in public/landing are the app on the sample sales data; the run log replays the same file
- * (241 orders and RM 153,948.70 after cleaning, checked against the file in the Gate 1 dry run).
+ * The page for visitors who aren't signed in (at /, and at /welcome for anyone).
+ * Few words, four things to try: the hero turns a raw file into an insight, the steps swap the real product as you
+ * scroll, Autopilot runs, and Ask answers. Every number is real: samples/sales.csv after cleaning has 241 orders and
+ * RM 153,948.70 of revenue (the app's own result), split by region, product and month exactly as shown below.
+ * Each demo plays once by itself; with reduced motion it plays as plain fades, with nothing sliding or growing.
  */
 
-const STAGE = [
-  {
-    id: "getdata", no: "01", label: "Get data", image: "/landing/getdata.png",
-    text: "Each table is profiled as it loads: types, blanks, ranges and data quality issues, with the AI's description.",
-    alt: "The Get Data screen: three tables, with a column profile for customers listing each column's type, fill rate and issues.",
-  },
-  {
-    id: "clean", no: "02", label: "Clean", image: "/landing/clean.png",
-    text: "Every cleaning step is listed with the AI's reason. Compare the rows before and after, and undo any step.",
-    alt: "The Transform screen: the sales table with eight applied steps, each with a short reason, and one AI step waiting for review.",
-  },
-  {
-    id: "model", no: "03", label: "Model", image: "/landing/model.png",
-    text: "Tables are related and a date table is added for you. Every measure shows its formula.",
-    alt: "The Model screen: sales, customers, products and date tables joined by relationships, with measures waiting for review.",
-  },
-  {
-    id: "report", no: "04", label: "Report", image: "/landing/report.png",
-    text: "Each card shows the change, what drove it and a short summary the AI checked against the numbers.",
-    alt: "The dashboard editor: revenue, orders, customers and order value cards with changes and sparklines, and a monthly revenue chart.",
-  },
-];
-
-/** The product, under step tabs. Clicking a tab swaps the screenshot; nothing moves on its own. */
-function Stage() {
-  const [current, setCurrent] = useState("clean");
-  const shown = STAGE.find((s) => s.id === current)!;
-  return (
-    <div className="lp-wrap lp-stage">
-      <div className="lp-stage-tabs" role="tablist" aria-label="The product, step by step">
-        {STAGE.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            role="tab"
-            id={`lp-tab-${s.id}`}
-            aria-selected={s.id === current}
-            aria-controls="lp-stage-panel"
-            onClick={() => setCurrent(s.id)}
-          >
-            <b>{s.no}</b>
-            {s.label}
-          </button>
-        ))}
-      </div>
-      <figure id="lp-stage-panel" role="tabpanel" aria-labelledby={`lp-tab-${shown.id}`} className="lp-window">
-        <div className="lp-chrome" aria-hidden="true">
-          <i /><i /><i />
-          <span>datawazi · Sample sales review / {shown.label}</span>
-        </div>
-        <div className="lp-shots">
-          {STAGE.map((s) => (
-            <img
-              key={s.id}
-              src={s.image}
-              alt={s.id === current ? s.alt : ""}
-              aria-hidden={s.id !== current}
-              className={s.id === current ? "on" : ""}
-              width={1440}
-              height={900}
-              loading={s.id === "clean" ? "eager" : "lazy"}
-              decoding="async"
-            />
-          ))}
-        </div>
-      </figure>
-      <p className="lp-stage-text" aria-live="polite">{shown.text}</p>
-    </div>
-  );
-}
-
-const RUN: { at: string; mark: "ok" | "ai"; text: string; note: string }[] = [
-  { at: "00:02", mark: "ok", text: "Read sales, customers, products", note: "293 rows" },
-  { at: "00:19", mark: "ok", text: "Dates read day first", note: "3 formats" },
-  { at: "00:31", mark: "ok", text: "RM taken out of Unit Price", note: "decimal" },
-  { at: "00:44", mark: "ai", text: "Remove 3 repeated orders", note: "AI · review" },
-  { at: "00:52", mark: "ai", text: "Mark 16 blank regions Unknown", note: "AI · review" },
-  { at: "01:12", mark: "ok", text: "Relate sales to customers, products", note: "100% match" },
-  { at: "01:40", mark: "ok", text: "Revenue over 241 orders", note: "RM 153,948.70" },
-  { at: "02:38", mark: "ok", text: "Dashboard, 3 pages", note: "totals add up" },
-];
-
-/** An example Autopilot run, written out line by line once it scrolls into view (all at once with reduced motion). */
-function RunLog() {
-  const box = useRef<HTMLDivElement>(null);
-  const [shown, setShown] = useState(false);
+/** Calls `onEnter` once, the first time the element is at least `amount` visible. */
+function useOnceVisible<T extends HTMLElement>(onEnter: () => void, amount = 0.4) {
+  const ref = useRef<T>(null);
+  const latest = useRef(onEnter);
+  latest.current = onEnter;
   useEffect(() => {
-    const el = box.current;
+    const el = ref.current;
     if (!el) return;
     const io = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          setShown(true);
+          latest.current();
           io.disconnect();
         }
       },
-      { threshold: 0.35 },
+      { threshold: amount },
     );
     io.observe(el);
     return () => io.disconnect();
-  }, []);
+  }, [amount]);
+  return ref;
+}
+
+/* ---------------------------------------------------------------------------------------------------------------
+   Hero: raw → clean → insight, on the real file
+   --------------------------------------------------------------------------------------------------------------- */
+
+type Cell = string | { raw: string; clean: string };
+const ROWS: { id: string; date: Cell; price: Cell; region: Cell; repeat?: boolean }[] = [
+  { id: "SO-10001", date: { raw: "26/01/2024", clean: "2024-01-26" }, price: "18.50", region: "Central" },
+  { id: "SO-10005", date: "2024-04-14", price: { raw: "RM 79.90", clean: "79.90" }, region: "East Malaysia" },
+  { id: "SO-10011", date: { raw: "04 Aug 2024", clean: "2024-08-04" }, price: "18.50", region: "East Coast" },
+  { id: "SO-10012", date: "2024-05-26", price: { raw: "RM1,250.00", clean: "1,250.00" }, region: "East Malaysia" },
+  { id: "SO-10017", date: "2024-06-05", price: { raw: "RM 12.90", clean: "12.90" }, region: { raw: "", clean: "Unknown" } },
+  { id: "SO-10017", date: "2024-06-05", price: "RM 12.90", region: "", repeat: true },
+  { id: "SO-10030", date: "2024-06-07", price: "1,250.00", region: { raw: "N/A", clean: "Unknown" } },
+];
+
+const FIXES = ["Dates read day first", "RM taken out of prices", "Blank regions marked Unknown", "3 repeated orders removed"];
+
+const REGIONS: [string, number][] = [
+  ["Central", 46381.8],
+  ["Southern", 36160.9],
+  ["East Coast", 25782.9],
+  ["Unknown", 16028.0],
+  ["East Malaysia", 15382.6],
+  ["Northern", 14212.5],
+];
+
+const STAGES = ["Raw", "Clean", "Insight"] as const;
+
+function value(cell: Cell, clean: boolean) {
+  if (typeof cell === "string") return <span>{cell}</span>;
   return (
-    <div ref={box} className={`lp-log${shown ? " shown" : ""}`} role="img" aria-label="An example Autopilot run on sales.csv: three tables read, dates and prices fixed, two AI steps waiting for review, tables related, revenue of RM 153,948.70 over 241 orders, and a three-page dashboard whose totals add up. It stops for your review with 8 changes and nothing published.">
-      <div className="lp-log-top" aria-hidden="true">
-        <span>Example run · sales.csv</span>
-        <span>02:41</span>
-      </div>
-      <ol aria-hidden="true">
-        {RUN.map((r, i) => (
-          <li key={r.at} style={{ animationDelay: `${0.15 + i * 0.28}s` }}>
-            <span className="t">{r.at}</span>
-            <span className={r.mark}>{r.mark === "ok" ? "✓" : "✦"}</span>
-            <span>{r.text}</span>
-            <span className="n">{r.note}</span>
-          </li>
-        ))}
-      </ol>
-      <div className="lp-log-stop" aria-hidden="true" style={{ animationDelay: `${0.15 + RUN.length * 0.28}s` }}>
-        <span><b>Stopped for your review.</b> 8 changes, nothing published.</span>
-        <span className="go">Review →</span>
-      </div>
-    </div>
+    <span className={`lp-swap${clean ? " clean" : ""}`}>
+      <span className="was">{cell.raw || "(blank)"}</span>
+      <span className="now">{cell.clean}</span>
+    </span>
   );
 }
 
-const HOW = [
-  { title: "Get data", head: "Bring it as it is", text: "Upload CSV or Excel, link a folder in OneDrive, SharePoint or Google Drive, or bring a Power BI file. Cleaning comes next." },
-  { title: "Clean", head: "Every fix, with its reason", text: "The AI reads dates day first, takes RM out of prices, marks blanks and removes repeats. Each fix is listed for you to approve." },
-  { title: "Model", head: "Related and measured", text: "Tables are related, a date table is added and measures are written. Every formula is shown before anything uses it." },
-  { title: "Report", head: "A dashboard you can ask", text: "Edit it and ask it questions, with each number checked against the data. Share it, or get it by email each week." },
+/** Raw, then Clean, then Insight (held a little longer), then round again. */
+const LOOP = { clean: 1600, insight: 4400, again: 9400 };
+
+/**
+ * Loops while it's on screen (paused while scrolled away, starting again from Raw when it's back). Picking a stage
+ * stops the loop on that view, so nothing changes under someone who's reading; the restart button starts it again.
+ */
+function HeroDemo() {
+  const [stage, setStage] = useState(0);
+  const timers = useRef<number[]>([]);
+  const looping = useRef(true);
+  const box = useRef<HTMLElement>(null);
+
+  const clear = () => {
+    timers.current.forEach((t) => window.clearTimeout(t));
+    timers.current = [];
+  };
+  const cycle = () => {
+    clear();
+    setStage(0);
+    timers.current = [
+      window.setTimeout(() => setStage(1), LOOP.clean),
+      window.setTimeout(() => setStage(2), LOOP.insight),
+      window.setTimeout(cycle, LOOP.again),
+    ];
+  };
+  const restart = () => {
+    looping.current = true;
+    cycle();
+  };
+  const pick = (i: number) => {
+    looping.current = false;
+    clear();
+    setStage(i);
+  };
+
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    // Start at once (the hero is on screen at load); the observer only pauses it off screen and resumes it.
+    cycle();
+    const io = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) clear();
+      else if (looping.current && timers.current.length === 0) cycle();
+    });
+    io.observe(el);
+    return () => {
+      io.disconnect();
+      clear();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const clean = stage >= 1;
+  const most = REGIONS[0][1];
+  return (
+    <figure ref={box} className={`lp-demo stage-${stage}`} aria-label="A raw sales file being cleaned and turned into revenue by region.">
+      <div className="lp-demo-bar">
+        <span className="lp-demo-file">sales.csv</span>
+        <div className="lp-demo-stages" role="tablist" aria-label="Stage">
+          {STAGES.map((s, i) => (
+            <button
+              key={s}
+              type="button"
+              role="tab"
+              aria-selected={stage === i}
+              onClick={() => pick(i)}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+        <button type="button" className="lp-demo-replay" onClick={restart} aria-label="Start again from Raw" title="Start again from Raw">
+          <RotateCcw size={14} aria-hidden="true" />
+        </button>
+      </div>
+
+      <div className="lp-demo-body">
+        <div className="lp-demo-table" aria-hidden={stage === 2}>
+          <table>
+            <thead>
+              <tr><th>Order</th><th>Date</th><th>Price</th><th>Region</th></tr>
+            </thead>
+            <tbody>
+              {ROWS.map((r, i) => (
+                <tr key={i} className={r.repeat ? `repeat${clean ? " gone" : ""}` : ""}>
+                  <td>{r.id}</td>
+                  <td className={typeof r.date === "string" ? "" : "fix"}>{value(r.date, clean)}</td>
+                  <td className={typeof r.price === "string" || r.repeat ? "" : "fix"}>{value(r.price, clean)}</td>
+                  <td className={typeof r.region === "string" && !r.repeat ? "" : "fix"}>{r.repeat ? <span className="was-blank">(blank)</span> : value(r.region, clean)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="lp-demo-status">
+            {clean ? (
+              <>
+                <span className="lp-ai">AI</span>
+                <span>{FIXES.length} fixes waiting for you</span>
+                <span className="lp-demo-fixes">{FIXES.join(" · ")}</span>
+              </>
+            ) : (
+              <>
+                <span className="lp-issue">7 issues</span>
+                <span>244 rows, 3 date formats, prices stored as text</span>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="lp-demo-insight" aria-hidden={stage !== 2}>
+          <div className="lp-demo-kpi">
+            <small>Revenue, 241 orders</small>
+            <strong>RM 153,948.70</strong>
+            <span><Check size={13} strokeWidth={2.5} aria-hidden="true" /> Checked against the file</span>
+          </div>
+          <ol className="lp-bars">
+            {REGIONS.map(([name, v], i) => (
+              <li key={name} style={{ "--w": (v / most).toFixed(3), "--i": i } as CSSProperties}>
+                <span className="name">{name}</span>
+                <span className="lp-bar"><i /></span>
+                <span className="val">{(v / 1000).toFixed(1)}K</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </div>
+    </figure>
+  );
+}
+
+/* ---------------------------------------------------------------------------------------------------------------
+   How it works: a pinned window that follows the step you're reading
+   --------------------------------------------------------------------------------------------------------------- */
+
+const STEPS = [
+  { id: "get", title: "Bring it as it is.", text: "CSV, Excel, a shared folder or a Power BI file. No tidying first.", image: "/landing/getdata.png", alt: "The Get Data screen profiling three tables." },
+  { id: "clean", title: "Watch it get cleaned.", text: "Every fix is listed with its reason. Approve it, or undo it.", image: "/landing/clean.png", alt: "The Transform screen with eight applied steps and one AI step waiting for review." },
+  { id: "model", title: "Tables, joined for you.", text: "Relationships, a date table and measures, each formula shown.", image: "/landing/model.png", alt: "The Model screen with four related tables and measures waiting for review." },
+  { id: "report", title: "A dashboard that explains itself.", text: "Each card says what changed and why, checked against the numbers.", image: "/landing/report.png", alt: "A sales dashboard with KPI cards, sparklines and a monthly revenue chart." },
 ];
 
-const BEFORE_AFTER = [
-  ["Month-end means copying exports into a spreadsheet, again.", "Refresh pulls in the new data and checks it before anyone sees it."],
-  ["A new report waits in someone's queue for a week.", "Ask in plain language and get a chart back, with the numbers checked."],
-  ["Nobody is sure which version of the numbers is right.", "One published dataset, every formula shown, and a history you can roll back."],
+function Steps() {
+  const [active, setActive] = useState(0);
+  const list = useRef<HTMLOListElement>(null);
+  useEffect(() => {
+    const items = [...(list.current?.querySelectorAll<HTMLElement>("li") ?? [])];
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) if (e.isIntersecting) setActive(Number((e.target as HTMLElement).dataset.i));
+      },
+      { rootMargin: "-45% 0px -45% 0px" },
+    );
+    items.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, []);
+  return (
+    <section id="how" className="lp-steps-section">
+      <div className="lp-wrap lp-steps-grid">
+        <div className="lp-steps-sticky">
+          <div className="lp-window">
+            <div className="lp-chrome" aria-hidden="true"><i /><i /><i /><span>datawazi · Sample sales review</span></div>
+            <div className="lp-shots">
+              {STEPS.map((s, i) => (
+                <img key={s.id} src={s.image} alt={i === active ? s.alt : ""} aria-hidden={i !== active} className={i === active ? "on" : ""} width={1440} height={900} loading={i === 0 ? "eager" : "lazy"} decoding="async" />
+              ))}
+            </div>
+          </div>
+          <div className="lp-steps-progress" aria-hidden="true">
+            {STEPS.map((s, i) => <i key={s.id} className={i <= active ? "on" : ""} />)}
+          </div>
+        </div>
+        <ol className="lp-steps-list" ref={list}>
+          {STEPS.map((s, i) => (
+            <li key={s.id} data-i={i} className={i === active ? "on" : ""}>
+              <span className="n">{i + 1}</span>
+              <h3>{s.title}</h3>
+              <p>{s.text}</p>
+              <img src={s.image} alt={s.alt} className="lp-steps-inline" width={1440} height={900} loading="lazy" decoding="async" />
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+  );
+}
+
+/* ---------------------------------------------------------------------------------------------------------------
+   Autopilot: a run that plays when it scrolls into view (and again on demand)
+   --------------------------------------------------------------------------------------------------------------- */
+
+const RUN: { at: number; ai?: boolean; text: string; note: string }[] = [
+  { at: 2, text: "Read sales, customers, products", note: "293 rows" },
+  { at: 19, text: "Dates read day first", note: "3 formats" },
+  { at: 31, text: "RM taken out of Unit Price", note: "decimal" },
+  { at: 44, ai: true, text: "Remove 3 repeated orders", note: "for review" },
+  { at: 52, ai: true, text: "Mark 16 blank regions Unknown", note: "for review" },
+  { at: 72, text: "Relate sales to customers, products", note: "100% match" },
+  { at: 100, text: "Revenue over 241 orders", note: "RM 153,948.70" },
+  { at: 158, text: "Dashboard, 3 pages", note: "totals add up" },
 ];
+const RUN_SECONDS = 161;
+const RUN_MS = 6000;
+const clock = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+
+function Autopilot() {
+  const [run, setRun] = useState(0); // bumps to restart the CSS
+  const [done, setDone] = useState(false);
+  const time = useRef<HTMLSpanElement>(null);
+  const frame = useRef(0);
+
+  const start = () => {
+    cancelAnimationFrame(frame.current);
+    setDone(false);
+    setRun((n) => n + 1);
+    const t0 = performance.now();
+    const tick = (now: number) => {
+      const k = Math.min(1, (now - t0) / RUN_MS);
+      if (time.current) time.current.textContent = clock(k * RUN_SECONDS);
+      if (k < 1) frame.current = requestAnimationFrame(tick);
+      else setDone(true);
+    };
+    frame.current = requestAnimationFrame(tick);
+  };
+  useEffect(() => () => cancelAnimationFrame(frame.current), []);
+  const box = useOnceVisible<HTMLDivElement>(start, 0.45);
+
+  return (
+    <section id="autopilot" className="lp-auto-section">
+      <div className="lp-wrap lp-auto-grid">
+        <div>
+          <h2>Upload a file. Get a checked dashboard in under three minutes.</h2>
+          <p className="lp-sub">Autopilot does every step, then stops so you can review it before anyone sees it.</p>
+          <button type="button" className="lp-btn lp-btn-primary lp-btn-lg" onClick={start}>
+            <Play size={15} aria-hidden="true" /> {run > 1 || done ? "Run it again" : "Run Autopilot"}
+          </button>
+          <p className="lp-fine">A real run on our messy sample files. Times depend on your data.</p>
+        </div>
+        <div ref={box} className={`lp-run${run ? " running" : ""}${done ? " done" : ""}`} key={run} style={{ "--run": `${RUN_MS}ms` } as CSSProperties}>
+          <div className="lp-run-top">
+            <span>Autopilot · sales.csv</span>
+            <span ref={time} className="lp-run-clock">{done ? clock(RUN_SECONDS) : "00:00"}</span>
+          </div>
+          <div className="lp-run-progress" aria-hidden="true"><i /></div>
+          <ol>
+            {RUN.map((r) => (
+              <li key={r.text} style={{ "--d": `${(r.at / RUN_SECONDS) * RUN_MS}ms` } as CSSProperties}>
+                <span className={r.ai ? "mark ai" : "mark"}>{r.ai ? "✦" : "✓"}</span>
+                <span>{r.text}</span>
+                <span className="note">{r.note}</span>
+              </li>
+            ))}
+          </ol>
+          <div className="lp-run-stop">
+            <span><b>Stopped for your review.</b> 8 changes, nothing published.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ---------------------------------------------------------------------------------------------------------------
+   Ask: three questions, answered from the same data
+   --------------------------------------------------------------------------------------------------------------- */
+
+const QUESTIONS: { q: string; answer: ReactNode; bars: [string, number][]; how: string[] }[] = [
+  {
+    q: "Which region sold the most?",
+    answer: <><b>Central</b>, with RM 46,381.80. That's 30% of revenue.</>,
+    bars: REGIONS.slice(0, 4),
+    how: ["Revenue = SUM(Qty × Unit Price)", "Split by Region", "241 orders in sales"],
+  },
+  {
+    q: "What's our best-selling product?",
+    answer: <><b>Wok 36cm</b>, at RM 108,750. About 71% of all revenue.</>,
+    bars: [["Wok 36cm", 108750], ["Rice Cooker", 14553], ["Electric Kettle", 11745.3]],
+    how: ["Revenue = SUM(Qty × Unit Price)", "Split by product name, from products", "Related on Product Code"],
+  },
+  {
+    q: "Bulan mana jualan paling tinggi?",
+    answer: <><b>Mei 2024</b>, dengan RM 19,985.40.</>,
+    bars: [["Mei 2024", 19985.4], ["Feb 2024", 19536.5], ["Sep 2024", 17312.2]],
+    how: ["Hasil = SUM(Qty × Unit Price)", "Dipecahkan mengikut bulan", "Jadual tarikh dibina oleh AI"],
+  },
+];
+
+function Ask() {
+  const [current, setCurrent] = useState(0);
+  const shown = QUESTIONS[current];
+  const most = shown.bars[0][1];
+  return (
+    <section id="ask" className="lp-ask-section">
+      <div className="lp-wrap lp-ask-grid">
+        <div>
+          <h2>Ask in plain words. In English or BM.</h2>
+          <div className="lp-ask-chips" role="tablist" aria-label="Example questions">
+            {QUESTIONS.map((x, i) => (
+              <button key={x.q} type="button" role="tab" aria-selected={i === current} onClick={() => setCurrent(i)}>
+                {x.q}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="lp-ask-panel" role="tabpanel" aria-live="polite">
+          <div className="lp-ask-q">{shown.q}</div>
+          <div className="lp-ask-a" key={current}>
+            <p>{shown.answer}</p>
+            <ol className="lp-bars small">
+              {shown.bars.map(([name, v], i) => (
+                <li key={name} style={{ "--w": (v / most).toFixed(3), "--i": i } as CSSProperties}>
+                  <span className="name">{name}</span>
+                  <span className="lp-bar"><i /></span>
+                  <span className="val">{(v / 1000).toFixed(1)}K</span>
+                </li>
+              ))}
+            </ol>
+            <details className="lp-how">
+              <summary>How this was calculated</summary>
+              <ul>{shown.how.map((h) => <li key={h}>{h}</li>)}</ul>
+            </details>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ---------------------------------------------------------------------------------------------------------------
+   Trust, Power BI, pricing, questions
+   --------------------------------------------------------------------------------------------------------------- */
 
 const TRUST = [
-  ["Nothing changes until you approve it", "The AI suggests each step with its reason. Approve them one by one or all at once, and undo any of them later."],
-  ["Checked on every refresh", "Fewer rows, missing columns, broken measures and weaker table links are flagged, and you can roll back."],
-  ["You know what the AI sees", "Column summaries and a few sample rows, never your whole dataset."],
-  ["Each viewer sees their rows", "Row-level security applies to every chart, question, email and export."],
-  ["Your data stays private", "Each company's workspace is walled off in the database, and only people you invite can get in."],
+  { icon: Undo2, title: "You approve every change", text: "Nothing goes live until you say so. Undo anything." },
+  { icon: ShieldCheck, title: "Every number is checked", text: "Answers are matched to the data. Mismatches are flagged." },
+  { icon: Eye, title: "The AI sees summaries", text: "Column profiles and a few sample rows. Never the whole table." },
 ];
 
 const CURRENCIES = { USD: "US$", MYR: "RM" } as const;
@@ -167,25 +420,18 @@ function defaultCurrency(): Currency {
 }
 
 const PLANS = [
-  { name: "Free", free: true, rows: ["1 creator", "3 viewers", "2 datasets", "Manual refresh", "Small monthly AI credits"] },
-  { name: "Pro", free: false, rows: ["1 creator per seat", "10 viewers", "20 datasets", "Daily refresh", "More AI credits, share links and PDF"] },
-  {
-    name: "Team", free: false,
-    rows: ["Creators per seat", "Unlimited viewers", "Unlimited datasets", "Hourly refresh", "Pooled AI credits, row-level security, audit log"],
-  },
+  { name: "Free", free: true, rows: ["1 creator, 3 viewers", "2 datasets", "Manual refresh", "Monthly AI credits"] },
+  { name: "Pro", free: false, rows: ["10 viewers per creator", "20 datasets", "Daily refresh", "Share links and PDF"] },
+  { name: "Team", free: false, rows: ["Unlimited viewers", "Unlimited datasets", "Hourly refresh", "Row-level security, audit log"] },
 ];
 
 function Pricing() {
   const [currency, setCurrency] = useState<Currency>(defaultCurrency);
   return (
-    <section id="pricing" className="lp-section">
+    <section id="pricing" className="lp-pricing">
       <div className="lp-wrap">
-        <div className="lp-head">
-          <div>
-            <p className="lp-kicker">Pricing</p>
-            <h2>Start free.</h2>
-            <p className="lp-sub">Paid plans open at launch, priced from what the AI really costs to run.</p>
-          </div>
+        <div className="lp-pricing-head">
+          <h2>Start free.</h2>
           <div className="lp-seg" role="group" aria-label="Currency">
             {(Object.keys(CURRENCIES) as Currency[]).map((c) => (
               <button key={c} type="button" aria-pressed={currency === c} onClick={() => setCurrency(c)}>
@@ -196,52 +442,29 @@ function Pricing() {
         </div>
         <div className="lp-plans">
           {PLANS.map((plan) => (
-            <div key={plan.name} className={`lp-cell lp-plan${plan.free ? " free" : ""}`}>
-              <p className="lp-kicker">{plan.name}</p>
-              <p className="lp-price">{plan.free ? `${CURRENCIES[currency]}${currency === "MYR" ? " " : ""}0` : "Price set at launch"}</p>
+            <div key={plan.name} className={`lp-plan${plan.free ? " free" : ""}`}>
+              <h3>{plan.name}</h3>
+              <p className="lp-price">{plan.free ? `${CURRENCIES[currency]}${currency === "MYR" ? " " : ""}0` : "At launch"}</p>
               <ul>
                 {plan.rows.map((row) => (
-                  <li key={row}><Check size={15} aria-hidden="true" /> {row}</li>
+                  <li key={row}><Check size={14} aria-hidden="true" /> {row}</li>
                 ))}
               </ul>
               {plan.free && <Link to="/sign-in" className="lp-btn lp-btn-primary">Start free</Link>}
             </div>
           ))}
         </div>
+        <p className="lp-fine">Paid plans open at launch, priced from what the AI really costs to run.</p>
       </div>
     </section>
   );
 }
 
 const FAQ = [
-  {
-    q: "How long does it take?",
-    a: "In our tests with a messy sales file, Autopilot went from upload to a checked dashboard in under three minutes. How long it takes depends on how large and complex your source data is. You can also go step by step and approve each change.",
-  },
-  {
-    q: "What if the AI gets something wrong?",
-    a: "Every step waits for your approval and can be undone. Numbers the AI writes in summaries and answers are checked against the data, and anything that doesn't match is flagged.",
-  },
-  {
-    q: "What does the AI see of my data?",
-    a: "Column summaries, up to 5 sample rows per table and the results of the queries it runs. Your full data stays in your workspace, and the AI never sees rows a viewer isn't allowed to.",
-  },
-  {
-    q: "Do I need Power BI?",
-    a: "No. datawazi does the whole job in the browser. If your team already has Power BI files, import a .pbix or .pbip and carry on here.",
-  },
-  {
-    q: "Where is my data kept?",
-    a: "In Singapore, in your own workspace. Only people you invite can see it.",
-  },
-  {
-    q: "How do you handle privacy law?",
-    a: "We're completing our duties under Malaysia's PDPA (privacy notice, data protection officer and breach procedure) before public launch, and will add other regions' requirements as we grow.",
-  },
-  {
-    q: "Which languages does it speak?",
-    a: "English, and Bahasa Malaysia for the AI's answers and the main screens.",
-  },
+  ["What if the AI gets something wrong?", "Every step waits for your approval and can be undone. Numbers the AI writes are checked against the data, and anything that doesn't match is flagged."],
+  ["What does the AI see of my data?", "Column summaries, up to 5 sample rows per table and the results of the queries it runs. Your full data stays in your workspace."],
+  ["Do I need Power BI?", "No. datawazi does the whole job in the browser. If you already have Power BI files, import a .pbix or .pbip and carry on here."],
+  ["How do you handle privacy law?", "We're completing our duties under Malaysia's PDPA (privacy notice, data protection officer and breach procedure) before public launch."],
 ];
 
 export function Landing() {
@@ -256,7 +479,7 @@ export function Landing() {
           </Link>
           <nav aria-label="Main" className="lp-nav">
             <a href="#how">How it works</a>
-            <a href="#product">Product</a>
+            <a href="#ask">Ask</a>
             <a href="#powerbi">Power&nbsp;BI</a>
             <a href="#pricing">Pricing</a>
           </nav>
@@ -270,203 +493,70 @@ export function Landing() {
       <main id="lp-main">
         <section className="lp-hero">
           <div className="lp-wrap lp-hero-grid">
-            <div>
-              <p className="lp-kicker">For teams without a data analyst</p>
+            <div className="lp-hero-copy">
               <h1>From raw data to <em>real insights</em>.</h1>
-            </div>
-            <div className="lp-hero-side">
-              <p className="lp-lede">The AI cleans, models and charts your data, and shows every change for you to approve. Nothing goes live until you do.</p>
+              <p className="lp-lede">Drop in a messy spreadsheet. The AI cleans, models and charts it, and shows you every change.</p>
               <div className="lp-ctas">
                 <Link to="/sign-in" className="lp-btn lp-btn-light lp-btn-lg">Start free</Link>
                 <a href="#how" className="lp-btn lp-btn-ghost lp-btn-lg">See how it works</a>
               </div>
-              <a className="lp-hero-note" href="#autopilot">Autopilot: upload to a checked dashboard in under three minutes →</a>
             </div>
+            <HeroDemo />
           </div>
         </section>
 
-        <Stage />
-
-        <div className="lp-wrap lp-sources">
-          <p className="lp-kicker">Bring data from where it lives</p>
-          <ul>
-            <li>CSV</li><li>Excel</li><li>OneDrive</li><li>SharePoint</li><li>Google Drive</li><li>Power&nbsp;BI</li>
-          </ul>
+        <div className="lp-sources">
+          <div className="lp-wrap lp-sources-row">
+            <span>Works with</span>
+            <ul>
+              <li>CSV</li><li>Excel</li><li>OneDrive</li><li>SharePoint</li><li>Google Drive</li><li>Power&nbsp;BI</li>
+            </ul>
+          </div>
         </div>
 
-        <section id="product" className="lp-section">
+        <Steps />
+        <Autopilot />
+        <Ask />
+
+        <section className="lp-trust">
           <div className="lp-wrap">
-            <div className="lp-head">
-              <div>
-                <p className="lp-kicker">Product</p>
-                <h2>Every step shown. Every number checked.</h2>
-                <p className="lp-sub">The AI does the work a data analyst would. You see what it changed and why, and nothing goes live until you approve it.</p>
-              </div>
-            </div>
-            <div className="lp-bento">
-              <article className="lp-cell tall">
-                <p className="lp-kicker">Clean</p>
-                <h3>Each fix listed, with its reason</h3>
-                <p>The AI proposes steps from a fixed catalogue. The engine checks each one and refuses anything that would break a table.</p>
-                <ol className="lp-steps" aria-label="Example of cleaning steps">
-                  <li><i>01</i><span>Trim spaces in Region<small>Stray spaces split one region into two</small></span></li>
-                  <li><i>02</i><span>Make Region title case<small>'CENTRAL' and 'central' become one</small></span></li>
-                  <li className="on"><i>03</i><span>Order Date to date (dmy)<small>26/01/2024 is read day first</small></span></li>
-                  <li className="ai"><i>04</i><span>Remove repeated orders <em className="lp-tag">AI</em><small>3 order IDs appear twice; waiting for you</small></span></li>
-                </ol>
-              </article>
-              <article className="lp-cell">
-                <p className="lp-kicker">Model</p>
-                <h3>Related, with a date table</h3>
-                <p>Every relationship is checked before it's kept, and every formula is shown.</p>
-                <div className="lp-rels" aria-hidden="true">
-                  <div><span>sales</span><i /><span>customers</span></div>
-                  <div><span>sales</span><i className="ai" /><span>Date</span><em className="lp-tag">AI</em></div>
-                </div>
-              </article>
-              <article className="lp-cell">
-                <p className="lp-kicker">Report</p>
-                <h3>KPI cards that explain themselves</h3>
-                <div className="lp-kpi" aria-hidden="true">
-                  <small>Revenue · 2025 to date</small>
-                  <strong>RM 46.4K</strong>
-                  <span>▼ −RM 42.8K (−48.0%) vs same period 2024</span>
-                  <svg viewBox="0 0 280 40" preserveAspectRatio="none"><polyline points="2,26 28,20 54,30 80,12 106,22 132,16 158,28 184,8 210,18 236,24 262,16 278,20" /></svg>
-                </div>
-              </article>
-              <article className="lp-cell">
-                <p className="lp-kicker">Ask</p>
-                <h3>Answers with the working shown</h3>
-                <div className="lp-ask" aria-hidden="true">
-                  <div className="q">Which region sold the most?</div>
-                  <div><b>Central</b>, at RM 46.4K, about 30% of revenue.</div>
-                  <div className="how">› How this was calculated</div>
-                </div>
-              </article>
-              <article className="lp-cell">
-                <p className="lp-kicker">Bahasa Malaysia</p>
-                <h3>Ask in English or BM</h3>
-                <p>The AI answers in the language you ask in, and the main screens are translated.</p>
-              </article>
-            </div>
-          </div>
-        </section>
-
-        <section id="autopilot" className="lp-section lp-tint">
-          <div className="lp-wrap lp-auto">
-            <div>
-              <p className="lp-kicker">Autopilot</p>
-              <h2>Upload a file. Get a checked dashboard in under three minutes.</h2>
-              <p className="lp-sub">Autopilot cleans your data, relates the tables, writes the measures and builds the dashboard on its own. Then it stops, so you can review every change before anyone sees it.</p>
-              <dl className="lp-facts">
-                <div><dt>&lt;3 min</dt><dd>from upload to a checked dashboard on our messy sample files</dd></div>
-                <div><dt>8</dt><dd>cleaning steps, each with the AI's reason, to approve or undo</dd></div>
-                <div><dt>Every</dt><dd>number the AI writes is checked; anything that doesn't match is flagged</dd></div>
-              </dl>
-              <p className="lp-note">Times depend on how large and complex your source data is.</p>
-            </div>
-            <RunLog />
-          </div>
-        </section>
-
-        <section id="how" className="lp-section">
-          <div className="lp-wrap">
-            <div className="lp-head">
-              <div>
-                <p className="lp-kicker">How it works</p>
-                <h2>Four steps, one dataset you can trust.</h2>
-              </div>
-            </div>
-            <ol className="lp-how">
-              {HOW.map((step, i) => (
-                <li key={step.title}>
-                  <span className="lp-no">0{i + 1} / {step.title}</span>
-                  <h3>{step.head}</h3>
-                  <p>{step.text}</p>
-                </li>
-              ))}
-            </ol>
-          </div>
-        </section>
-
-        <section className="lp-section lp-tint">
-          <div className="lp-wrap lp-split">
-            <div>
-              <p className="lp-kicker">Why it helps</p>
-              <h2>Less time chasing numbers.</h2>
-            </div>
-            <div className="lp-compare">
-              <div className="lp-compare-head" aria-hidden="true"><span>Today</span><span>With datawazi</span></div>
-              {BEFORE_AFTER.map(([before, after]) => (
-                <div key={before} className="lp-compare-row">
-                  <p><small>Today</small>{before}</p>
-                  <p><small>With datawazi</small>{after}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="lp-section">
-          <div className="lp-wrap lp-split">
-            <div>
-              <p className="lp-kicker">Trust</p>
-              <h2>Numbers you can stand behind.</h2>
-              <p className="lp-sub">Built for the meeting where someone asks where a number came from.</p>
-            </div>
-            <ol className="lp-ledger">
-              {TRUST.map(([head, text], i) => (
-                <li key={head}>
-                  <span className="lp-no">0{i + 1}</span>
-                  <h3>{head}</h3>
+            <h2>Numbers you can stand behind.</h2>
+            <ul className="lp-trust-grid">
+              {TRUST.map(({ icon: Icon, title, text }) => (
+                <li key={title}>
+                  <Icon size={20} aria-hidden="true" />
+                  <h3>{title}</h3>
                   <p>{text}</p>
                 </li>
               ))}
-            </ol>
+            </ul>
           </div>
         </section>
 
-        <section id="powerbi" className="lp-section lp-tint">
-          <div className="lp-wrap">
-            <div className="lp-head">
-              <div>
-                <p className="lp-kicker">Power&nbsp;BI</p>
-                <h2>Bring your Power&nbsp;BI work. Go further here.</h2>
-              </div>
+        <section id="powerbi" className="lp-pbi">
+          <div className="lp-wrap lp-pbi-row">
+            <div className="lp-pbi-file" aria-hidden="true">
+              <span className="ext">.pbix</span>
+              <span className="arrow" />
+              <BrandMark size={34} />
             </div>
-            <div className="lp-pbi">
-              <div className="lp-cell">
-                <p className="lp-kicker">Import</p>
-                <h3>Bring a Power&nbsp;BI file</h3>
-                <p>Import a .pbix file or a .pbip project. Tables, relationships and measures come across, and DAX it can't translate is kept, not guessed.</p>
-                <ul className="lp-files" aria-hidden="true">
-                  <li><span>✓</span>Sales.SemanticModel</li>
-                  <li><span>✓</span>Sales.Report</li>
-                  <li><span>✓</span>Sales.pbip</li>
-                </ul>
-              </div>
-              <div className="lp-cell">
-                <p className="lp-kicker">Beyond</p>
-                <h3>Not limited to Power&nbsp;BI</h3>
-                <p>Once your work is here, ask questions in plain language, get summaries checked against the data, and use statistics like medians and spread in any measure.</p>
-              </div>
+            <div>
+              <h2>Already on Power&nbsp;BI? Bring it with you.</h2>
+              <p className="lp-sub">Tables, relationships and measures come across. Then ask it anything.</p>
             </div>
           </div>
         </section>
 
         <Pricing />
 
-        <section className="lp-section lp-tint">
-          <div className="lp-wrap lp-split">
-            <div>
-              <p className="lp-kicker">Questions</p>
-              <h2>Asked before signing up.</h2>
-            </div>
+        <section className="lp-faq-section">
+          <div className="lp-wrap lp-faq-grid">
+            <h2>Questions</h2>
             <div className="lp-faq">
-              {FAQ.map((item) => (
-                <details key={item.q}>
-                  <summary>{item.q}</summary>
-                  <p>{item.a}</p>
+              {FAQ.map(([q, a]) => (
+                <details key={q}>
+                  <summary>{q}</summary>
+                  <p>{a}</p>
                 </details>
               ))}
             </div>
@@ -476,10 +566,7 @@ export function Landing() {
         <section className="lp-final">
           <div className="lp-wrap lp-final-row">
             <h2>Your next report, checked and ready by lunch.</h2>
-            <div className="lp-ctas">
-              <Link to="/sign-in" className="lp-btn lp-btn-light lp-btn-lg">Start free</Link>
-              <a href="#how" className="lp-btn lp-btn-ghost lp-btn-lg">See how it works</a>
-            </div>
+            <Link to="/sign-in" className="lp-btn lp-btn-light lp-btn-lg">Start free</Link>
           </div>
         </section>
       </main>
@@ -490,9 +577,8 @@ export function Landing() {
             <BrandMark size={20} />
             <span>datawazi</span>
           </div>
-          <span>Data kept in Singapore</span>
           <span>English and Bahasa Malaysia</span>
-          <span>Privacy notice and terms of service are published before launch.</span>
+          <span>Privacy notice and terms are published before launch.</span>
           <Link to="/sign-in" className="lp-link">Sign in</Link>
         </div>
       </footer>
