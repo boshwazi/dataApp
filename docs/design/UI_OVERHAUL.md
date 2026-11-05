@@ -227,6 +227,23 @@ Each step is one commit to `main` and is checked in the browser in light, dark a
   - Help's index uses grey hover and a cyan rule on the current article.
   - The onboarding panel's steps are cyan, with mono step numbers.
   - Fixed: Help kept two columns on phones (a later rule cancelled the stacking), squeezing the article to 43px.
+- **Step 8, cleanup and accessibility: done.**
+  - Removed provably dead CSS with a PostCSS pass. It took out 541 declarations that a later rule with the same
+    selector always overrides, and 13 selectors for classes no source file uses (`stage-dot`, `toolbar-note`,
+    `pipe-detail` and others), which emptied 101 rules. `styles.css` went from 11,615 to about 10,700 lines.
+    The 4,000-line target was not reached: almost all the remaining CSS is live. Shrinking further means
+    rewriting components rather than deleting dead rules.
+  - Proved the cleanup changed nothing. Every element's computed style was compared with the old and new
+    stylesheet on 7 screens in light and dark: 7,658 elements, identical. The one difference was an
+    "Opened … ago" label whose text changed between runs. A 38-screenshot pixel comparison agreed once capture
+    noise (charts drawing, relative times) was ruled out by capturing twice.
+  - Contrast: `--faint` text failed AA (3.2:1 light, 4.4:1 dark). It is now `#737373` / `#8a8a8a` (≥ 4.5:1).
+    Every other text token passes.
+  - Keyboard focus: secondary buttons and the sidebar search showed no focus, because the flat button rules
+    set `box-shadow: none`, which cancelled the ring. Every control now gets a 2px cyan outline; text fields
+    keep their ring.
+  - Worst-case names: a long workspace name squeezed the logo in the sidebar. The logo and avatar no longer
+    shrink. Long dataset names truncate in the breadcrumb and wrap in lists, and fit at phone width.
 - **Loading, standardised.** A whole page that is still loading shows the datawazi mark. A list or section inside a
   page shows the shimmer placeholder (`<Skeleton>`). This fixed Semantic models, which showed nothing while it
   loaded, plus Get Data's preview, the Transform grid, the activity drawer, groups, the audit log and
