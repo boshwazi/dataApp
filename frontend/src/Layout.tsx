@@ -66,8 +66,16 @@ export function Layout() {
       <aside className="rail" ref={rail}>
         <Link to="/" className="rail-brand" aria-label="datawazi home" title="datawazi">
           <BrandMark size={26} />
-          <span className="rail-text rail-wordmark">datawazi</span>
+          <span className="rail-text rail-brand-text">
+            <span className="rail-wordmark">datawazi</span>
+            <span className="rail-sub">{account.workspace?.name}</span>
+          </span>
         </Link>
+        <button className="rail-text rail-search" onClick={() => setSearching(true)}>
+          <Search size={15} aria-hidden="true" />
+          <span className="grow">{t("Search…")}</span>
+          <kbd>Ctrl K</kbd>
+        </button>
         <nav aria-label="Main">
           {(["Workspace", "Admin"] as const).map((section) => {
             const items = nav.filter((n) => n.section === section);
@@ -131,14 +139,14 @@ export function Layout() {
   );
 }
 
-/** The rail shows icons only, or icons with names; the choice is kept in this browser. */
+/** The rail shows icons with names (the default), or icons only; the choice is kept in this browser. */
 const RAIL_KEY = "datawazi.rail";
 
 function savedRail(): boolean {
   try {
-    return localStorage.getItem(RAIL_KEY) === "open";
+    return localStorage.getItem(RAIL_KEY) !== "closed";
   } catch {
-    return false;
+    return true;
   }
 }
 

@@ -214,9 +214,12 @@ export function Dataset() {
     <div className="workbench">
       <TopbarActions>
         <nav className="stage-tabs" aria-label="Dataset stages">
-          {STAGES.map((s) => (
+          {STAGES.map((s, i) => (
             <NavLink key={s.key} to={s.path} title={stale[s.key] ? `${stale[s.key]} changed since this stage was updated` : undefined}>
-              <span className={`stage-dot ${stale[s.key] ? "warn" : done[s.key] ? "ok" : ""}`} aria-hidden="true" />
+              <span className={`stage-no ${stale[s.key] ? "warn" : done[s.key] ? "ok" : ""}`} aria-hidden="true">
+                {String(i + 1).padStart(2, "0")}
+                {stale[s.key] ? " !" : done[s.key] ? " ✓" : ""}
+              </span>
               {s.name}
             </NavLink>
           ))}

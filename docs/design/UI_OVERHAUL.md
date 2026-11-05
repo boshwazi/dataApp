@@ -166,3 +166,12 @@ Each step is one commit to `main` and is checked in the browser in light, dark a
   every token in light, dark and the always-light dashboard surface. It also flattens buttons (near-black
   primary, hairline secondary) and cards (6px, no shadow), and turns the sidebar's current item cyan. Font weights
   went down one step (700/650 → 600, 600/550 → 500), because Geist reads heavier than Host Grotesk.
+- **Step 2, shell: done.**
+  - The sidebar opens with names by default (232px). It has the workspace name under the logo, search with
+    Ctrl K at the top, mono section labels, and a cyan tint and rule on the current item. Ctrl+\ still
+    collapses it to icons, and the top-bar search returns when it's collapsed.
+  - The top bar is white with a hairline, and its status is a pill.
+  - Dataset steps are numbered in mono (`01 ✓ Get Data — 02 Transform — 03 Model`).
+  - Menus, the Ctrl K palette and toasts are flat and use Geist.
+  - Editor tools are ghost buttons; the AI tool keeps its amber outline.
+  - Known issue for step 3: Home's Datasets table is wider than a phone screen (424px on a 375px screen).

@@ -70,6 +70,7 @@ const MS: Record<string, string> = {
   Notifications: "Pemberitahuan",
   "Expand sidebar": "Kembangkan bar sisi",
   "Collapse sidebar": "Kecilkan bar sisi",
+  "Search…": "Cari…",
   "This page couldn't load": "Halaman ini tidak dapat dimuatkan",
   "Something went wrong on this page": "Ada masalah pada halaman ini",
   "datawazi may have just been updated, or the connection dropped. Reloading usually fixes it.": "datawazi mungkin baru dikemas kini, atau sambungan terputus. Muat semula biasanya membetulkannya.",

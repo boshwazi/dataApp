@@ -9871,3 +9871,376 @@ a.button {
 .loading-slice {
   stroke: var(--brand-spark);
 }
+
+/* ==========================================================================================================
+   Shell (UI overhaul step 2): DataHub's sidebar (open with names by default, search at the top, mono section
+   labels, a cyan current item), a calmer top bar, a numbered step bar, and Geist menus, search and toasts.
+   ========================================================================================================== */
+
+.rail {
+  background: var(--sidebar);
+  border-right: 1px solid var(--sidebar-line);
+}
+
+.rail-section a,
+.rail .workspace,
+.rail-button {
+  border-radius: 6px;
+}
+
+.rail-section a.active::before {
+  background: var(--highlight);
+}
+
+@media (min-width: 701px) {
+  :root[data-rail="open"] {
+    --rail-width: 232px;
+  }
+
+  :root[data-rail="open"] .rail {
+    padding: 12px 10px;
+  }
+
+  :root[data-rail="open"] .rail-brand {
+    height: auto;
+    margin-bottom: 12px;
+    padding: 4px 6px;
+  }
+
+  :root[data-rail="open"] .rail-brand-text {
+    display: flex !important;
+    flex-direction: column;
+    line-height: 1.2;
+  }
+
+  .rail-wordmark {
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: #fff;
+  }
+
+  .rail-sub {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0;
+    color: var(--sidebar-text);
+    opacity: 0.7;
+  }
+
+  :root[data-rail="open"] .rail-search {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    height: 32px;
+    min-height: 32px;
+    margin: 0 0 12px;
+    padding: 0 6px 0 10px;
+    border: 1px solid var(--sidebar-line);
+    border-radius: 6px;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: var(--sidebar-text) !important;
+    font-size: 13px;
+    font-weight: 400;
+    text-align: left;
+    animation: none;
+  }
+
+  :root[data-rail="open"] .rail-search:hover {
+    border-color: rgba(255, 255, 255, 0.22);
+    color: #fff !important;
+  }
+
+  .rail-search .grow {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    opacity: 0.8;
+  }
+
+  .rail-search kbd {
+    padding: 0 5px;
+    border: 1px solid var(--sidebar-line);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--sidebar-text);
+    font: 11px/18px var(--mono);
+  }
+
+  /* The search sits in the sidebar while it is open, so the top bar drops its copy */
+  :root[data-rail="open"] .topbar .search-button {
+    display: none !important;
+  }
+
+  :root[data-rail="open"] .rail nav {
+    gap: 8px;
+  }
+
+  :root[data-rail="open"] .rail-heading {
+    padding: 10px 10px 4px;
+    font: 500 10.5px/16px var(--mono);
+    letter-spacing: 0.071em;
+    text-transform: uppercase;
+    color: var(--sidebar-text);
+    opacity: 0.6;
+  }
+
+  :root[data-rail="open"] .rail-section:first-child .rail-heading {
+    display: none !important;
+  }
+
+  :root[data-rail="open"] .rail-section a,
+  :root[data-rail="open"] .rail .workspace,
+  :root[data-rail="open"] .rail-button {
+    height: 32px;
+    gap: 10px;
+    padding: 0 10px;
+    font-size: 13.5px;
+    font-weight: 400;
+  }
+
+  :root[data-rail="open"] .rail-section a.active {
+    background: rgba(0, 169, 226, 0.14);
+    box-shadow: inset 2px 0 0 var(--highlight);
+    color: #fff;
+  }
+
+  :root[data-rail="open"] .rail-section a.active::before {
+    display: none;
+  }
+
+  :root[data-rail="open"] .rail .workspace {
+    height: 44px;
+    margin-top: 8px;
+    padding-left: 6px;
+    border-top: 1px solid var(--sidebar-line);
+    border-radius: 0;
+  }
+}
+
+/* Top bar: white with a hairline; the current crumb in ink, its parents muted */
+.topbar {
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  box-shadow: none;
+}
+
+.crumbs {
+  font-size: 13.5px;
+}
+
+.crumb [aria-current="page"] {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.crumb a {
+  color: var(--muted);
+}
+
+.crumb a:hover {
+  color: var(--text);
+}
+
+.search-button kbd,
+.ai-button kbd,
+.topbar kbd {
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+/* The status next to the actions reads as a pill */
+.topbar-status {
+  height: 24px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+/* Dataset steps: numbered in mono, a tick when done, the current one on a grey tab with a cyan number */
+.stage-tabs {
+  gap: 0;
+}
+
+.stage-tabs a,
+.stage-tabs button {
+  gap: 8px;
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 13.5px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.stage-tabs a + a::before {
+  content: "";
+  width: 12px;
+  height: 1px;
+  margin: 0 8px 0 -10px;
+  background: var(--border-strong);
+}
+
+.stage-tabs a:hover,
+.stage-tabs button:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.stage-tabs a.active,
+.stage-tabs button.active {
+  background: var(--hover);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.stage-no {
+  font: 500 11px/1 var(--mono);
+  letter-spacing: 0.02em;
+  color: var(--faint);
+}
+
+.stage-no.ok {
+  color: var(--ok);
+}
+
+.stage-no.warn {
+  color: var(--warn);
+}
+
+.stage-tabs a.active .stage-no {
+  color: var(--accent);
+}
+
+/* Menus: hairline, 6px, Geist weights */
+.menu-list {
+  padding: 4px;
+  border-color: var(--border);
+  border-radius: 8px;
+}
+
+.menu-list > button,
+.menu-list > a {
+  min-height: 32px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 13.5px;
+  font-weight: 400;
+}
+
+.menu-list > button:hover,
+.menu-list > a:hover,
+.menu-list > button:focus-visible {
+  background: var(--hover) !important;
+}
+
+/* Ctrl K: a quiet field, mono group labels, a grey current row */
+.search-dialog {
+  padding: 0;
+  overflow: hidden;
+}
+
+.search-field {
+  padding: 12px 16px;
+  border-bottom-color: var(--border);
+}
+
+.search-field input {
+  background: transparent;
+  font-size: 15px;
+}
+
+.search-field:focus-within {
+  box-shadow: none;
+}
+
+.search-results {
+  padding: 4px;
+}
+
+.search-results .search-group {
+  font: 500 10.5px/16px var(--mono);
+  letter-spacing: 0.071em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.search-results li {
+  padding: 7px 10px;
+  border-radius: 6px;
+}
+
+.search-results li.on {
+  background: var(--hover);
+  box-shadow: inset 2px 0 0 var(--highlight);
+}
+
+.search-keys kbd {
+  font-family: var(--mono);
+}
+
+/* Toasts: near-black, small and flat */
+.toast {
+  border-radius: 8px;
+  background: var(--primary-bg);
+  color: var(--primary-ink);
+  font-size: 13.5px;
+  box-shadow: var(--elevation);
+}
+
+.toast-error {
+  background: var(--bad);
+  color: #fff;
+}
+
+/* Editor tools are ghost buttons: no box until hovered, so a toolbar reads as one quiet row. The AI tool keeps its
+   amber outline. */
+button.tool,
+button.tool.labelled {
+  min-height: 28px;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+button.tool.labelled {
+  padding: 0 8px;
+}
+
+button.tool:hover:not(:disabled),
+button.tool.labelled:hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--hover);
+  color: var(--text);
+}
+
+button.tool.ai {
+  border-color: var(--ai-border);
+  background: var(--ai-soft);
+  color: var(--ai);
+  font-weight: 500;
+}
+
+button.tool.ai:hover:not(:disabled) {
+  border-color: var(--ai-line);
+  background: var(--ai-bg);
+  color: var(--ai);
+}
+
+button.tool.labelled.danger {
+  color: var(--bad);
+}
+
+/* The palette's own field shows focus; its input needs no second ring */
+.search-field input:focus-visible {
+  box-shadow: none;
+}
