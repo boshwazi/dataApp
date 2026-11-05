@@ -185,3 +185,13 @@ Each step is one commit to `main` and is checked in the browser in light, dark a
   - Segmented controls (All/Published, Before/After, theme) are a grey track with the chosen option raised
     in white.
   - Phones: table names wrap instead of pushing the table past the screen.
+- **Step 4, Transform and Get Data: done.**
+  - Pane headers are mono uppercase labels with mono counts.
+  - Applied Steps are numbered `00`, `01`… in mono. The current step is grey with a cyan rule. An AI step waiting
+    for you is an amber card, with a mono "Suggested by AI" tag and Accept/Reject inside it.
+  - Every AI mark (step tags, table badges, Get Data's AI chips) is the same small amber mono tag.
+  - Grid headers are white, the quality bar is 2px, and quality notes are mono. The changed column has a cyan rule.
+  - The status bar is mono.
+  - Get Data's selected source has a cyan hairline and rule. Its facts and profile headers use mono labels, and
+    column types are neutral.
+  - Tabs underline the current one in ink.

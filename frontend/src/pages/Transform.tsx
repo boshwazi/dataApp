@@ -449,7 +449,7 @@ function QueryWorkspace({ projectId, query, others, canUndo, hasKey, cleaning, r
         <ol className="applied-steps">
           <li className={step === 0 ? "on" : ""}>
             <button className="step-row" onClick={() => setStep(0)}>
-              <span className="step-n">0</span>
+              <span className="step-n">00</span>
               <span className="step-body">
                 <span className="step-title">{query.kind === "lookup" ? `Copy of ${query.base_table}` : "Source"}</span>
                 <span className="step-detail">{query.kind === "lookup" ? (query.split_after_step ? `after its step ${query.split_after_step}` : "as loaded") : query.source_table}</span>
@@ -462,7 +462,7 @@ function QueryWorkspace({ projectId, query, others, canUndo, hasKey, cleaning, r
             return (
               <li key={s.id} className={`${step === n ? "on" : ""} ${s.status === "AI" ? "ai" : ""}`}>
                 <button className="step-row" onClick={() => setStep(n)}>
-                  <span className="step-n">{n}</span>
+                  <span className="step-n">{String(n).padStart(2, "0")}</span>
                   <span className="step-body">
                     {s.status === "AI" && <span className="ai-tag">Suggested by AI</span>}
                     {s.status !== "AI" && s.by === "autopilot" && <span className="ai-tag autopilot-tag">Added by Autopilot</span>}

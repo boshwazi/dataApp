@@ -10606,3 +10606,336 @@ button.tool.labelled.danger {
   font-weight: 500;
   box-shadow: 0 0 0 1px var(--border), 0 1px 2px rgba(0, 0, 0, 0.04);
 }
+
+/* ==========================================================================================================
+   Transform and Get Data (UI overhaul step 4): mono pane labels and step numbers, a cyan rule on the current
+   step, amber cards only for AI steps waiting for a decision, quieter grid headers, a mono status bar.
+   ========================================================================================================== */
+
+/* Pane headers read as labels */
+.pane-head,
+.pane-tabs {
+  height: 38px;
+  padding: 0 8px 0 14px;
+  font: 500 10.5px/16px var(--mono);
+  letter-spacing: 0.071em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.pane-head .link,
+.pane-head button {
+  font-family: var(--font);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.pane-count,
+.tree-count {
+  font-family: var(--mono);
+  font-weight: 400;
+  color: var(--faint);
+}
+
+/* Tables pane */
+.tree-row {
+  min-height: 30px;
+  border-radius: 6px;
+  font-weight: 400;
+}
+
+button.tree-row:hover,
+.tree-row.draggable:hover {
+  background: var(--hover);
+}
+
+.tree-row.on {
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+
+.tree-row.table-row {
+  font-weight: 500;
+}
+
+.type-tag {
+  min-width: 30px;
+  border-color: var(--border);
+  border-radius: 4px;
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+}
+
+.type-tag-measure {
+  color: var(--accent);
+  border-color: var(--accent-line);
+}
+
+/* AI marks: one small amber tag everywhere */
+.ai-tag,
+.badge.ai {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 6px;
+  border: 1px solid var(--ai-border);
+  border-radius: 4px;
+  background: var(--ai-bg);
+  color: var(--ai);
+  font: 500 10px/1 var(--mono);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.ai-strip {
+  border-color: var(--ai-border);
+  background: var(--ai-soft);
+}
+
+.ai-strip .ai-tag {
+  flex-shrink: 0;
+}
+
+/* The step bar above the grid */
+.step-bar {
+  min-height: 38px;
+  padding: 3px 14px;
+  background: var(--panel);
+  font-size: 13px;
+}
+
+.step-bar-label {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Grid: white headers, a thin quality bar, the changed column in cyan */
+.data-grid th,
+.data-grid th.row-number,
+.data-grid td.row-number {
+  background: var(--panel);
+}
+
+.data-grid th.touched {
+  background: var(--selected);
+  box-shadow: inset 0 -2px 0 var(--highlight);
+}
+
+.data-grid td.row-number {
+  font-family: var(--mono);
+  font-size: 10.5px;
+}
+
+.col-head {
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+}
+
+.quality {
+  height: 2px;
+}
+
+.quality-note {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.data-grid td {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.data-grid tbody tr:hover td {
+  background: var(--hover);
+}
+
+.data-grid td.changed {
+  color: var(--text);
+  box-shadow: inset 2px 0 0 var(--highlight);
+}
+
+/* Applied steps: mono numbers, a cyan rule on the current one, amber only while the AI waits for you */
+.applied-steps {
+  padding: 8px;
+}
+
+.applied-steps li {
+  margin-bottom: 2px;
+}
+
+.applied-steps li.on {
+  background: var(--hover);
+  box-shadow: inset 2px 0 0 var(--highlight);
+}
+
+.applied-steps li:not(.on):not(.ai):hover {
+  background: var(--panel-2);
+}
+
+.applied-steps li.on .step-title {
+  color: var(--text);
+}
+
+.applied-steps li.ai {
+  margin: 6px 0;
+  background: var(--ai-bg);
+  box-shadow: inset 0 0 0 1px var(--ai-border);
+}
+
+.applied-steps li.ai.on {
+  box-shadow: inset 0 0 0 1px var(--ai-line), inset 3px 0 0 var(--ai-line);
+}
+
+.applied-steps li.ai .step-n {
+  color: var(--ai);
+}
+
+.step-row {
+  grid-template-columns: 24px 1fr;
+  gap: 8px;
+  padding: 8px 10px 8px 8px;
+  font-weight: 400;
+}
+
+.step-n {
+  font: 500 11px/18px var(--mono);
+  text-align: left;
+  color: var(--faint);
+}
+
+.step-title {
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.step-detail {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.step-body .ai-tag {
+  align-self: flex-start;
+  margin-bottom: 2px;
+}
+
+.step-decide {
+  display: flex;
+  gap: 6px;
+  padding: 0 10px 10px 40px;
+}
+
+.step-decide .small-button {
+  min-height: 26px;
+  padding: 0 10px;
+  font-size: 12.5px;
+}
+
+.step-effect h3 {
+  font: 500 10.5px/16px var(--mono);
+  letter-spacing: 0.071em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Status bar: mono, quiet */
+.editor-status {
+  height: 30px;
+  padding: 0 14px;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+/* Get Data: sources as flat cards, the chosen one with a cyan hairline */
+.source-item {
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.source-item:hover {
+  border-color: var(--border-hover);
+}
+
+.source-item.selected {
+  border-color: var(--highlight);
+  background: var(--selected);
+  box-shadow: inset 2px 0 0 var(--highlight);
+}
+
+.badge {
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.badge.warn {
+  border: 1px solid var(--warn-bg);
+}
+
+.fact-row dt {
+  font: 500 10.5px/16px var(--mono);
+  letter-spacing: 0.071em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.fact-row dd {
+  font-weight: 450;
+  font-variant-numeric: tabular-nums;
+}
+
+.ai-card {
+  border-radius: 6px;
+}
+
+/* Tabs: the current one underlined in ink */
+.tabs button {
+  font-weight: 400;
+}
+
+.tabs button[aria-selected="true"] {
+  color: var(--text);
+  border-bottom-color: var(--text);
+  font-weight: 500;
+}
+
+/* Profile and preview tables share the catalog look */
+.grid th {
+  background: var(--panel);
+  font: 500 10.5px/16px var(--mono);
+  letter-spacing: 0.071em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.grid td,
+.grid th {
+  padding: 8px 12px;
+}
+
+.type {
+  border-radius: 4px;
+  background: transparent;
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+.type-integer,
+.type-decimal,
+.type-date,
+.type-boolean {
+  color: var(--text-2);
+}
+
+.role {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+}
+
+.table-wrap {
+  border-radius: 6px;
+}
