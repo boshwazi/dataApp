@@ -202,6 +202,22 @@ Each step is one commit to `main` and is checked in the browser in light, dark a
   - The AI card is neutral, carried by its small amber tag and button.
   - "Waiting for you" is a compact review queue. Each change is one line (a mono REL/MEASURE/DATE tag, its name,
     a tick and a cross), and its reason is cut to one line until you hover or focus it.
+- **Step 6, dashboards, Ask, Present and PDF: done.**
+  - The dashboard canvas (`.light-surface`, which also covers the PDF export) has its own house-style tokens from
+    my-dashboard-style §4. They are Okabe-Ito good `#007A5E` and bad `#B54A00`, text `#1F2937`, muted
+    `#6B7280`, chart accent `#005A9C`, and a `#F3F4F6` page under white visuals, whatever the app theme
+    does. Step 1 had let the app's tokens leak in, so a bad change showed brown-amber `#9A5B00`.
+  - AI-made visuals lost their amber left edge and keep only the small AI tag. The chosen visual and page
+    thumbnail get the cyan ring. "Unverified" is an amber pill.
+  - "AI visuals waiting" is the same compact review queue as Model's, with a tick and cross per visual.
+  - Properties panel labels are mono.
+  - Chat and Ask: your turns are a grey bubble, the AI's are plain text, AI changes have an amber rule and a
+    mono heading, and "How this was calculated" is a quiet mono disclosure. Suggestion chips are neutral.
+  - Editors fold the sidebar to icons below 1680px wide, without changing the saved choice. Opening it there
+    lasts until you leave the editors. At 1440px the open sidebar left each KPI card about 105px.
+  - Canvas visual headers stay on one line. When they wrapped, the AI tag overlapped the KPI period line.
+  - Fixed: page summaries in the PDF printed in the sidebar's light text colour, almost invisible. They are now
+    the muted grey.
 - **Loading, standardised.** A whole page that is still loading shows the datawazi mark. A list or section inside a
   page shows the shimmer placeholder (`<Skeleton>`). This fixed Semantic models, which showed nothing while it
   loaded, plus Get Data's preview, the Transform grid, the activity drawer, groups, the audit log and

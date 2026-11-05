@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import type { EChartsCoreOption } from "echarts/core";
-import { ArrowUp, Calendar, ChevronDown, FileDown, Filter, GripVertical, History, LayoutDashboard, Maximize2, Minimize2, MoreHorizontal, Pencil, Plus, ScrollText, Sparkles, Mail, Table2, Trash2, Undo2, Users, X } from "lucide-react";
+import { ArrowUp, Calendar, Check, ChevronDown, FileDown, Filter, GripVertical, History, LayoutDashboard, Maximize2, Minimize2, MoreHorizontal, Pencil, Plus, ScrollText, Sparkles, Mail, Table2, Trash2, Undo2, Users, X } from "lucide-react";
 import {
   activityApi,
   api,
@@ -1120,16 +1120,27 @@ function PagePane(props: {
             {aiVisuals.length > 0 && (
               <div className="pending-list">
                 <div className="pending-head">
-                  <strong>AI visuals waiting ({aiVisuals.length})</strong>
+                  <span>
+                    AI visuals waiting <span className="pending-count">{aiVisuals.length}</span>
+                  </span>
                   <button className="link small" onClick={() => onChange(() => reportApi.approve(dashboardId))}>
                     Accept all
                   </button>
                 </div>
                 {aiVisuals.map((v) => (
                   <div key={v.id} className="pending-item">
-                    <button className="link" onClick={() => props.onSelect(v.id)}>
-                      {v.title}
-                    </button>
+                    <span className="pending-line">
+                      <span className="pending-kind">Visual</span>
+                      <button className="link pending-label" title={v.title} onClick={() => props.onSelect(v.id)}>
+                        {v.title}
+                      </button>
+                      <button className="tool pending-accept" title="Accept" aria-label={`Accept ${v.title}`} onClick={() => onChange(() => reportApi.approve(dashboardId, v.id))}>
+                        <Check size={14} aria-hidden="true" />
+                      </button>
+                      <button className="tool danger" title="Remove" aria-label={`Remove ${v.title}`} onClick={() => onChange(() => reportApi.removeVisual(dashboardId, v.id))}>
+                        <X size={14} aria-hidden="true" />
+                      </button>
+                    </span>
                   </div>
                 ))}
               </div>

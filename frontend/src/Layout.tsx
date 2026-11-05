@@ -48,15 +48,38 @@ export function Layout() {
   useShortcut("k", () => setSearching(true));
   const rail = useWarmTips();
   const [railOpen, setRailOpen] = useState(savedRail);
+  // Editors (a dataset's stages, a dashboard) need the width, so on smaller screens the rail folds to icons there
+  // without changing the saved choice. Opening it in an editor ("peek") lasts until you leave the editors.
+  const editor = EDITOR_PATH.test(pathname);
+  const narrow = useNarrow();
+  const [peek, setPeek] = useState(false);
+  const folded = railOpen && editor && narrow && !peek;
+  const open = railOpen && !folded;
+  useEffect(() => {
+    if (!editor) setPeek(false);
+  }, [editor]);
   useLayoutEffect(() => {
-    document.documentElement.dataset.rail = railOpen ? "open" : "closed";
+    document.documentElement.dataset.rail = open ? "open" : "closed";
+  }, [open]);
+  useEffect(() => {
     try {
       localStorage.setItem(RAIL_KEY, railOpen ? "open" : "closed");
     } catch {
       // private mode: the choice lasts until reload
     }
   }, [railOpen]);
-  useShortcut("\\", () => setRailOpen((open) => !open));
+  const toggleRail = () => {
+    if (open) {
+      if (editor && narrow) setPeek(false);
+      else setRailOpen(false);
+    } else if (folded) {
+      setPeek(true);
+    } else {
+      setRailOpen(true);
+      if (editor && narrow) setPeek(true);
+    }
+  };
+  useShortcut("\\", toggleRail);
 
   return (
     <div className="shell">
@@ -95,12 +118,12 @@ export function Layout() {
         </nav>
         <button
           className="rail-button rail-toggle"
-          onClick={() => setRailOpen(!railOpen)}
-          aria-expanded={railOpen}
-          aria-label={railOpen ? t("Collapse sidebar") : t("Expand sidebar")}
-          data-tip={`${railOpen ? t("Collapse sidebar") : t("Expand sidebar")} (Ctrl \\)`}
+          onClick={toggleRail}
+          aria-expanded={open}
+          aria-label={open ? t("Collapse sidebar") : t("Expand sidebar")}
+          data-tip={`${open ? t("Collapse sidebar") : t("Expand sidebar")} (Ctrl \\)`}
         >
-          {railOpen ? <PanelLeftClose size={18} aria-hidden="true" /> : <PanelLeftOpen size={18} aria-hidden="true" />}
+          {open ? <PanelLeftClose size={18} aria-hidden="true" /> : <PanelLeftOpen size={18} aria-hidden="true" />}
           <span className="rail-text">{t("Collapse sidebar")}</span>
         </button>
         <Notifications />
@@ -148,6 +171,23 @@ function savedRail(): boolean {
   } catch {
     return true;
   }
+}
+
+/** A dataset's stages and a dashboard: full-width editors. */
+const EDITOR_PATH = /^\/(datasets|dashboards)\/[0-9a-f]{12}(\/|$)/;
+
+/** Below this width an open rail leaves an editor's canvas too narrow (three panes plus the rail). */
+const EDITOR_ROOM = "(max-width: 1679px)";
+
+function useNarrow(): boolean {
+  const [narrow, setNarrow] = useState(() => window.matchMedia(EDITOR_ROOM).matches);
+  useEffect(() => {
+    const query = window.matchMedia(EDITOR_ROOM);
+    const change = () => setNarrow(query.matches);
+    query.addEventListener("change", change);
+    return () => query.removeEventListener("change", change);
+  }, []);
+  return narrow;
 }
 
 const TIP_DELAY_MS = 400; // matches the tip-in delay in styles.css
